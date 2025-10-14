@@ -71,3 +71,5 @@
 **/tmp/
 **/.pytest_cache/
 **/.coverage
+# Ignore generated LSTM CSV datasets
+bloodBath/bloodBank/lstm_pump_data/**/*.csv
