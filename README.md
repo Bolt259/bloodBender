@@ -7,6 +7,7 @@ A comprehensive Python package for downloading, processing, and preparing Tandem
 ## 📋 Overview
 
 bloodBender (package name: `bloodBath`) is a modular system designed to:
+
 - 🔄 Synchronize historical pump data from Tandem t:connect
 - 📊 Process CGM readings, basal rates, and bolus data
 - 🧹 Clean and validate diabetes data with strict quality controls
@@ -41,6 +42,7 @@ bloodBender/
 ## ✨ Features
 
 ### Data Processing (v2.0)
+
 - **Smart Gap Handling**: Preserves NaN for missing BG values (no artificial fills)
 - **Extended BG Range**: Supports 20-600 mg/dL (expanded from 40-400)
 - **Metadata Flags**: `bg_missing_flag` and `bg_clip_flag` for transparency
@@ -48,12 +50,14 @@ bloodBender/
 - **Multi-Pump Support**: Handles multiple pump serials with date range validation
 
 ### Data Quality
+
 - **CSV Post-Processing**: Automatically removes files with 100% invalid data
 - **Comprehensive Validation**: Timestamp verification, range checks, schema compliance
 - **v2.0 CSV Format**: Comment headers with metadata and processing information
 - **Archival System**: Preserves old data before regeneration
 
 ### Architecture
+
 - **Modular Design**: Clean separation of concerns (API, processing, validation, I/O)
 - **bloodBank v2.0**: Unified data storage with organized directory structure
 - **Test Framework**: Comprehensive testing in `bloodBath/test_scripts/`
@@ -155,10 +159,12 @@ BLOODBATH_LOG_LEVEL=INFO
 ## 📈 Data Coverage
 
 ### Current Pumps
+
 - **Pump 881235**: 2021-10-22 to 2024-10-06 (45 files, ~1.2M records)
 - **Pump 901161470**: 2024-10-07 to 2025-10-11 (23 files, ~883K records)
 
 ### Data Quality (Post-Cleanup)
+
 - 54 files with valid data (17 invalid files removed)
 - 96.48 MB of invalid data cleaned
 - 100% valid data preservation
@@ -166,6 +172,7 @@ BLOODBATH_LOG_LEVEL=INFO
 ## 🛠️ Development
 
 ### Recent Updates (v2.0)
+
 - ✅ Fixed BG stitching bug (no more 100-fills)
 - ✅ Extended BG range to 20-600 mg/dL
 - ✅ Added `bg_missing_flag` and `bg_clip_flag` columns
@@ -175,7 +182,9 @@ BLOODBATH_LOG_LEVEL=INFO
 - ✅ Unified Python environment (bloodBath-env)
 
 ### Testing
+
 All tests located in `bloodBath/test_scripts/` per design specification:
+
 - `test_v2_integration.py` - Integration testing
 - `test_bug_fixes.py` - Regression testing
 - `test_csv_cleanup.py` - Data quality testing
@@ -186,6 +195,7 @@ All tests located in `bloodBath/test_scripts/` per design specification:
 This repository is part of a senior project for diabetes prediction research. The system is designed to be modular and extensible.
 
 ### Key Components
+
 - **bloodBath Package**: Main processing system
 - **bareMetalBender**: C++ IVP solver - low-level glucose dynamics engine
 - **bloodbank_download.py**: Standalone download script with v2.0 fixes

@@ -1,0 +1,28 @@
+{
+  "pump_serial": "881235",
+  "created_at": "20251014_194829",
+  "total_records": 393524,
+  "splits": {
+    "train": {
+      "records": 275466,
+      "percentage": 70.0,
+      "time_start": "2021-02-17T18:00:00+00:00",
+      "time_end": "2023-09-06T15:00:00+00:00",
+      "file": "lstm_pump_data/pump_881235/train/lstm_train_20251014_194829.csv"
+    },
+    "validate": {
+      "records": 59029,
+      "percentage": 15.0,
+      "time_start": "2023-09-06T15:05:00+00:00",
+      "time_end": "2024-03-22T06:00:00+00:00",
+      "file": "lstm_pump_data/pump_881235/validate/lstm_validate_20251014_194829.csv"
+    },
+    "test": {
+      "records": 59029,
+      "percentage": 15.0,
+      "time_start": "2024-03-22T06:05:00+00:00",
+      "time_end": "2024-10-06T23:30:00+00:00",
+      "file": "lstm_pump_data/pump_881235/test/lstm_test_20251014_194829.csv"
+    }
+  }
+}

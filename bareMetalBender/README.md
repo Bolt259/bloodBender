@@ -7,6 +7,7 @@ The embedded systems implementation of the bloodBender prediction engine - a hig
 ## Overview
 
 bareMetalBender is the computational core that powers bloodBender's predictions. Written in C++ for maximum performance, it implements:
+
 - **IVP Solver**: Runge-Kutta methods for differential equation solving
 - **RBF Interpolation**: Radial Basis Function approximation for smooth glucose curves
 - **Virtual Patient Modeling**: Simulation of glucose-insulin dynamics
@@ -15,6 +16,7 @@ bareMetalBender is the computational core that powers bloodBender's predictions.
 ## Purpose
 
 While bloodBath (Python) handles data synchronization, cleaning, and LSTM model training, bareMetalBender provides:
+
 - ⚡ **Performance**: C++ for real-time computation
 - 🎯 **Precision**: Numerical methods for accurate glucose predictions
 - 🔌 **Embeddability**: Designed for integration into embedded systems
@@ -63,4 +65,4 @@ bareMetalBender provides the mathematical validation and embedded deployment pat
 
 **bareMetalBender** - The iron core of bloodBender's prediction engine 🔧⚙️
 
-*Close to the metal, close to real-time, close to life-saving predictions.*
+_Close to the metal, close to real-time, close to life-saving predictions._

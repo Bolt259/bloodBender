@@ -1,0 +1,10 @@
+{
+  "pump_serial": "901161470",
+  "dataset_type": "test",
+  "num_sequences": 1,
+  "total_records": 187720,
+  "time_range": {
+    "start": "2024-01-13 23:25:00+00:00",
+    "end": "2025-10-14 03:05:00+00:00"
+  }
+}

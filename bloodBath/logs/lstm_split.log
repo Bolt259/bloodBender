@@ -1,0 +1,89 @@
+2025-10-14 12:47:43,662 - LSTM_Split - INFO - 🚀 Splitting LSTM data for 2 pumps
+2025-10-14 12:47:43,662 - LSTM_Split - INFO - 🔄 Splitting LSTM data for pump 881235
+2025-10-14 12:47:43,663 - LSTM_Split - INFO - 📁 Found 37 CSV files
+2025-10-14 12:47:43,818 - LSTM_Split - INFO -   ✅ Loaded 2021-09-28_to_2021-10-28.csv: 73025 records
+2025-10-14 12:47:43,833 - LSTM_Split - INFO -   ✅ Loaded 2021-10-28_to_2021-11-27.csv: 8947 records
+2025-10-14 12:47:43,849 - LSTM_Split - INFO -   ✅ Loaded 2021-11-27_to_2021-12-27.csv: 8938 records
+2025-10-14 12:47:43,867 - LSTM_Split - INFO -   ✅ Loaded 2021-12-27_to_2022-01-26.csv: 8937 records
+2025-10-14 12:47:43,884 - LSTM_Split - INFO -   ✅ Loaded 2022-01-26_to_2022-02-25.csv: 8946 records
+2025-10-14 12:47:43,901 - LSTM_Split - INFO -   ✅ Loaded 2022-02-25_to_2022-03-27.csv: 8929 records
+2025-10-14 12:47:43,917 - LSTM_Split - INFO -   ✅ Loaded 2022-03-27_to_2022-04-26.csv: 8940 records
+2025-10-14 12:47:43,935 - LSTM_Split - INFO -   ✅ Loaded 2022-04-26_to_2022-05-26.csv: 8939 records
+2025-10-14 12:47:43,953 - LSTM_Split - INFO -   ✅ Loaded 2022-05-26_to_2022-06-25.csv: 8949 records
+2025-10-14 12:47:43,971 - LSTM_Split - INFO -   ✅ Loaded 2022-06-25_to_2022-07-25.csv: 8944 records
+2025-10-14 12:47:43,989 - LSTM_Split - INFO -   ✅ Loaded 2022-07-25_to_2022-08-24.csv: 8944 records
+2025-10-14 12:47:44,007 - LSTM_Split - INFO -   ✅ Loaded 2022-08-24_to_2022-09-23.csv: 8944 records
+2025-10-14 12:47:44,025 - LSTM_Split - INFO -   ✅ Loaded 2022-09-23_to_2022-10-23.csv: 8941 records
+2025-10-14 12:47:44,043 - LSTM_Split - INFO -   ✅ Loaded 2022-10-23_to_2022-11-22.csv: 8955 records
+2025-10-14 12:47:44,061 - LSTM_Split - INFO -   ✅ Loaded 2022-11-22_to_2022-12-22.csv: 8937 records
+2025-10-14 12:47:44,080 - LSTM_Split - INFO -   ✅ Loaded 2022-12-22_to_2023-01-21.csv: 8940 records
+2025-10-14 12:47:44,098 - LSTM_Split - INFO -   ✅ Loaded 2023-01-21_to_2023-02-20.csv: 8974 records
+2025-10-14 12:47:44,116 - LSTM_Split - INFO -   ✅ Loaded 2023-02-20_to_2023-03-22.csv: 8938 records
+2025-10-14 12:47:44,133 - LSTM_Split - INFO -   ✅ Loaded 2023-03-22_to_2023-04-21.csv: 8936 records
+2025-10-14 12:47:44,162 - LSTM_Split - INFO -   ✅ Loaded 2023-04-21_to_2023-05-21.csv: 8952 records
+2025-10-14 12:47:44,196 - LSTM_Split - INFO -   ✅ Loaded 2023-05-21_to_2023-06-20.csv: 8949 records
+2025-10-14 12:47:44,224 - LSTM_Split - INFO -   ✅ Loaded 2023-06-20_to_2023-07-20.csv: 8951 records
+2025-10-14 12:47:44,244 - LSTM_Split - INFO -   ✅ Loaded 2023-07-20_to_2023-08-19.csv: 8934 records
+2025-10-14 12:47:44,268 - LSTM_Split - INFO -   ✅ Loaded 2023-08-19_to_2023-09-18.csv: 9328 records
+2025-10-14 12:47:44,288 - LSTM_Split - INFO -   ✅ Loaded 2023-09-18_to_2023-10-18.csv: 8944 records
+2025-10-14 12:47:44,307 - LSTM_Split - INFO -   ✅ Loaded 2023-10-18_to_2023-11-17.csv: 8953 records
+2025-10-14 12:47:44,326 - LSTM_Split - INFO -   ✅ Loaded 2023-11-17_to_2023-12-17.csv: 8940 records
+2025-10-14 12:47:44,345 - LSTM_Split - INFO -   ✅ Loaded 2023-12-17_to_2024-01-16.csv: 8948 records
+2025-10-14 12:47:44,364 - LSTM_Split - INFO -   ✅ Loaded 2024-01-16_to_2024-02-15.csv: 8938 records
+2025-10-14 12:47:44,382 - LSTM_Split - INFO -   ✅ Loaded 2024-02-15_to_2024-03-16.csv: 8930 records
+2025-10-14 12:47:44,401 - LSTM_Split - INFO -   ✅ Loaded 2024-03-16_to_2024-04-15.csv: 8945 records
+2025-10-14 12:47:44,420 - LSTM_Split - INFO -   ✅ Loaded 2024-04-15_to_2024-05-15.csv: 8937 records
+2025-10-14 12:47:44,438 - LSTM_Split - INFO -   ✅ Loaded 2024-05-15_to_2024-06-14.csv: 8938 records
+2025-10-14 12:47:44,456 - LSTM_Split - INFO -   ✅ Loaded 2024-06-14_to_2024-07-14.csv: 8936 records
+2025-10-14 12:47:44,474 - LSTM_Split - INFO -   ✅ Loaded 2024-07-14_to_2024-08-13.csv: 8940 records
+2025-10-14 12:47:44,493 - LSTM_Split - INFO -   ✅ Loaded 2024-08-13_to_2024-09-12.csv: 8947 records
+2025-10-14 12:47:44,508 - LSTM_Split - INFO -   ✅ Loaded 2024-09-12_to_2024-10-12.csv: 7111 records
+2025-10-14 12:47:44,586 - LSTM_Split - INFO - ✅ Combined: 393,524 total records
+2025-10-14 12:48:29,210 - LSTM_Split - INFO - ✅ No gaps > 15.0 hours - continuous data!
+2025-10-14 12:48:29,228 - LSTM_Split - INFO - 📈 Chronological split:
+2025-10-14 12:48:29,228 - LSTM_Split - INFO -   Train: 275,466 records (70.0%)
+2025-10-14 12:48:29,230 - LSTM_Split - INFO -     Range: 2021-02-17 18:00:00+00:00 to 2023-09-06 15:00:00+00:00
+2025-10-14 12:48:29,230 - LSTM_Split - INFO -   Val:   59,029 records (15.0%)
+2025-10-14 12:48:29,231 - LSTM_Split - INFO -     Range: 2023-09-06 15:05:00+00:00 to 2024-03-22 06:00:00+00:00
+2025-10-14 12:48:29,231 - LSTM_Split - INFO -   Test:  59,029 records (15.0%)
+2025-10-14 12:48:29,231 - LSTM_Split - INFO -     Range: 2024-03-22 06:05:00+00:00 to 2024-10-06 23:30:00+00:00
+2025-10-14 12:48:32,951 - LSTM_Split - INFO -   ✅ Saved 275,466 records to train/
+2025-10-14 12:48:33,828 - LSTM_Split - INFO -   ✅ Saved 59,029 records to validate/
+2025-10-14 12:48:34,533 - LSTM_Split - INFO -   ✅ Saved 59,029 records to test/
+2025-10-14 12:48:34,534 - LSTM_Split - INFO - 📝 Saved summary to lstm_pump_data/pump_881235/dataset_summary_20251014_194829.json
+2025-10-14 12:48:34,536 - LSTM_Split - INFO - 🔄 Splitting LSTM data for pump 901161470
+2025-10-14 12:48:34,537 - LSTM_Split - INFO - 📁 Found 14 CSV files
+2025-10-14 12:48:34,669 - LSTM_Split - INFO -   ✅ Loaded 2024-09-27_to_2024-10-27.csv: 83043 records
+2025-10-14 12:48:34,686 - LSTM_Split - INFO -   ✅ Loaded 2024-10-27_to_2024-11-26.csv: 8957 records
+2025-10-14 12:48:34,704 - LSTM_Split - INFO -   ✅ Loaded 2024-11-26_to_2024-12-26.csv: 8945 records
+2025-10-14 12:48:34,720 - LSTM_Split - INFO -   ✅ Loaded 2024-12-26_to_2025-01-25.csv: 8953 records
+2025-10-14 12:48:34,727 - LSTM_Split - INFO -   ✅ Loaded 2025-01-25_to_2025-01-31.csv: 2028 records
+2025-10-14 12:48:34,745 - LSTM_Split - INFO -   ✅ Loaded 2025-02-01_to_2025-03-03.csv: 8937 records
+2025-10-14 12:48:34,762 - LSTM_Split - INFO -   ✅ Loaded 2025-03-03_to_2025-04-02.csv: 8932 records
+2025-10-14 12:48:34,778 - LSTM_Split - INFO -   ✅ Loaded 2025-04-02_to_2025-05-02.csv: 8932 records
+2025-10-14 12:48:34,794 - LSTM_Split - INFO -   ✅ Loaded 2025-05-02_to_2025-06-01.csv: 8945 records
+2025-10-14 12:48:34,811 - LSTM_Split - INFO -   ✅ Loaded 2025-06-01_to_2025-07-01.csv: 8939 records
+2025-10-14 12:48:34,828 - LSTM_Split - INFO -   ✅ Loaded 2025-07-01_to_2025-07-31.csv: 8938 records
+2025-10-14 12:48:34,844 - LSTM_Split - INFO -   ✅ Loaded 2025-07-31_to_2025-08-30.csv: 8943 records
+2025-10-14 12:48:34,859 - LSTM_Split - INFO -   ✅ Loaded 2025-08-30_to_2025-09-29.csv: 8949 records
+2025-10-14 12:48:34,869 - LSTM_Split - INFO -   ✅ Loaded 2025-09-29_to_2025-10-13.csv: 4279 records
+2025-10-14 12:48:34,885 - LSTM_Split - INFO - ✅ Combined: 187,720 total records
+2025-10-14 12:48:56,500 - LSTM_Split - INFO - ✅ No gaps > 15.0 hours - continuous data!
+2025-10-14 12:48:56,502 - LSTM_Split - INFO - 📈 Chronological split:
+2025-10-14 12:48:56,502 - LSTM_Split - INFO -   Train: 131,404 records (70.0%)
+2025-10-14 12:48:56,503 - LSTM_Split - INFO -     Range: 2024-01-13 23:25:00+00:00 to 2025-04-07 21:00:00+00:00
+2025-10-14 12:48:56,503 - LSTM_Split - INFO -   Val:   28,158 records (15.0%)
+2025-10-14 12:48:56,503 - LSTM_Split - INFO -     Range: 2025-04-07 21:05:00+00:00 to 2025-07-11 12:20:00+00:00
+2025-10-14 12:48:56,503 - LSTM_Split - INFO -   Test:  28,158 records (15.0%)
+2025-10-14 12:48:56,504 - LSTM_Split - INFO -     Range: 2025-07-11 12:25:00+00:00 to 2025-10-14 03:05:00+00:00
+2025-10-14 12:48:57,894 - LSTM_Split - INFO -   ✅ Saved 131,404 records to train/
+2025-10-14 12:48:58,207 - LSTM_Split - INFO -   ✅ Saved 28,158 records to validate/
+2025-10-14 12:48:58,521 - LSTM_Split - INFO -   ✅ Saved 28,158 records to test/
+2025-10-14 12:48:58,521 - LSTM_Split - INFO - 📝 Saved summary to lstm_pump_data/pump_901161470/dataset_summary_20251014_194856.json
+2025-10-14 12:48:58,522 - LSTM_Split - INFO - 
+======================================================================
+2025-10-14 12:48:58,522 - LSTM_Split - INFO - 🎯 LSTM Data Split Complete
+2025-10-14 12:48:58,522 - LSTM_Split - INFO - ======================================================================
+2025-10-14 12:48:58,522 - LSTM_Split - INFO - 📊 Processed 2 pump(s)
+2025-10-14 12:48:58,522 - LSTM_Split - INFO - 📁 Output: /home/bolt/projects/bb/bloodBath/bloodBank/lstm_pump_data
+2025-10-14 12:48:58,522 - LSTM_Split - INFO - ======================================================================
