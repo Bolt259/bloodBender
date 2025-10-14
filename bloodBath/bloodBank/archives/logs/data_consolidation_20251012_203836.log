@@ -1,0 +1,37 @@
+2025-10-12 20:38:36,891 - INFO - 🚀 Starting bloodBath Data Consolidation - Schema v2.0
+2025-10-12 20:38:36,891 - INFO - 🚀 Starting bloodBath Data Consolidation...
+2025-10-12 20:38:36,891 - INFO - 📁 Creating unified bloodBank architecture...
+2025-10-12 20:38:36,892 - INFO -    Created: bloodBath/bloodBank/raw/cgm
+2025-10-12 20:38:36,893 - INFO -    Created: bloodBath/bloodBank/raw/basal
+2025-10-12 20:38:36,893 - INFO -    Created: bloodBath/bloodBank/raw/bolus
+2025-10-12 20:38:36,894 - INFO -    Created: bloodBath/bloodBank/raw/metadata
+2025-10-12 20:38:36,895 - INFO -    Created: bloodBath/bloodBank/merged/train
+2025-10-12 20:38:36,895 - INFO -    Created: bloodBath/bloodBank/merged/validate
+2025-10-12 20:38:36,896 - INFO -    Created: bloodBath/bloodBank/merged/test
+2025-10-12 20:38:36,897 - INFO -    Created: bloodBath/bloodBank/archives/legacy
+2025-10-12 20:38:36,897 - INFO -    Created: bloodBath/bloodBank/archives/logs
+2025-10-12 20:38:36,898 - INFO -    Created: bloodBath/bloodBank/archives/compressed
+2025-10-12 20:38:36,898 - INFO - ✅ bloodBank structure created successfully
+2025-10-12 20:38:36,898 - INFO - 🔍 Scanning existing data files...
+2025-10-12 20:38:36,898 - INFO -    Scanning: bloodBath
+2025-10-12 20:38:36,946 - INFO -    Scanning: sweetBlood
+2025-10-12 20:38:36,949 - INFO -    Scanning: sweetBloodDeprecated
+2025-10-12 20:38:36,962 - INFO -    Scanning: test_results
+2025-10-12 20:38:36,991 - INFO -    Scanning: training_data_legacy
+2025-10-12 20:38:37,031 - INFO -    Scanning: tconnectsync-bb
+2025-10-12 20:38:37,857 - INFO -    Found 0 cgm files
+2025-10-12 20:38:37,857 - INFO -    Found 262 basal files
+2025-10-12 20:38:37,857 - INFO -    Found 2 bolus files
+2025-10-12 20:38:37,857 - INFO -    Found 934 lstm files
+2025-10-12 20:38:37,857 - INFO -    Found 304 metadata files
+2025-10-12 20:38:37,858 - INFO - 📦 Migrating raw data files...
+2025-10-12 20:38:37,858 - INFO -    Migrating 0 cgm files...
+2025-10-12 20:38:37,858 - INFO -    Migrating 262 basal files...
+2025-10-12 20:38:41,861 - INFO -    Migrating 2 bolus files...
+2025-10-12 20:38:41,865 - INFO -    Migrating 304 metadata files...
+2025-10-12 20:38:42,157 - INFO - 🧠 Processing LSTM sequences for unified datasets...
+2025-10-12 20:38:47,963 - INFO -    Processing pump unknown with 227 LSTM files...
+2025-10-12 20:38:57,259 - ERROR - ❌ Consolidation failed: time data "1986-05-01 23:55:00" doesn't match format "%Y-%m-%d %H:%M:%S%z", at position 1780941. You might want to try:
+    - passing `format` if your strings have a consistent format;
+    - passing `format='ISO8601'` if your strings are all ISO8601 but not necessarily in exactly the same format;
+    - passing `format='mixed'`, and the format will be inferred for each element individually. You might want to use `dayfirst` alongside this.

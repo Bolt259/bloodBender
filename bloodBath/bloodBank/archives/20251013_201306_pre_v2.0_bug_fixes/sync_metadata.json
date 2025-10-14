@@ -1,0 +1,16 @@
+{
+  "881235": {
+    "pump_serial": "881235",
+    "last_successful_sync": "2024-12-31",
+    "failed_ranges": [],
+    "total_records": 986608,
+    "last_updated": "2025-10-13T19:20:13.000450"
+  },
+  "901161470": {
+    "pump_serial": "901161470",
+    "last_successful_sync": "2025-10-12",
+    "failed_ranges": [],
+    "total_records": 927,
+    "last_updated": "2025-10-13T18:22:52.253737"
+  }
+}

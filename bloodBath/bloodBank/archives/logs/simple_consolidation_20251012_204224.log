@@ -1,0 +1,33 @@
+2025-10-12 20:42:24,809 - INFO - 🚀 Starting Simple bloodBath Data Consolidation
+2025-10-12 20:42:24,809 - INFO - 📁 Creating bloodBank structure...
+2025-10-12 20:42:24,809 - INFO -    Created: bloodBath/bloodBank/raw/cgm
+2025-10-12 20:42:24,809 - INFO -    Created: bloodBath/bloodBank/raw/basal
+2025-10-12 20:42:24,809 - INFO -    Created: bloodBath/bloodBank/raw/bolus
+2025-10-12 20:42:24,810 - INFO -    Created: bloodBath/bloodBank/raw/lstm
+2025-10-12 20:42:24,810 - INFO -    Created: bloodBath/bloodBank/raw/metadata
+2025-10-12 20:42:24,810 - INFO -    Created: bloodBath/bloodBank/merged/train
+2025-10-12 20:42:24,810 - INFO -    Created: bloodBath/bloodBank/merged/validate
+2025-10-12 20:42:24,810 - INFO -    Created: bloodBath/bloodBank/merged/test
+2025-10-12 20:42:24,810 - INFO -    Created: bloodBath/bloodBank/archives/legacy
+2025-10-12 20:42:24,810 - INFO -    Created: bloodBath/bloodBank/archives/logs
+2025-10-12 20:42:24,811 - INFO - ✅ bloodBank structure created
+2025-10-12 20:42:24,811 - INFO - 🔍 Scanning and organizing existing files...
+2025-10-12 20:42:24,811 - INFO -    Processing: sweetBlood
+2025-10-12 20:42:24,811 - INFO -      Found 0 CSV files
+2025-10-12 20:42:24,812 - INFO -    Processing: test_results
+2025-10-12 20:42:24,814 - INFO -      Found 77 CSV files
+2025-10-12 20:42:25,335 - INFO -    Processing: training_data_legacy
+2025-10-12 20:42:25,339 - INFO -      Found 322 CSV files
+2025-10-12 20:42:37,344 - INFO -    Processing: tconnectsync-bb
+2025-10-12 20:42:37,415 - INFO -      Found 130 CSV files
+2025-10-12 20:42:44,321 - INFO -    Processing: bloodBath/sweetBlood
+2025-10-12 20:42:44,325 - INFO -      Found 688 CSV files
+2025-10-12 20:42:52,304 - INFO - ✅ Organized 1063 files into bloodBank
+2025-10-12 20:42:52,304 - INFO - 📊 Creating sample split structure...
+2025-10-12 20:42:52,314 - INFO - ✅ Sample splits created
+2025-10-12 20:42:52,314 - INFO - 🔧 Updating bloodBath configuration...
+2025-10-12 20:42:52,315 - INFO -    No configuration updates needed
+2025-10-12 20:42:52,315 - INFO - 📄 Creating summary report...
+2025-10-12 20:42:52,360 - INFO - ✅ Summary saved to: /home/bolt/projects/bb/bloodBath/bloodBank/raw/metadata/consolidation_summary.json
+2025-10-12 20:42:52,360 - INFO - 📊 Final stats: 1063 files, 917.0MB
+2025-10-12 20:42:52,360 - INFO - 🎉 Simple consolidation completed in 0:00:27.551184

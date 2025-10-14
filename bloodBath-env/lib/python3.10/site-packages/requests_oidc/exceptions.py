@@ -1,0 +1,2 @@
+class AuthFlowError(Exception):
+    pass

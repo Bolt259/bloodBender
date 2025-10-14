@@ -1,0 +1,35 @@
+{
+  "881235": {
+    "pump_serial": "881235",
+    "last_successful_sync": "2021-09-30T00:00:00",
+    "failed_ranges": [
+      {
+        "start": "2021-10-01T00:00:00",
+        "end": "2021-12-30T00:00:00",
+        "error": "Slicing a positional slice with .loc is not allowed, Use .loc with labels or .iloc with positions instead."
+      },
+      {
+        "start": "2021-10-01T00:00:00",
+        "end": "2021-12-30T00:00:00",
+        "error": "Slicing a positional slice with .loc is not allowed, Use .loc with labels or .iloc with positions instead."
+      },
+      {
+        "start": "2021-10-01T00:00:00",
+        "end": "2021-12-30T00:00:00",
+        "error": "Slicing a positional slice with .loc is not allowed, Use .loc with labels or .iloc with positions instead."
+      },
+      {
+        "start": "2021-12-31T00:00:00",
+        "end": "2022-03-31T00:00:00",
+        "error": "Slicing a positional slice with .loc is not allowed, Use .loc with labels or .iloc with positions instead."
+      },
+      {
+        "start": "2021-12-31T00:00:00",
+        "end": "2022-03-31T00:00:00",
+        "error": "Slicing a positional slice with .loc is not allowed, Use .loc with labels or .iloc with positions instead."
+      }
+    ],
+    "total_records": 85197,
+    "last_updated": "2025-10-12T22:21:36.757033"
+  }
+}

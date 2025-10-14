@@ -1,0 +1,13 @@
+{
+  "881235_2024-01": {
+    "pump_serial": "881235",
+    "year_month": "2024-01",
+    "status": "downloading",
+    "download_attempts": 1,
+    "processing_attempts": 0,
+    "error_message": null,
+    "records_downloaded": 0,
+    "sequences_generated": 0,
+    "completed_at": null
+  }
+}

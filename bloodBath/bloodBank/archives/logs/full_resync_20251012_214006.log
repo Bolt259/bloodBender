@@ -1,0 +1,9 @@
+2025-10-12 21:40:06,259 - bloodBath_resync - INFO - 🩸 Starting bloodBath Full Data Resynchronization
+2025-10-12 21:40:06,259 - bloodBath_resync - INFO - Target bloodBank: /home/bolt/projects/bb/bloodBath/bloodBank
+2025-10-12 21:40:06,260 - bloodBath_resync - INFO - 🚀 Starting Full bloodBath Resynchronization
+2025-10-12 21:40:06,260 - bloodBath_resync - INFO - 🔧 Initializing systems...
+2025-10-12 21:40:06,264 - bloodBath_resync - INFO - 📁 Creating bloodBank structure...
+2025-10-12 21:40:06,264 - bloodBath_resync - INFO - ✅ bloodBank structure created
+2025-10-12 21:40:06,265 - bloodBath_resync - INFO - ✅ Systems initialized successfully
+2025-10-12 21:40:06,265 - bloodBath_resync - INFO - Processing pump 881235
+2025-10-12 21:40:06,265 - bloodBath_resync - INFO - ⬇️  Downloading all data for pump 881235

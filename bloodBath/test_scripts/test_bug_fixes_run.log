@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/home/bolt/projects/bb/bloodBath/test_scripts/test_bug_fixes.py", line 19, in <module>
+    from bloodbank_download import BloodbankDownloader
+  File "/home/bolt/projects/bb/bloodbank_download.py", line 41, in <module>
+    from tconnectsync.api import TConnectApi
+  File "/home/bolt/projects/bb/tconnectsync-bb/tconnectsync/__init__.py", line 15, in <module>
+    from .api import TConnectApi
+  File "/home/bolt/projects/bb/tconnectsync-bb/tconnectsync/api/__init__.py", line 3, in <module>
+    from .android import AndroidApi
+  File "/home/bolt/projects/bb/tconnectsync-bb/tconnectsync/api/android.py", line 11, in <module>
+    from bs4 import BeautifulSoup
+ModuleNotFoundError: No module named 'bs4'

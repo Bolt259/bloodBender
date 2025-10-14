@@ -1,0 +1,7 @@
+{
+  "original_path": "test_results/12month_diagnosis/lstm_pump_data/pump_881235_20251008_152406.csv",
+  "migrated_at": "2025-10-12T20:42:25.277054",
+  "file_size_bytes": 8839792,
+  "data_type": "lstm",
+  "pump_serial": "881235"
+}

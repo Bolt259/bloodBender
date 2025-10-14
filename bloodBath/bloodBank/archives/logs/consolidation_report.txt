@@ -1,0 +1,18 @@
+bloodBath Data Consolidation Report
+==================================================
+
+Completion Date: 2025-10-12 20:42:52
+Schema Version: 2.0
+
+Statistics:
+  Files Migrated: 1063
+  Total Size: 917.0 MB
+
+File Distribution:
+  CGM: 247 files
+  BASAL: 262 files
+  BOLUS: 2 files
+  LSTM: 517 files
+
+Data Location: /home/bolt/projects/bb/bloodBath/bloodBank
+Status: ✅ Consolidation Complete

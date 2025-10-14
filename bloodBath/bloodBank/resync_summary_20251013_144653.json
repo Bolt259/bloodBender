@@ -1,0 +1,33 @@
+{
+  "start_time": "2025-10-13T14:46:09.121133",
+  "pumps": {
+    "881235": {
+      "pump_serial": "881235",
+      "start_date": "2024-01",
+      "end_date": "2024-01",
+      "total_months": 1,
+      "completed_months": 0,
+      "failed_months": 1,
+      "total_records": 0,
+      "total_sequences": 0,
+      "months": {
+        "2024-01": {
+          "status": "failed",
+          "records": 0,
+          "sequences": 0,
+          "error": "Failed to download data from t:connect"
+        }
+      }
+    }
+  },
+  "summary": {
+    "total_pumps": 1,
+    "total_months": 1,
+    "completed_months": 0,
+    "failed_months": 1,
+    "success_rate": 0.0,
+    "total_records": 0,
+    "total_sequences": 0
+  },
+  "end_time": "2025-10-13T14:46:53.115509"
+}

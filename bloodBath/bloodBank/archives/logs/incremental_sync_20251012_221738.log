@@ -1,0 +1,33 @@
+2025-10-12 22:17:38,948 - incremental_sync - INFO - 🩸 Starting Incremental bloodBank Synchronization
+2025-10-12 22:17:38,949 - incremental_sync - INFO - 🔧 Initializing sync client...
+2025-10-12 22:17:40,944 - incremental_sync - INFO - ✅ Client initialized and connected
+2025-10-12 22:17:40,944 - incremental_sync - INFO - 
+============================================================
+2025-10-12 22:17:40,944 - incremental_sync - INFO - 🩸 Processing pump 881235
+2025-10-12 22:17:40,945 - incremental_sync - INFO - ============================================================
+2025-10-12 22:17:40,945 - incremental_sync - INFO - 🚀 Starting incremental sync for pump 881235
+2025-10-12 22:17:40,945 - incremental_sync - INFO -    Date range: 2021-01-01T00:00:00 to 2024-12-31T23:59:59
+2025-10-12 22:17:40,945 - incremental_sync - INFO - 📅 Created 17 chunks (3 months each)
+2025-10-12 22:17:40,945 - incremental_sync - INFO - 📊 Processing chunk 1/17
+2025-10-12 22:17:40,945 - incremental_sync - INFO - 📊 Syncing pump 881235: 2021-01-01T00:00:00 to 2021-04-01T00:00:00
+2025-10-12 22:19:01,256 - incremental_sync - INFO - ✅ Chunk sync successful (attempt 1)
+2025-10-12 22:19:01,281 - incremental_sync - INFO - ✅ Chunk 1 complete: 2 files organized
+2025-10-12 22:19:04,284 - incremental_sync - INFO - 📊 Processing chunk 2/17
+2025-10-12 22:19:04,284 - incremental_sync - INFO - 📊 Syncing pump 881235: 2021-04-02T00:00:00 to 2021-07-01T00:00:00
+2025-10-12 22:20:17,312 - incremental_sync - INFO - ✅ Chunk sync successful (attempt 1)
+2025-10-12 22:20:17,315 - incremental_sync - INFO - ✅ Chunk 2 complete: 1 files organized
+2025-10-12 22:20:23,347 - incremental_sync - INFO - 📊 Processing chunk 3/17
+2025-10-12 22:20:23,347 - incremental_sync - INFO - 📊 Syncing pump 881235: 2021-07-02T00:00:00 to 2021-09-30T00:00:00
+2025-10-12 22:21:36,757 - incremental_sync - INFO - ✅ Chunk sync successful (attempt 1)
+2025-10-12 22:21:36,760 - incremental_sync - INFO - ✅ Chunk 3 complete: 0 files organized
+2025-10-12 22:21:39,763 - incremental_sync - INFO - 📊 Processing chunk 4/17
+2025-10-12 22:21:39,763 - incremental_sync - INFO - 📊 Syncing pump 881235: 2021-10-01T00:00:00 to 2021-12-30T00:00:00
+2025-10-12 22:25:40,405 - incremental_sync - WARNING - ⚠️  Chunk sync returned False (attempt 1)
+2025-10-12 22:28:42,041 - incremental_sync - WARNING - ⚠️  Chunk sync returned False (attempt 2)
+2025-10-12 22:31:19,936 - incremental_sync - WARNING - ⚠️  Chunk sync returned False (attempt 3)
+2025-10-12 22:31:19,937 - incremental_sync - ERROR - ❌ All 3 attempts failed for chunk
+2025-10-12 22:31:19,937 - incremental_sync - ERROR - ❌ Chunk 4 failed - continuing with next chunk
+2025-10-12 22:31:19,937 - incremental_sync - INFO - 📊 Processing chunk 5/17
+2025-10-12 22:31:19,937 - incremental_sync - INFO - 📊 Syncing pump 881235: 2021-12-31T00:00:00 to 2022-03-31T00:00:00
+2025-10-12 22:35:59,475 - incremental_sync - WARNING - ⚠️  Chunk sync returned False (attempt 1)
+2025-10-12 22:39:04,972 - incremental_sync - WARNING - ⚠️  Chunk sync returned False (attempt 2)

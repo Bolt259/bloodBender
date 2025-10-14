@@ -1,0 +1,7 @@
+{
+  "original_path": "training_data_legacy/monthly_lstm/pump_881235/pump_881235_2024_05_cleaned.csv",
+  "migrated_at": "2025-10-12T20:42:25.596446",
+  "file_size_bytes": 1479405,
+  "data_type": "lstm",
+  "pump_serial": "881235"
+}

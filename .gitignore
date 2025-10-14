@@ -1,0 +1,73 @@
+# bloodBender Repository - Ignore everything except specified directories
+# This is a whitelist approach: ignore everything, then selectively include what we want
+
+# Ignore everything by default
+*
+!*/
+
+# Now explicitly include the directories and files we want
+
+# Include bloodBath/ and all its contents
+!bloodBath/
+!bloodBath/**/*
+
+# Include Senior-Project/ and all its contents
+!Senior-Project/
+!Senior-Project/**/*
+
+# Include bloodbank_download.py (main working version)
+!bloodbank_download.py
+
+# Include all bloodbank-related log files
+!bloodbank*.log
+
+# Include bloodBath-env/ and all its contents
+!bloodBath-env/
+!bloodBath-env/**/*
+
+# Include this gitignore file
+!.gitignore
+
+# Include README if we create one
+!README.md
+
+# Standard Python excludes (even in included directories)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/pip-log.txt
+**/pip-delete-this-directory.txt
+
+# Environment variables and secrets
+**/.env
+**/secret.py
+
+# IDE settings
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+*~
+
+# OS files
+**/.DS_Store
+**/Thumbs.db
+
+# Large data files that shouldn't be in git
+**/bloodBank/raw/**/*.csv
+**/bloodBank/archives/**/*.csv
+**/bloodBank/lstm_pump_data/**/*.csv
+**/bloodBank/merged/**/*.csv
+
+# Keep metadata and configuration files
+!**/bloodBank/**/*.json
+!**/bloodBank/**/*.md
+!**/bloodBank/**/*.txt
+
+# Testing and temporary files
+**/test_output/
+**/tmp/
+**/.pytest_cache/
+**/.coverage

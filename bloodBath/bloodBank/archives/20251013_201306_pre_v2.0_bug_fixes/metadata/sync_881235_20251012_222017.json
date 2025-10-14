@@ -1,0 +1,10 @@
+{
+  "pump_serial": "881235",
+  "start_date": "2021-04-02T00:00:00",
+  "end_date": "2021-07-01T00:00:00",
+  "records_count": 179,
+  "sync_timestamp": "2025-10-12T22:20:17.311444",
+  "update_mode": false,
+  "force_full": true,
+  "output_file": "/home/bolt/projects/bb/bloodBath/bloodBank/raw/lstm/SYNTHETIC_TEMPLATE_pump_881235_20251012_222017.csv"
+}

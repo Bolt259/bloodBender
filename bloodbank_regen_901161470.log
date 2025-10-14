@@ -1,0 +1,25 @@
+/home/bolt/projects/bb/tconnectsync-bb/tconnectsync/check.py:6: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+2025-10-13 20:53:06,651 - __main__ - INFO - Initialized TandemHistoricalSyncClient
+2025-10-13 20:53:06,651 - __main__ - INFO - Output directory: bloodBath/bloodBank/raw
+2025-10-13 20:53:06,651 - __main__ - INFO - Chunk size: 30 days
+2025-10-13 20:53:06,651 - __main__ - INFO - Starting sync for 1 pump(s)
+2025-10-13 20:53:06,651 - __main__ - INFO - Starting sync for pump 901161470
+2025-10-13 20:53:06,653 - __main__ - ERROR - Error syncing pump 901161470: day is out of range for month
+2025-10-13 20:53:06,653 - __main__ - INFO - Merging pump CSVs into combined format...
+2025-10-13 20:53:08,992 - __main__ - INFO - Loaded 2099991 records from bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_combined.csv
+2025-10-13 20:53:11,856 - __main__ - INFO - Loaded 1722106 records from bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 20:53:16,122 - __main__ - INFO - Loaded 2403426 records from bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_901161470.csv
+2025-10-13 20:54:24,783 - __main__ - INFO - Merged 6225523 records from 3 pumps to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_combined.csv
+2025-10-13 20:54:25,302 - __main__ - INFO - Combined data summary:
+                            timestamp  ... bolus_dose
+                                  min  ...        sum
+pump_serial                            ...           
+881235      2021-01-01 08:00:00+00:00  ...        0.0
+901161470   2024-01-01 08:00:00+00:00  ...        0.0
+combined    2021-01-01 08:00:00+00:00  ...        0.0
+
+[3 rows x 8 columns]
+
+Sync completed: 0/1 pumps successful
+  Pump 901161470: ❌ FAILED

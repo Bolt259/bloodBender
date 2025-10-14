@@ -1,0 +1,2 @@
+[console_scripts]
+tconnectsync = tconnectsync:main

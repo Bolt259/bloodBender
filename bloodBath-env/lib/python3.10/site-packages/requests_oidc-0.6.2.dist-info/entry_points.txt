@@ -1,0 +1,3 @@
+[console_scripts]
+requests-oidc-cli=requests_oidc.cli:app
+

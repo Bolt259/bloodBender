@@ -1,0 +1,16 @@
+# bloodBath temporary files
+temp/
+*.tmp
+*.log
+
+# Model checkpoints (keep only final models)
+models/checkpoints/
+
+# Large data files
+*.parquet
+*.h5
+*.pkl
+
+# OS generated files
+.DS_Store
+Thumbs.db

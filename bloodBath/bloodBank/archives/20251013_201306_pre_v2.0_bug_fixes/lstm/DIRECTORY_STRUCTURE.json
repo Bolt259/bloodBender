@@ -1,0 +1,38 @@
+{
+  "bloodBath_bloodBank_structure": {
+    "description": "bloodBank v2.0 directory structure for unified pump data management",
+    "schema_version": "2.0",
+    "created_by": "bloodBath package",
+    "directories": {
+      "raw/": {
+        "description": "Raw pump data organized by type and serial number",
+        "subdirectories": {
+          "cgm/": "CGM readings organized by pump serial",
+          "basal/": "Basal rate data organized by pump serial",
+          "bolus/": "Bolus/meal data organized by pump serial",
+          "lstm/": "Raw LSTM processing workspace",
+          "metadata/": "Sync and validation metadata"
+        }
+      },
+      "merged/": {
+        "description": "Processed LSTM sequences ready for ML training",
+        "subdirectories": {
+          "train/": "Training dataset (70%)",
+          "validate/": "Validation dataset (15%)",
+          "test/": "Test dataset (15%)",
+          "full/": "Complete merged sequences"
+        }
+      },
+      "archives/": {
+        "description": "Legacy data and operational logs",
+        "subdirectories": {
+          "legacy/": "Legacy sweetBlood data",
+          "logs/": "System and sync operation logs"
+        }
+      },
+      "models/": {
+        "description": "Trained models and checkpoints"
+      }
+    }
+  }
+}

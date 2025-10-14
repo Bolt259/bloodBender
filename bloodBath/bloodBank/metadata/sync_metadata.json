@@ -1,0 +1,15 @@
+{
+  "881235": {
+    "pump_serial": "881235",
+    "last_successful_sync": null,
+    "failed_ranges": [
+      {
+        "start": "2024-01-01",
+        "end": "2024-02-01",
+        "error": "Slicing a positional slice with .loc is not allowed, Use .loc with labels or .iloc with positions instead."
+      }
+    ],
+    "total_records": 0,
+    "last_updated": null
+  }
+}

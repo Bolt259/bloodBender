@@ -1,0 +1,275 @@
+nohup: ignoring input
+/home/bolt/projects/bb/tconnectsync-bb/tconnectsync/__init__.py:6: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+2025-10-13 18:58:18,954 - __main__ - INFO - Initialized TandemHistoricalSyncClient
+2025-10-13 18:58:18,954 - __main__ - INFO - Output directory: bloodBath/bloodBank/raw
+2025-10-13 18:58:18,954 - __main__ - INFO - Chunk size: 30 days
+2025-10-13 18:58:18,955 - __main__ - INFO - Starting sync for 1 pump(s)
+2025-10-13 18:58:18,955 - __main__ - INFO - Starting sync for pump 881235
+2025-10-13 18:58:18,957 - __main__ - INFO - Generated 49 date chunks for pump 881235
+2025-10-13 18:58:18,957 - __main__ - INFO - Processing chunk 1/49: 2021-01-01 to 2021-01-31
+2025-10-13 18:58:18,957 - __main__ - INFO - Connecting to Tandem API (US region)...
+2025-10-13 18:58:18,958 - __main__ - INFO - API connection established
+2025-10-13 18:58:18,958 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 18:58:18,958 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-14T01:56:42.298614+00:00 (1 min 36 sec ago), access token expiry 2025-10-14T02:26:42+00:00 (in 28 min 23 sec)
+2025-10-13 18:58:18,958 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 18:58:20,174 - __main__ - INFO - Fetching data for pump 881235: 2021-01-01 to 2021-01-31
+2025-10-13 18:58:22,513 - tconnectsync.api.tandemsource - INFO - Read 2730 bytes (est. 105.0 events)
+2025-10-13 18:58:22,517 - __main__ - INFO - Successfully fetched 0 records for pump 881235
+2025-10-13 18:58:23,017 - __main__ - INFO - Processing chunk 2/49: 2021-01-31 to 2021-03-02
+2025-10-13 18:58:23,018 - __main__ - INFO - Fetching data for pump 881235: 2021-01-31 to 2021-03-02
+2025-10-13 18:58:25,261 - tconnectsync.api.tandemsource - INFO - Read 10738 bytes (est. 413.0 events)
+2025-10-13 18:58:25,367 - __main__ - INFO - Successfully fetched 84833 records for pump 881235
+2025-10-13 18:58:26,345 - __main__ - INFO - ✅ Saved 84833 records to bloodBath/bloodBank/raw/pump_881235/2021-01-31_to_2021-03-02.csv with v2.0 header
+2025-10-13 18:58:27,865 - __main__ - INFO - Processing chunk 3/49: 2021-03-02 to 2021-04-01
+2025-10-13 18:58:27,865 - __main__ - INFO - Fetching data for pump 881235: 2021-03-02 to 2021-04-01
+2025-10-13 18:58:29,970 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 18:58:30,015 - __main__ - INFO - Successfully fetched 71177 records for pump 881235
+2025-10-13 18:58:30,728 - __main__ - INFO - ✅ Saved 71177 records to bloodBath/bloodBank/raw/pump_881235/2021-03-02_to_2021-04-01.csv with v2.0 header
+2025-10-13 18:58:31,972 - __main__ - INFO - Processing chunk 4/49: 2021-04-01 to 2021-05-01
+2025-10-13 18:58:31,973 - __main__ - INFO - Fetching data for pump 881235: 2021-04-01 to 2021-05-01
+2025-10-13 18:58:34,135 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 18:58:34,188 - __main__ - INFO - Successfully fetched 71177 records for pump 881235
+2025-10-13 18:58:34,986 - __main__ - INFO - ✅ Saved 71177 records to bloodBath/bloodBank/raw/pump_881235/2021-04-01_to_2021-05-01.csv with v2.0 header
+2025-10-13 18:58:36,292 - __main__ - INFO - Processing chunk 5/49: 2021-05-01 to 2021-05-31
+2025-10-13 18:58:36,293 - __main__ - INFO - Fetching data for pump 881235: 2021-05-01 to 2021-05-31
+2025-10-13 18:58:38,779 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 18:58:38,825 - __main__ - INFO - Successfully fetched 71177 records for pump 881235
+2025-10-13 18:58:39,572 - __main__ - INFO - ✅ Saved 71177 records to bloodBath/bloodBank/raw/pump_881235/2021-05-01_to_2021-05-31.csv with v2.0 header
+2025-10-13 18:58:40,842 - __main__ - INFO - Processing chunk 6/49: 2021-05-31 to 2021-06-30
+2025-10-13 18:58:40,842 - __main__ - INFO - Fetching data for pump 881235: 2021-05-31 to 2021-06-30
+2025-10-13 18:58:43,008 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 18:58:43,056 - __main__ - INFO - Successfully fetched 71177 records for pump 881235
+2025-10-13 18:58:43,827 - __main__ - INFO - ✅ Saved 71177 records to bloodBath/bloodBank/raw/pump_881235/2021-05-31_to_2021-06-30.csv with v2.0 header
+2025-10-13 18:58:45,203 - __main__ - INFO - Processing chunk 7/49: 2021-06-30 to 2021-07-30
+2025-10-13 18:58:45,203 - __main__ - INFO - Fetching data for pump 881235: 2021-06-30 to 2021-07-30
+2025-10-13 18:58:48,464 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 18:58:48,511 - __main__ - INFO - Successfully fetched 71177 records for pump 881235
+2025-10-13 18:58:49,303 - __main__ - INFO - ✅ Saved 71177 records to bloodBath/bloodBank/raw/pump_881235/2021-06-30_to_2021-07-30.csv with v2.0 header
+2025-10-13 18:58:50,670 - __main__ - INFO - Processing chunk 8/49: 2021-07-30 to 2021-08-29
+2025-10-13 18:58:50,670 - __main__ - INFO - Fetching data for pump 881235: 2021-07-30 to 2021-08-29
+2025-10-13 18:58:52,716 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 18:58:52,766 - __main__ - INFO - Successfully fetched 71177 records for pump 881235
+2025-10-13 18:58:53,551 - __main__ - INFO - ✅ Saved 71177 records to bloodBath/bloodBank/raw/pump_881235/2021-07-30_to_2021-08-29.csv with v2.0 header
+2025-10-13 18:58:54,903 - __main__ - INFO - Processing chunk 9/49: 2021-08-29 to 2021-09-28
+2025-10-13 18:58:54,903 - __main__ - INFO - Fetching data for pump 881235: 2021-08-29 to 2021-09-28
+2025-10-13 18:58:57,179 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 18:58:57,229 - __main__ - INFO - Successfully fetched 71177 records for pump 881235
+2025-10-13 18:58:58,125 - __main__ - INFO - ✅ Saved 71177 records to bloodBath/bloodBank/raw/pump_881235/2021-08-29_to_2021-09-28.csv with v2.0 header
+2025-10-13 18:58:59,595 - __main__ - INFO - Processing chunk 10/49: 2021-09-28 to 2021-10-28
+2025-10-13 18:58:59,595 - __main__ - INFO - Fetching data for pump 881235: 2021-09-28 to 2021-10-28
+2025-10-13 18:59:13,072 - tconnectsync.api.tandemsource - INFO - Read 482768 bytes (est. 18568.0 events)
+2025-10-13 18:59:14,116 - __main__ - INFO - Successfully fetched 73025 records for pump 881235
+2025-10-13 18:59:14,907 - __main__ - INFO - ✅ Saved 73025 records to bloodBath/bloodBank/raw/pump_881235/2021-09-28_to_2021-10-28.csv with v2.0 header
+2025-10-13 18:59:16,368 - __main__ - INFO - Processing chunk 11/49: 2021-10-28 to 2021-11-27
+2025-10-13 18:59:16,368 - __main__ - INFO - Fetching data for pump 881235: 2021-10-28 to 2021-11-27
+2025-10-13 18:59:55,513 - tconnectsync.api.tandemsource - INFO - Read 2183974 bytes (est. 83999.0 events)
+2025-10-13 19:00:00,780 - __main__ - INFO - Successfully fetched 8947 records for pump 881235
+2025-10-13 19:00:00,904 - __main__ - INFO - ✅ Saved 8947 records to bloodBath/bloodBank/raw/pump_881235/2021-10-28_to_2021-11-27.csv with v2.0 header
+2025-10-13 19:00:01,513 - __main__ - INFO - Processing chunk 12/49: 2021-11-27 to 2021-12-27
+2025-10-13 19:00:01,513 - __main__ - INFO - Fetching data for pump 881235: 2021-11-27 to 2021-12-27
+2025-10-13 19:00:47,389 - tconnectsync.api.tandemsource - INFO - Read 2098642 bytes (est. 80717.0 events)
+2025-10-13 19:00:52,769 - __main__ - INFO - Successfully fetched 8938 records for pump 881235
+2025-10-13 19:00:52,876 - __main__ - INFO - ✅ Saved 8938 records to bloodBath/bloodBank/raw/pump_881235/2021-11-27_to_2021-12-27.csv with v2.0 header
+2025-10-13 19:00:53,471 - __main__ - INFO - Processing chunk 13/49: 2021-12-27 to 2022-01-26
+2025-10-13 19:00:53,472 - __main__ - INFO - Fetching data for pump 881235: 2021-12-27 to 2022-01-26
+2025-10-13 19:01:34,474 - tconnectsync.api.tandemsource - INFO - Read 2122744 bytes (est. 81644.0 events)
+2025-10-13 19:01:38,806 - __main__ - INFO - Successfully fetched 8937 records for pump 881235
+2025-10-13 19:01:38,911 - __main__ - INFO - ✅ Saved 8937 records to bloodBath/bloodBank/raw/pump_881235/2021-12-27_to_2022-01-26.csv with v2.0 header
+2025-10-13 19:01:39,504 - __main__ - INFO - Processing chunk 14/49: 2022-01-26 to 2022-02-25
+2025-10-13 19:01:39,504 - __main__ - INFO - Fetching data for pump 881235: 2022-01-26 to 2022-02-25
+2025-10-13 19:02:34,447 - tconnectsync.api.tandemsource - INFO - Read 2261506 bytes (est. 86981.0 events)
+2025-10-13 19:02:39,920 - __main__ - INFO - Successfully fetched 8946 records for pump 881235
+2025-10-13 19:02:40,027 - __main__ - INFO - ✅ Saved 8946 records to bloodBath/bloodBank/raw/pump_881235/2022-01-26_to_2022-02-25.csv with v2.0 header
+2025-10-13 19:02:40,621 - __main__ - INFO - Processing chunk 15/49: 2022-02-25 to 2022-03-27
+2025-10-13 19:02:40,621 - __main__ - INFO - Fetching data for pump 881235: 2022-02-25 to 2022-03-27
+2025-10-13 19:03:42,232 - tconnectsync.api.tandemsource - INFO - Read 2432690 bytes (est. 93565.0 events)
+2025-10-13 19:03:48,262 - __main__ - INFO - Successfully fetched 8929 records for pump 881235
+2025-10-13 19:03:48,370 - __main__ - INFO - ✅ Saved 8929 records to bloodBath/bloodBank/raw/pump_881235/2022-02-25_to_2022-03-27.csv with v2.0 header
+2025-10-13 19:03:48,964 - __main__ - INFO - Processing chunk 16/49: 2022-03-27 to 2022-04-26
+2025-10-13 19:03:48,964 - __main__ - INFO - Fetching data for pump 881235: 2022-03-27 to 2022-04-26
+2025-10-13 19:04:46,849 - tconnectsync.api.tandemsource - INFO - Read 2097862 bytes (est. 80687.0 events)
+2025-10-13 19:04:52,170 - __main__ - INFO - Successfully fetched 8940 records for pump 881235
+2025-10-13 19:04:52,275 - __main__ - INFO - ✅ Saved 8940 records to bloodBath/bloodBank/raw/pump_881235/2022-03-27_to_2022-04-26.csv with v2.0 header
+2025-10-13 19:04:52,869 - __main__ - INFO - Processing chunk 17/49: 2022-04-26 to 2022-05-26
+2025-10-13 19:04:52,870 - __main__ - INFO - Fetching data for pump 881235: 2022-04-26 to 2022-05-26
+2025-10-13 19:05:46,839 - tconnectsync.api.tandemsource - INFO - Read 2187562 bytes (est. 84137.0 events)
+2025-10-13 19:05:51,398 - __main__ - INFO - Successfully fetched 8939 records for pump 881235
+2025-10-13 19:05:51,503 - __main__ - INFO - ✅ Saved 8939 records to bloodBath/bloodBank/raw/pump_881235/2022-04-26_to_2022-05-26.csv with v2.0 header
+2025-10-13 19:05:52,097 - __main__ - INFO - Processing chunk 18/49: 2022-05-26 to 2022-06-25
+2025-10-13 19:05:52,098 - __main__ - INFO - Fetching data for pump 881235: 2022-05-26 to 2022-06-25
+2025-10-13 19:06:42,287 - tconnectsync.api.tandemsource - INFO - Read 2167048 bytes (est. 83348.0 events)
+2025-10-13 19:06:46,812 - __main__ - INFO - Successfully fetched 8949 records for pump 881235
+2025-10-13 19:06:46,920 - __main__ - INFO - ✅ Saved 8949 records to bloodBath/bloodBank/raw/pump_881235/2022-05-26_to_2022-06-25.csv with v2.0 header
+2025-10-13 19:06:47,529 - __main__ - INFO - Processing chunk 19/49: 2022-06-25 to 2022-07-25
+2025-10-13 19:06:47,529 - __main__ - INFO - Fetching data for pump 881235: 2022-06-25 to 2022-07-25
+2025-10-13 19:07:59,019 - tconnectsync.api.tandemsource - INFO - Read 2109120 bytes (est. 81120.0 events)
+2025-10-13 19:08:03,740 - __main__ - INFO - Successfully fetched 8944 records for pump 881235
+2025-10-13 19:08:03,847 - __main__ - INFO - ✅ Saved 8944 records to bloodBath/bloodBank/raw/pump_881235/2022-06-25_to_2022-07-25.csv with v2.0 header
+2025-10-13 19:08:04,442 - __main__ - INFO - Processing chunk 20/49: 2022-07-25 to 2022-08-24
+2025-10-13 19:08:04,442 - __main__ - INFO - Fetching data for pump 881235: 2022-07-25 to 2022-08-24
+2025-10-13 19:09:23,903 - tconnectsync.api.tandemsource - INFO - Read 2195570 bytes (est. 84445.0 events)
+2025-10-13 19:09:28,623 - __main__ - INFO - Successfully fetched 8944 records for pump 881235
+2025-10-13 19:09:28,727 - __main__ - INFO - ✅ Saved 8944 records to bloodBath/bloodBank/raw/pump_881235/2022-07-25_to_2022-08-24.csv with v2.0 header
+2025-10-13 19:09:29,321 - __main__ - INFO - Processing chunk 21/49: 2022-08-24 to 2022-09-23
+2025-10-13 19:09:29,322 - __main__ - INFO - Fetching data for pump 881235: 2022-08-24 to 2022-09-23
+2025-10-13 19:10:36,457 - tconnectsync.api.tandemsource - INFO - Read 1834326 bytes (est. 70551.0 events)
+2025-10-13 19:10:40,211 - __main__ - INFO - Successfully fetched 8944 records for pump 881235
+2025-10-13 19:10:40,312 - __main__ - INFO - ✅ Saved 8944 records to bloodBath/bloodBank/raw/pump_881235/2022-08-24_to_2022-09-23.csv with v2.0 header
+2025-10-13 19:10:40,905 - __main__ - INFO - Processing chunk 22/49: 2022-09-23 to 2022-10-23
+2025-10-13 19:10:40,905 - __main__ - INFO - Fetching data for pump 881235: 2022-09-23 to 2022-10-23
+2025-10-13 19:11:42,433 - tconnectsync.api.tandemsource - WARNING - Received ApiException in TandemSourceApi with endpoint 'api/reports/reportsfacade/pumpevents/2d4c7be1-72ef-49e3-a4ed-1fa9cfd14abe/437688?minDate=2022-09-23&maxDate=2022-10-23&eventIds=229%2C5%2C28%2C4%2C26%2C99%2C279%2C3%2C16%2C59%2C21%2C55%2C20%2C280%2C64%2C65%2C66%2C61%2C33%2C371%2C171%2C369%2C460%2C172%2C370%2C461%2C372%2C399%2C256%2C213%2C406%2C394%2C212%2C404%2C214%2C405%2C447%2C313%2C60%2C14%2C6%2C90%2C230%2C140%2C12%2C11%2C53%2C13%2C63%2C203%2C307%2C191' (tries 0): TandemSourceApi HTTP 500 response: {"message":"An unexpected error occured"} (HTTP 500)
+2025-10-13 19:12:18,213 - tconnectsync.api.tandemsource - INFO - Read 2065336 bytes (est. 79436.0 events)
+2025-10-13 19:12:22,088 - __main__ - INFO - Successfully fetched 8941 records for pump 881235
+2025-10-13 19:12:22,192 - __main__ - INFO - ✅ Saved 8941 records to bloodBath/bloodBank/raw/pump_881235/2022-09-23_to_2022-10-23.csv with v2.0 header
+2025-10-13 19:12:22,787 - __main__ - INFO - Processing chunk 23/49: 2022-10-23 to 2022-11-22
+2025-10-13 19:12:22,787 - __main__ - INFO - Fetching data for pump 881235: 2022-10-23 to 2022-11-22
+2025-10-13 19:13:24,267 - tconnectsync.api.tandemsource - WARNING - Received ApiException in TandemSourceApi with endpoint 'api/reports/reportsfacade/pumpevents/2d4c7be1-72ef-49e3-a4ed-1fa9cfd14abe/437688?minDate=2022-10-23&maxDate=2022-11-22&eventIds=229%2C5%2C28%2C4%2C26%2C99%2C279%2C3%2C16%2C59%2C21%2C55%2C20%2C280%2C64%2C65%2C66%2C61%2C33%2C371%2C171%2C369%2C460%2C172%2C370%2C461%2C372%2C399%2C256%2C213%2C406%2C394%2C212%2C404%2C214%2C405%2C447%2C313%2C60%2C14%2C6%2C90%2C230%2C140%2C12%2C11%2C53%2C13%2C63%2C203%2C307%2C191' (tries 0): TandemSourceApi HTTP 500 response: {"message":"An unexpected error occured"} (HTTP 500)
+2025-10-13 19:13:51,672 - tconnectsync.api.tandemsource - INFO - Read 2028364 bytes (est. 78014.0 events)
+2025-10-13 19:13:56,018 - __main__ - INFO - Successfully fetched 8955 records for pump 881235
+2025-10-13 19:13:56,123 - __main__ - INFO - ✅ Saved 8955 records to bloodBath/bloodBank/raw/pump_881235/2022-10-23_to_2022-11-22.csv with v2.0 header
+2025-10-13 19:13:56,721 - __main__ - INFO - Processing chunk 24/49: 2022-11-22 to 2022-12-22
+2025-10-13 19:13:56,721 - __main__ - INFO - Fetching data for pump 881235: 2022-11-22 to 2022-12-22
+2025-10-13 19:14:07,032 - tconnectsync.api.tandemsource - INFO - Read 1966172 bytes (est. 75622.0 events)
+2025-10-13 19:14:10,770 - __main__ - INFO - Successfully fetched 8937 records for pump 881235
+2025-10-13 19:14:10,874 - __main__ - INFO - ✅ Saved 8937 records to bloodBath/bloodBank/raw/pump_881235/2022-11-22_to_2022-12-22.csv with v2.0 header
+2025-10-13 19:14:11,472 - __main__ - INFO - Processing chunk 25/49: 2022-12-22 to 2023-01-21
+2025-10-13 19:14:11,472 - __main__ - INFO - Fetching data for pump 881235: 2022-12-22 to 2023-01-21
+2025-10-13 19:14:19,420 - tconnectsync.api.tandemsource - INFO - Read 2002468 bytes (est. 77018.0 events)
+2025-10-13 19:14:23,124 - __main__ - INFO - Successfully fetched 8940 records for pump 881235
+2025-10-13 19:14:23,224 - __main__ - INFO - ✅ Saved 8940 records to bloodBath/bloodBank/raw/pump_881235/2022-12-22_to_2023-01-21.csv with v2.0 header
+2025-10-13 19:14:23,814 - __main__ - INFO - Processing chunk 26/49: 2023-01-21 to 2023-02-20
+2025-10-13 19:14:23,815 - __main__ - INFO - Fetching data for pump 881235: 2023-01-21 to 2023-02-20
+2025-10-13 19:14:33,571 - tconnectsync.api.tandemsource - INFO - Read 2026778 bytes (est. 77953.0 events)
+2025-10-13 19:14:37,343 - __main__ - INFO - Successfully fetched 8974 records for pump 881235
+2025-10-13 19:14:37,449 - __main__ - INFO - ✅ Saved 8974 records to bloodBath/bloodBank/raw/pump_881235/2023-01-21_to_2023-02-20.csv with v2.0 header
+2025-10-13 19:14:38,044 - __main__ - INFO - Processing chunk 27/49: 2023-02-20 to 2023-03-22
+2025-10-13 19:14:38,044 - __main__ - INFO - Fetching data for pump 881235: 2023-02-20 to 2023-03-22
+2025-10-13 19:14:46,626 - tconnectsync.api.tandemsource - INFO - Read 2046850 bytes (est. 78725.0 events)
+2025-10-13 19:14:50,767 - __main__ - INFO - Successfully fetched 8938 records for pump 881235
+2025-10-13 19:14:50,906 - __main__ - INFO - ✅ Saved 8938 records to bloodBath/bloodBank/raw/pump_881235/2023-02-20_to_2023-03-22.csv with v2.0 header
+2025-10-13 19:14:51,550 - __main__ - INFO - Processing chunk 28/49: 2023-03-22 to 2023-04-21
+2025-10-13 19:14:51,550 - __main__ - INFO - Fetching data for pump 881235: 2023-03-22 to 2023-04-21
+2025-10-13 19:15:01,399 - tconnectsync.api.tandemsource - INFO - Read 1964248 bytes (est. 75548.0 events)
+2025-10-13 19:15:05,370 - __main__ - INFO - Successfully fetched 8936 records for pump 881235
+2025-10-13 19:15:05,472 - __main__ - INFO - ✅ Saved 8936 records to bloodBath/bloodBank/raw/pump_881235/2023-03-22_to_2023-04-21.csv with v2.0 header
+2025-10-13 19:15:06,064 - __main__ - INFO - Processing chunk 29/49: 2023-04-21 to 2023-05-21
+2025-10-13 19:15:06,065 - __main__ - INFO - Fetching data for pump 881235: 2023-04-21 to 2023-05-21
+2025-10-13 19:15:15,520 - tconnectsync.api.tandemsource - INFO - Read 2208206 bytes (est. 84931.0 events)
+2025-10-13 19:15:20,326 - __main__ - INFO - Successfully fetched 8952 records for pump 881235
+2025-10-13 19:15:20,450 - __main__ - INFO - ✅ Saved 8952 records to bloodBath/bloodBank/raw/pump_881235/2023-04-21_to_2023-05-21.csv with v2.0 header
+2025-10-13 19:15:21,061 - __main__ - INFO - Processing chunk 30/49: 2023-05-21 to 2023-06-20
+2025-10-13 19:15:21,061 - __main__ - INFO - Fetching data for pump 881235: 2023-05-21 to 2023-06-20
+2025-10-13 19:15:32,995 - tconnectsync.api.tandemsource - INFO - Read 2629198 bytes (est. 101123.0 events)
+2025-10-13 19:15:37,386 - __main__ - INFO - Successfully fetched 8949 records for pump 881235
+2025-10-13 19:15:37,490 - __main__ - INFO - ✅ Saved 8949 records to bloodBath/bloodBank/raw/pump_881235/2023-05-21_to_2023-06-20.csv with v2.0 header
+2025-10-13 19:15:38,084 - __main__ - INFO - Processing chunk 31/49: 2023-06-20 to 2023-07-20
+2025-10-13 19:15:38,084 - __main__ - INFO - Fetching data for pump 881235: 2023-06-20 to 2023-07-20
+2025-10-13 19:15:47,165 - tconnectsync.api.tandemsource - INFO - Read 2326688 bytes (est. 89488.0 events)
+2025-10-13 19:15:51,018 - __main__ - INFO - Successfully fetched 8951 records for pump 881235
+2025-10-13 19:15:51,125 - __main__ - INFO - ✅ Saved 8951 records to bloodBath/bloodBank/raw/pump_881235/2023-06-20_to_2023-07-20.csv with v2.0 header
+2025-10-13 19:15:51,723 - __main__ - INFO - Processing chunk 32/49: 2023-07-20 to 2023-08-19
+2025-10-13 19:15:51,724 - __main__ - INFO - Fetching data for pump 881235: 2023-07-20 to 2023-08-19
+2025-10-13 19:16:01,855 - tconnectsync.api.tandemsource - INFO - Read 2761174 bytes (est. 106199.0 events)
+2025-10-13 19:16:06,383 - __main__ - INFO - Successfully fetched 8934 records for pump 881235
+2025-10-13 19:16:06,490 - __main__ - INFO - ✅ Saved 8934 records to bloodBath/bloodBank/raw/pump_881235/2023-07-20_to_2023-08-19.csv with v2.0 header
+2025-10-13 19:16:07,083 - __main__ - INFO - Processing chunk 33/49: 2023-08-19 to 2023-09-18
+2025-10-13 19:16:07,084 - __main__ - INFO - Fetching data for pump 881235: 2023-08-19 to 2023-09-18
+2025-10-13 19:16:34,264 - tconnectsync.api.tandemsource - INFO - Read 2443376 bytes (est. 93976.0 events)
+2025-10-13 19:16:38,236 - __main__ - INFO - Successfully fetched 9328 records for pump 881235
+2025-10-13 19:16:38,348 - __main__ - INFO - ✅ Saved 9328 records to bloodBath/bloodBank/raw/pump_881235/2023-08-19_to_2023-09-18.csv with v2.0 header
+2025-10-13 19:16:38,946 - __main__ - INFO - Processing chunk 34/49: 2023-09-18 to 2023-10-18
+2025-10-13 19:16:38,947 - __main__ - INFO - Fetching data for pump 881235: 2023-09-18 to 2023-10-18
+2025-10-13 19:16:47,428 - tconnectsync.api.tandemsource - INFO - Read 2376842 bytes (est. 91417.0 events)
+2025-10-13 19:16:51,332 - __main__ - INFO - Successfully fetched 8944 records for pump 881235
+2025-10-13 19:16:51,437 - __main__ - INFO - ✅ Saved 8944 records to bloodBath/bloodBank/raw/pump_881235/2023-09-18_to_2023-10-18.csv with v2.0 header
+2025-10-13 19:16:52,032 - __main__ - INFO - Processing chunk 35/49: 2023-10-18 to 2023-11-17
+2025-10-13 19:16:52,032 - __main__ - INFO - Fetching data for pump 881235: 2023-10-18 to 2023-11-17
+2025-10-13 19:17:02,556 - tconnectsync.api.tandemsource - INFO - Read 2335320 bytes (est. 89820.0 events)
+2025-10-13 19:17:06,262 - __main__ - INFO - Successfully fetched 8953 records for pump 881235
+2025-10-13 19:17:06,360 - __main__ - INFO - ✅ Saved 8953 records to bloodBath/bloodBank/raw/pump_881235/2023-10-18_to_2023-11-17.csv with v2.0 header
+2025-10-13 19:17:06,949 - __main__ - INFO - Processing chunk 36/49: 2023-11-17 to 2023-12-17
+2025-10-13 19:17:06,949 - __main__ - INFO - Fetching data for pump 881235: 2023-11-17 to 2023-12-17
+2025-10-13 19:17:16,747 - tconnectsync.api.tandemsource - INFO - Read 2371668 bytes (est. 91218.0 events)
+2025-10-13 19:17:20,719 - __main__ - INFO - Successfully fetched 8940 records for pump 881235
+2025-10-13 19:17:20,827 - __main__ - INFO - ✅ Saved 8940 records to bloodBath/bloodBank/raw/pump_881235/2023-11-17_to_2023-12-17.csv with v2.0 header
+2025-10-13 19:17:21,425 - __main__ - INFO - Processing chunk 37/49: 2023-12-17 to 2024-01-16
+2025-10-13 19:17:21,425 - __main__ - INFO - Fetching data for pump 881235: 2023-12-17 to 2024-01-16
+2025-10-13 19:17:30,059 - tconnectsync.api.tandemsource - INFO - Read 2325440 bytes (est. 89440.0 events)
+2025-10-13 19:17:34,710 - __main__ - INFO - Successfully fetched 8948 records for pump 881235
+2025-10-13 19:17:34,814 - __main__ - INFO - ✅ Saved 8948 records to bloodBath/bloodBank/raw/pump_881235/2023-12-17_to_2024-01-16.csv with v2.0 header
+2025-10-13 19:17:35,408 - __main__ - INFO - Processing chunk 38/49: 2024-01-16 to 2024-02-15
+2025-10-13 19:17:35,408 - __main__ - INFO - Fetching data for pump 881235: 2024-01-16 to 2024-02-15
+2025-10-13 19:17:44,407 - tconnectsync.api.tandemsource - INFO - Read 2384902 bytes (est. 91727.0 events)
+2025-10-13 19:17:48,370 - __main__ - INFO - Successfully fetched 8938 records for pump 881235
+2025-10-13 19:17:48,475 - __main__ - INFO - ✅ Saved 8938 records to bloodBath/bloodBank/raw/pump_881235/2024-01-16_to_2024-02-15.csv with v2.0 header
+2025-10-13 19:17:49,069 - __main__ - INFO - Processing chunk 39/49: 2024-02-15 to 2024-03-16
+2025-10-13 19:17:49,069 - __main__ - INFO - Fetching data for pump 881235: 2024-02-15 to 2024-03-16
+2025-10-13 19:18:04,695 - tconnectsync.api.tandemsource - INFO - Read 2451826 bytes (est. 94301.0 events)
+2025-10-13 19:18:08,622 - __main__ - INFO - Successfully fetched 8930 records for pump 881235
+2025-10-13 19:18:08,727 - __main__ - INFO - ✅ Saved 8930 records to bloodBath/bloodBank/raw/pump_881235/2024-02-15_to_2024-03-16.csv with v2.0 header
+2025-10-13 19:18:09,322 - __main__ - INFO - Processing chunk 40/49: 2024-03-16 to 2024-04-15
+2025-10-13 19:18:09,322 - __main__ - INFO - Fetching data for pump 881235: 2024-03-16 to 2024-04-15
+2025-10-13 19:18:19,769 - tconnectsync.api.tandemsource - INFO - Read 3436108 bytes (est. 132158.0 events)
+2025-10-13 19:18:25,370 - __main__ - INFO - Successfully fetched 8945 records for pump 881235
+2025-10-13 19:18:25,480 - __main__ - INFO - ✅ Saved 8945 records to bloodBath/bloodBank/raw/pump_881235/2024-03-16_to_2024-04-15.csv with v2.0 header
+2025-10-13 19:18:26,078 - __main__ - INFO - Processing chunk 41/49: 2024-04-15 to 2024-05-15
+2025-10-13 19:18:26,078 - __main__ - INFO - Fetching data for pump 881235: 2024-04-15 to 2024-05-15
+2025-10-13 19:18:35,410 - tconnectsync.api.tandemsource - INFO - Read 2715518 bytes (est. 104443.0 events)
+2025-10-13 19:18:40,030 - __main__ - INFO - Successfully fetched 8937 records for pump 881235
+2025-10-13 19:18:40,135 - __main__ - INFO - ✅ Saved 8937 records to bloodBath/bloodBank/raw/pump_881235/2024-04-15_to_2024-05-15.csv with v2.0 header
+2025-10-13 19:18:40,728 - __main__ - INFO - Processing chunk 42/49: 2024-05-15 to 2024-06-14
+2025-10-13 19:18:40,729 - __main__ - INFO - Fetching data for pump 881235: 2024-05-15 to 2024-06-14
+2025-10-13 19:18:50,958 - tconnectsync.api.tandemsource - INFO - Read 3023696 bytes (est. 116296.0 events)
+2025-10-13 19:18:55,122 - __main__ - INFO - Successfully fetched 8938 records for pump 881235
+2025-10-13 19:18:55,228 - __main__ - INFO - ✅ Saved 8938 records to bloodBath/bloodBank/raw/pump_881235/2024-05-15_to_2024-06-14.csv with v2.0 header
+2025-10-13 19:18:55,821 - __main__ - INFO - Processing chunk 43/49: 2024-06-14 to 2024-07-14
+2025-10-13 19:18:55,821 - __main__ - INFO - Fetching data for pump 881235: 2024-06-14 to 2024-07-14
+2025-10-13 19:19:20,522 - tconnectsync.api.tandemsource - INFO - Read 2963818 bytes (est. 113993.0 events)
+2025-10-13 19:19:24,626 - __main__ - INFO - Successfully fetched 8936 records for pump 881235
+2025-10-13 19:19:24,740 - __main__ - INFO - ✅ Saved 8936 records to bloodBath/bloodBank/raw/pump_881235/2024-06-14_to_2024-07-14.csv with v2.0 header
+2025-10-13 19:19:25,346 - __main__ - INFO - Processing chunk 44/49: 2024-07-14 to 2024-08-13
+2025-10-13 19:19:25,346 - __main__ - INFO - Fetching data for pump 881235: 2024-07-14 to 2024-08-13
+2025-10-13 19:19:35,968 - tconnectsync.api.tandemsource - INFO - Read 2978794 bytes (est. 114569.0 events)
+2025-10-13 19:19:40,085 - __main__ - INFO - Successfully fetched 8940 records for pump 881235
+2025-10-13 19:19:40,199 - __main__ - INFO - ✅ Saved 8940 records to bloodBath/bloodBank/raw/pump_881235/2024-07-14_to_2024-08-13.csv with v2.0 header
+2025-10-13 19:19:40,812 - __main__ - INFO - Processing chunk 45/49: 2024-08-13 to 2024-09-12
+2025-10-13 19:19:40,813 - __main__ - INFO - Fetching data for pump 881235: 2024-08-13 to 2024-09-12
+2025-10-13 19:19:50,829 - tconnectsync.api.tandemsource - INFO - Read 2869256 bytes (est. 110356.0 events)
+2025-10-13 19:19:54,684 - __main__ - INFO - Successfully fetched 8947 records for pump 881235
+2025-10-13 19:19:54,793 - __main__ - INFO - ✅ Saved 8947 records to bloodBath/bloodBank/raw/pump_881235/2024-08-13_to_2024-09-12.csv with v2.0 header
+2025-10-13 19:19:55,388 - __main__ - INFO - Processing chunk 46/49: 2024-09-12 to 2024-10-12
+2025-10-13 19:19:55,389 - __main__ - INFO - Fetching data for pump 881235: 2024-09-12 to 2024-10-12
+2025-10-13 19:20:03,347 - tconnectsync.api.tandemsource - INFO - Read 2315560 bytes (est. 89060.0 events)
+2025-10-13 19:20:06,856 - __main__ - INFO - Successfully fetched 7111 records for pump 881235
+2025-10-13 19:20:06,944 - __main__ - INFO - ✅ Saved 7111 records to bloodBath/bloodBank/raw/pump_881235/2024-09-12_to_2024-10-12.csv with v2.0 header
+2025-10-13 19:20:07,521 - __main__ - INFO - Processing chunk 47/49: 2024-10-12 to 2024-11-11
+2025-10-13 19:20:07,522 - __main__ - INFO - Fetching data for pump 881235: 2024-10-12 to 2024-11-11
+2025-10-13 19:20:09,020 - __main__ - WARNING - No raw events returned for pump 881235 (2024-10-12 to 2024-11-11)
+2025-10-13 19:20:09,522 - __main__ - INFO - Processing chunk 48/49: 2024-11-11 to 2024-12-11
+2025-10-13 19:20:09,522 - __main__ - INFO - Fetching data for pump 881235: 2024-11-11 to 2024-12-11
+2025-10-13 19:20:10,950 - __main__ - WARNING - No raw events returned for pump 881235 (2024-11-11 to 2024-12-11)
+2025-10-13 19:20:11,451 - __main__ - INFO - Processing chunk 49/49: 2024-12-11 to 2024-12-31
+2025-10-13 19:20:11,452 - __main__ - INFO - Fetching data for pump 881235: 2024-12-11 to 2024-12-31
+2025-10-13 19:20:12,999 - __main__ - WARNING - No raw events returned for pump 881235 (2024-12-11 to 2024-12-31)
+2025-10-13 19:20:13,525 - __main__ - INFO - Sync completed for pump 881235
+2025-10-13 19:20:13,525 - __main__ - INFO - Total records processed: 976596
+2025-10-13 19:20:13,526 - __main__ - INFO - Merging pump CSVs into combined format...
+/home/bolt/projects/bb/bloodbank_download.py:1272: DtypeWarning: Columns (7) have mixed types. Specify dtype option on import or set low_memory=False.
+  df = pd.read_csv(file_path)
+2025-10-13 19:20:16,405 - __main__ - INFO - Loaded 1593047 records from bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_combined.csv
+2025-10-13 19:20:17,729 - __main__ - INFO - Loaded 985531 records from bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 19:20:18,905 - __main__ - INFO - Loaded 883312 records from bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_901161470.csv
+2025-10-13 19:20:55,888 - __main__ - INFO - Merged 3461890 records from 3 pumps to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_combined.csv
+2025-10-13 19:20:56,190 - __main__ - INFO - Combined data summary:
+                            timestamp  ... bolus_dose
+                                  min  ...        sum
+pump_serial                            ...           
+881235      2021-01-01 08:00:00+00:00  ...        0.0
+901161470   2024-01-01 08:00:00+00:00  ...        0.0
+combined    2021-01-01 08:00:00+00:00  ...        0.0
+
+[3 rows x 8 columns]
+
+Sync completed: 1/1 pumps successful
+  Pump 881235: ✅ SUCCESS

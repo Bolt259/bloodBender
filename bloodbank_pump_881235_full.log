@@ -1,0 +1,382 @@
+nohup: ignoring input
+/home/bolt/projects/bb/tconnectsync-bb/tconnectsync/__init__.py:6: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+2025-10-13 15:08:10,829 - __main__ - INFO - Initialized TandemHistoricalSyncClient
+2025-10-13 15:08:10,829 - __main__ - INFO - Output directory: bloodBath/bloodBank/raw
+2025-10-13 15:08:10,829 - __main__ - INFO - Chunk size: 30 days
+2025-10-13 15:08:10,829 - __main__ - INFO - Starting sync for 1 pump(s)
+2025-10-13 15:08:10,829 - __main__ - INFO - Starting sync for pump 881235
+2025-10-13 15:08:10,832 - __main__ - INFO - Generated 49 date chunks for pump 881235
+2025-10-13 15:08:10,832 - __main__ - INFO - Processing chunk 1/49: 2021-01-01 to 2021-01-31
+2025-10-13 15:08:10,832 - __main__ - INFO - Connecting to Tandem API (US region)...
+2025-10-13 15:08:10,832 - __main__ - INFO - API connection established
+2025-10-13 15:08:10,832 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:08:10,832 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (3 min ago), access token expiry 2025-10-13T22:35:10+00:00 (in 26 min 59 sec)
+2025-10-13 15:08:10,833 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:08:11,620 - __main__ - INFO - Fetching data for pump 881235: 2021-01-01 to 2021-01-31
+2025-10-13 15:08:13,969 - tconnectsync.api.tandemsource - INFO - Read 2730 bytes (est. 105.0 events)
+2025-10-13 15:08:13,972 - __main__ - INFO - Successfully fetched 0 records for pump 881235
+2025-10-13 15:08:14,473 - __main__ - INFO - Processing chunk 2/49: 2021-01-31 to 2021-03-02
+2025-10-13 15:08:14,473 - __main__ - INFO - Fetching data for pump 881235: 2021-01-31 to 2021-03-02
+2025-10-13 15:08:16,468 - tconnectsync.api.tandemsource - INFO - Read 10738 bytes (est. 413.0 events)
+2025-10-13 15:08:16,493 - __main__ - INFO - Successfully fetched 87 records for pump 881235
+2025-10-13 15:08:16,495 - __main__ - INFO - Saved 87 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:08:16,997 - __main__ - INFO - Processing chunk 3/49: 2021-03-02 to 2021-04-01
+2025-10-13 15:08:16,997 - __main__ - INFO - Fetching data for pump 881235: 2021-03-02 to 2021-04-01
+2025-10-13 15:08:18,937 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 15:08:18,974 - __main__ - INFO - Successfully fetched 73 records for pump 881235
+2025-10-13 15:08:18,975 - __main__ - INFO - Saved 73 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:08:19,477 - __main__ - INFO - Processing chunk 4/49: 2021-04-01 to 2021-05-01
+2025-10-13 15:08:19,477 - __main__ - INFO - Fetching data for pump 881235: 2021-04-01 to 2021-05-01
+2025-10-13 15:08:21,802 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 15:08:21,821 - __main__ - INFO - Successfully fetched 73 records for pump 881235
+2025-10-13 15:08:21,823 - __main__ - INFO - Saved 73 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:08:22,324 - __main__ - INFO - Processing chunk 5/49: 2021-05-01 to 2021-05-31
+2025-10-13 15:08:22,325 - __main__ - INFO - Fetching data for pump 881235: 2021-05-01 to 2021-05-31
+2025-10-13 15:08:24,489 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 15:08:24,508 - __main__ - INFO - Successfully fetched 73 records for pump 881235
+2025-10-13 15:08:24,509 - __main__ - INFO - Saved 73 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:08:25,011 - __main__ - INFO - Processing chunk 6/49: 2021-05-31 to 2021-06-30
+2025-10-13 15:08:25,012 - __main__ - INFO - Fetching data for pump 881235: 2021-05-31 to 2021-06-30
+2025-10-13 15:08:26,992 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 15:08:27,012 - __main__ - INFO - Successfully fetched 73 records for pump 881235
+2025-10-13 15:08:27,013 - __main__ - INFO - Saved 73 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:08:27,515 - __main__ - INFO - Processing chunk 7/49: 2021-06-30 to 2021-07-30
+2025-10-13 15:08:27,515 - __main__ - INFO - Fetching data for pump 881235: 2021-06-30 to 2021-07-30
+2025-10-13 15:08:29,472 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 15:08:29,491 - __main__ - INFO - Successfully fetched 73 records for pump 881235
+2025-10-13 15:08:29,492 - __main__ - INFO - Saved 73 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:08:29,994 - __main__ - INFO - Processing chunk 8/49: 2021-07-30 to 2021-08-29
+2025-10-13 15:08:29,995 - __main__ - INFO - Fetching data for pump 881235: 2021-07-30 to 2021-08-29
+2025-10-13 15:08:31,961 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 15:08:31,982 - __main__ - INFO - Successfully fetched 73 records for pump 881235
+2025-10-13 15:08:31,984 - __main__ - INFO - Saved 73 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:08:32,487 - __main__ - INFO - Processing chunk 9/49: 2021-08-29 to 2021-09-28
+2025-10-13 15:08:32,487 - __main__ - INFO - Fetching data for pump 881235: 2021-08-29 to 2021-09-28
+2025-10-13 15:08:34,438 - tconnectsync.api.tandemsource - INFO - Read 8008 bytes (est. 308.0 events)
+2025-10-13 15:08:34,457 - __main__ - INFO - Successfully fetched 73 records for pump 881235
+2025-10-13 15:08:34,458 - __main__ - INFO - Saved 73 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:08:34,960 - __main__ - INFO - Processing chunk 10/49: 2021-09-28 to 2021-10-28
+2025-10-13 15:08:34,960 - __main__ - INFO - Fetching data for pump 881235: 2021-09-28 to 2021-10-28
+2025-10-13 15:08:44,926 - tconnectsync.api.tandemsource - INFO - Read 482768 bytes (est. 18568.0 events)
+2025-10-13 15:08:45,748 - __main__ - INFO - Successfully fetched 75 records for pump 881235
+2025-10-13 15:08:45,753 - __main__ - INFO - Saved 75 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:08:46,255 - __main__ - INFO - Processing chunk 11/49: 2021-10-28 to 2021-11-27
+2025-10-13 15:08:46,255 - __main__ - INFO - Fetching data for pump 881235: 2021-10-28 to 2021-11-27
+2025-10-13 15:09:28,592 - tconnectsync.api.tandemsource - INFO - Read 2183974 bytes (est. 83999.0 events)
+2025-10-13 15:09:32,778 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:09:32,796 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:09:33,297 - __main__ - INFO - Processing chunk 12/49: 2021-11-27 to 2021-12-27
+2025-10-13 15:09:33,298 - __main__ - INFO - Fetching data for pump 881235: 2021-11-27 to 2021-12-27
+2025-10-13 15:10:19,263 - tconnectsync.api.tandemsource - INFO - Read 2098642 bytes (est. 80717.0 events)
+2025-10-13 15:10:23,290 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:10:23,306 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:10:23,808 - __main__ - INFO - Processing chunk 13/49: 2021-12-27 to 2022-01-26
+2025-10-13 15:10:23,808 - __main__ - INFO - Fetching data for pump 881235: 2021-12-27 to 2022-01-26
+2025-10-13 15:11:13,085 - tconnectsync.api.tandemsource - INFO - Read 2122744 bytes (est. 81644.0 events)
+2025-10-13 15:11:17,178 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:11:17,194 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:11:17,696 - __main__ - INFO - Processing chunk 14/49: 2022-01-26 to 2022-02-25
+2025-10-13 15:11:17,696 - __main__ - INFO - Fetching data for pump 881235: 2022-01-26 to 2022-02-25
+2025-10-13 15:12:59,628 - tconnectsync.api.tandemsource - INFO - Read 2261506 bytes (est. 86981.0 events)
+2025-10-13 15:13:03,807 - __main__ - INFO - Successfully fetched 10 records for pump 881235
+2025-10-13 15:13:03,823 - __main__ - INFO - Saved 10 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:13:04,325 - __main__ - INFO - Processing chunk 15/49: 2022-02-25 to 2022-03-27
+2025-10-13 15:13:04,325 - __main__ - INFO - Fetching data for pump 881235: 2022-02-25 to 2022-03-27
+2025-10-13 15:14:32,936 - tconnectsync.api.tandemsource - INFO - Read 2432690 bytes (est. 93565.0 events)
+2025-10-13 15:14:37,287 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:14:37,305 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:14:37,806 - __main__ - INFO - Processing chunk 16/49: 2022-03-27 to 2022-04-26
+2025-10-13 15:14:37,806 - __main__ - INFO - Fetching data for pump 881235: 2022-03-27 to 2022-04-26
+2025-10-13 15:16:05,387 - tconnectsync.api.tandemsource - INFO - Read 2097862 bytes (est. 80687.0 events)
+2025-10-13 15:16:09,380 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:16:09,393 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:16:09,894 - __main__ - INFO - Processing chunk 17/49: 2022-04-26 to 2022-05-26
+2025-10-13 15:16:09,895 - __main__ - INFO - Fetching data for pump 881235: 2022-04-26 to 2022-05-26
+2025-10-13 15:17:22,850 - tconnectsync.api.tandemsource - INFO - Read 2187562 bytes (est. 84137.0 events)
+2025-10-13 15:17:26,885 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:17:26,897 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:17:27,399 - __main__ - INFO - Processing chunk 18/49: 2022-05-26 to 2022-06-25
+2025-10-13 15:17:27,399 - __main__ - INFO - Fetching data for pump 881235: 2022-05-26 to 2022-06-25
+2025-10-13 15:18:58,698 - tconnectsync.api.tandemsource - INFO - Read 2167048 bytes (est. 83348.0 events)
+2025-10-13 15:19:02,774 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:19:02,787 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:19:03,288 - __main__ - INFO - Processing chunk 19/49: 2022-06-25 to 2022-07-25
+2025-10-13 15:19:03,289 - __main__ - INFO - Fetching data for pump 881235: 2022-06-25 to 2022-07-25
+2025-10-13 15:20:27,477 - tconnectsync.api.tandemsource - INFO - Read 2109120 bytes (est. 81120.0 events)
+2025-10-13 15:20:31,652 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:20:31,665 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:20:32,170 - __main__ - INFO - Processing chunk 20/49: 2022-07-25 to 2022-08-24
+2025-10-13 15:20:32,170 - __main__ - INFO - Fetching data for pump 881235: 2022-07-25 to 2022-08-24
+2025-10-13 15:22:16,465 - tconnectsync.api.tandemsource - INFO - Read 2195570 bytes (est. 84445.0 events)
+2025-10-13 15:22:20,519 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:22:20,533 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:22:21,036 - __main__ - INFO - Processing chunk 21/49: 2022-08-24 to 2022-09-23
+2025-10-13 15:22:21,036 - __main__ - INFO - Fetching data for pump 881235: 2022-08-24 to 2022-09-23
+2025-10-13 15:23:52,938 - tconnectsync.api.tandemsource - INFO - Read 1834326 bytes (est. 70551.0 events)
+2025-10-13 15:23:56,323 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:23:56,334 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:23:56,838 - __main__ - INFO - Processing chunk 22/49: 2022-09-23 to 2022-10-23
+2025-10-13 15:23:56,838 - __main__ - INFO - Fetching data for pump 881235: 2022-09-23 to 2022-10-23
+2025-10-13 15:24:58,244 - tconnectsync.api.tandemsource - WARNING - Received ApiException in TandemSourceApi with endpoint 'api/reports/reportsfacade/pumpevents/2d4c7be1-72ef-49e3-a4ed-1fa9cfd14abe/437688?minDate=2022-09-23&maxDate=2022-10-23&eventIds=229%2C5%2C28%2C4%2C26%2C99%2C279%2C3%2C16%2C59%2C21%2C55%2C20%2C280%2C64%2C65%2C66%2C61%2C33%2C371%2C171%2C369%2C460%2C172%2C370%2C461%2C372%2C399%2C256%2C213%2C406%2C394%2C212%2C404%2C214%2C405%2C447%2C313%2C60%2C14%2C6%2C90%2C230%2C140%2C12%2C11%2C53%2C13%2C63%2C203%2C307%2C191' (tries 0): TandemSourceApi HTTP 500 response: {"message":"An unexpected error occured"} (HTTP 500)
+2025-10-13 15:26:30,801 - tconnectsync.api.tandemsource - INFO - Read 2065336 bytes (est. 79436.0 events)
+2025-10-13 15:26:34,260 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:26:34,272 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:26:34,774 - __main__ - INFO - Processing chunk 23/49: 2022-10-23 to 2022-11-22
+2025-10-13 15:26:34,775 - __main__ - INFO - Fetching data for pump 881235: 2022-10-23 to 2022-11-22
+2025-10-13 15:27:36,055 - tconnectsync.api.tandemsource - WARNING - Received ApiException in TandemSourceApi with endpoint 'api/reports/reportsfacade/pumpevents/2d4c7be1-72ef-49e3-a4ed-1fa9cfd14abe/437688?minDate=2022-10-23&maxDate=2022-11-22&eventIds=229%2C5%2C28%2C4%2C26%2C99%2C279%2C3%2C16%2C59%2C21%2C55%2C20%2C280%2C64%2C65%2C66%2C61%2C33%2C371%2C171%2C369%2C460%2C172%2C370%2C461%2C372%2C399%2C256%2C213%2C406%2C394%2C212%2C404%2C214%2C405%2C447%2C313%2C60%2C14%2C6%2C90%2C230%2C140%2C12%2C11%2C53%2C13%2C63%2C203%2C307%2C191' (tries 0): TandemSourceApi HTTP 500 response: {"message":"An unexpected error occured"} (HTTP 500)
+2025-10-13 15:29:19,728 - tconnectsync.api.tandemsource - INFO - Read 2028364 bytes (est. 78014.0 events)
+2025-10-13 15:29:23,280 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:29:23,292 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:29:23,795 - __main__ - INFO - Processing chunk 24/49: 2022-11-22 to 2022-12-22
+2025-10-13 15:29:23,796 - __main__ - INFO - Fetching data for pump 881235: 2022-11-22 to 2022-12-22
+2025-10-13 15:29:33,764 - tconnectsync.api.tandemsource - INFO - Read 1966172 bytes (est. 75622.0 events)
+2025-10-13 15:29:37,223 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:29:37,233 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:29:37,735 - __main__ - INFO - Processing chunk 25/49: 2022-12-22 to 2023-01-21
+2025-10-13 15:29:37,735 - __main__ - INFO - Fetching data for pump 881235: 2022-12-22 to 2023-01-21
+2025-10-13 15:29:47,272 - tconnectsync.api.tandemsource - INFO - Read 2002468 bytes (est. 77018.0 events)
+2025-10-13 15:29:50,817 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:29:50,828 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:29:51,330 - __main__ - INFO - Processing chunk 26/49: 2023-01-21 to 2023-02-20
+2025-10-13 15:29:51,330 - __main__ - INFO - Fetching data for pump 881235: 2023-01-21 to 2023-02-20
+2025-10-13 15:30:00,259 - tconnectsync.api.tandemsource - INFO - Read 2026778 bytes (est. 77953.0 events)
+2025-10-13 15:30:03,779 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:30:03,790 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:30:04,292 - __main__ - INFO - Processing chunk 27/49: 2023-02-20 to 2023-03-22
+2025-10-13 15:30:04,292 - __main__ - INFO - Fetching data for pump 881235: 2023-02-20 to 2023-03-22
+2025-10-13 15:30:11,786 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:30:11,787 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (25 min 1 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 4 min 58 sec)
+2025-10-13 15:30:11,787 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:30:15,754 - tconnectsync.api.tandemsource - INFO - Read 2046850 bytes (est. 78725.0 events)
+2025-10-13 15:30:19,284 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:30:19,295 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:30:19,797 - __main__ - INFO - Processing chunk 28/49: 2023-03-22 to 2023-04-21
+2025-10-13 15:30:19,797 - __main__ - INFO - Fetching data for pump 881235: 2023-03-22 to 2023-04-21
+2025-10-13 15:30:20,798 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:30:20,799 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (25 min 10 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 4 min 49 sec)
+2025-10-13 15:30:20,799 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:30:24,884 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:30:24,885 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (25 min 14 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 4 min 45 sec)
+2025-10-13 15:30:24,885 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:30:28,440 - tconnectsync.api.tandemsource - INFO - Read 1964248 bytes (est. 75548.0 events)
+2025-10-13 15:30:31,860 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:30:31,870 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:30:32,372 - __main__ - INFO - Processing chunk 29/49: 2023-04-21 to 2023-05-21
+2025-10-13 15:30:32,372 - __main__ - INFO - Fetching data for pump 881235: 2023-04-21 to 2023-05-21
+2025-10-13 15:30:33,373 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:30:33,374 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (25 min 22 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 4 min 36 sec)
+2025-10-13 15:30:33,374 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:30:38,237 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:30:38,237 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (25 min 27 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 4 min 31 sec)
+2025-10-13 15:30:38,237 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:30:42,804 - tconnectsync.api.tandemsource - INFO - Read 2208206 bytes (est. 84931.0 events)
+2025-10-13 15:30:46,327 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:30:46,339 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:30:46,842 - __main__ - INFO - Processing chunk 30/49: 2023-05-21 to 2023-06-20
+2025-10-13 15:30:46,842 - __main__ - INFO - Fetching data for pump 881235: 2023-05-21 to 2023-06-20
+2025-10-13 15:30:47,843 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:30:47,844 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (25 min 37 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 4 min 22 sec)
+2025-10-13 15:30:47,844 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:30:56,347 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:30:56,347 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (25 min 45 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 4 min 13 sec)
+2025-10-13 15:30:56,347 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:31:00,520 - tconnectsync.api.tandemsource - INFO - Read 2629198 bytes (est. 101123.0 events)
+2025-10-13 15:31:04,449 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:31:04,463 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:31:04,964 - __main__ - INFO - Processing chunk 31/49: 2023-06-20 to 2023-07-20
+2025-10-13 15:31:04,965 - __main__ - INFO - Fetching data for pump 881235: 2023-06-20 to 2023-07-20
+2025-10-13 15:31:05,966 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:31:05,966 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (25 min 55 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 4 min 4 sec)
+2025-10-13 15:31:05,967 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:31:10,631 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:31:10,631 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (26 min ago), access token expiry 2025-10-13T22:35:10+00:00 (in 3 min 59 sec)
+2025-10-13 15:31:10,631 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:31:14,229 - tconnectsync.api.tandemsource - INFO - Read 2326688 bytes (est. 89488.0 events)
+2025-10-13 15:31:17,649 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:31:17,662 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:31:18,163 - __main__ - INFO - Processing chunk 32/49: 2023-07-20 to 2023-08-19
+2025-10-13 15:31:18,164 - __main__ - INFO - Fetching data for pump 881235: 2023-07-20 to 2023-08-19
+2025-10-13 15:31:19,165 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:31:19,165 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (26 min 8 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 3 min 50 sec)
+2025-10-13 15:31:19,165 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:31:24,534 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:31:24,535 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (26 min 14 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 3 min 45 sec)
+2025-10-13 15:31:24,535 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:31:28,549 - tconnectsync.api.tandemsource - INFO - Read 2761174 bytes (est. 106199.0 events)
+2025-10-13 15:31:32,699 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:31:32,714 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:31:33,215 - __main__ - INFO - Processing chunk 33/49: 2023-08-19 to 2023-09-18
+2025-10-13 15:31:33,216 - __main__ - INFO - Fetching data for pump 881235: 2023-08-19 to 2023-09-18
+2025-10-13 15:31:34,217 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:31:34,217 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (26 min 23 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 3 min 35 sec)
+2025-10-13 15:31:34,217 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:31:39,049 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:31:39,050 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (26 min 28 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 3 min 30 sec)
+2025-10-13 15:31:39,050 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:31:42,953 - tconnectsync.api.tandemsource - INFO - Read 2443376 bytes (est. 93976.0 events)
+2025-10-13 15:31:46,705 - __main__ - INFO - Successfully fetched 12 records for pump 881235
+2025-10-13 15:31:46,717 - __main__ - INFO - Saved 12 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:31:47,218 - __main__ - INFO - Processing chunk 34/49: 2023-09-18 to 2023-10-18
+2025-10-13 15:31:47,219 - __main__ - INFO - Fetching data for pump 881235: 2023-09-18 to 2023-10-18
+2025-10-13 15:31:48,220 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:31:48,220 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (26 min 37 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 3 min 21 sec)
+2025-10-13 15:31:48,220 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:31:52,155 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:31:52,155 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (26 min 41 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 3 min 17 sec)
+2025-10-13 15:31:52,155 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:31:55,833 - tconnectsync.api.tandemsource - INFO - Read 2376842 bytes (est. 91417.0 events)
+2025-10-13 15:31:59,278 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:31:59,292 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:31:59,794 - __main__ - INFO - Processing chunk 35/49: 2023-10-18 to 2023-11-17
+2025-10-13 15:31:59,794 - __main__ - INFO - Fetching data for pump 881235: 2023-10-18 to 2023-11-17
+2025-10-13 15:32:00,795 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:32:00,796 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (26 min 50 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 3 min 9 sec)
+2025-10-13 15:32:00,796 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:32:05,906 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:32:05,906 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (26 min 55 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 3 min 4 sec)
+2025-10-13 15:32:05,906 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:32:09,975 - tconnectsync.api.tandemsource - INFO - Read 2335320 bytes (est. 89820.0 events)
+2025-10-13 15:32:13,476 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:32:13,487 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:32:13,989 - __main__ - INFO - Processing chunk 36/49: 2023-11-17 to 2023-12-17
+2025-10-13 15:32:13,989 - __main__ - INFO - Fetching data for pump 881235: 2023-11-17 to 2023-12-17
+2025-10-13 15:32:14,990 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:32:14,991 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (27 min 4 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 2 min 55 sec)
+2025-10-13 15:32:14,991 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:32:19,773 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:32:19,773 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (27 min 9 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 2 min 50 sec)
+2025-10-13 15:32:19,773 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:32:25,092 - tconnectsync.api.tandemsource - INFO - Read 2371668 bytes (est. 91218.0 events)
+2025-10-13 15:32:28,624 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:32:28,636 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:32:29,137 - __main__ - INFO - Processing chunk 37/49: 2023-12-17 to 2024-01-16
+2025-10-13 15:32:29,137 - __main__ - INFO - Fetching data for pump 881235: 2023-12-17 to 2024-01-16
+2025-10-13 15:32:30,139 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:32:30,139 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (27 min 19 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 2 min 39 sec)
+2025-10-13 15:32:30,139 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:32:34,036 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:32:34,036 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (27 min 23 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 2 min 35 sec)
+2025-10-13 15:32:34,037 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:32:37,668 - tconnectsync.api.tandemsource - INFO - Read 2325440 bytes (est. 89440.0 events)
+2025-10-13 15:32:41,210 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:32:41,221 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:32:41,723 - __main__ - INFO - Processing chunk 38/49: 2024-01-16 to 2024-02-15
+2025-10-13 15:32:41,723 - __main__ - INFO - Fetching data for pump 881235: 2024-01-16 to 2024-02-15
+2025-10-13 15:32:42,724 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:32:42,725 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (27 min 32 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 2 min 27 sec)
+2025-10-13 15:32:42,725 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:32:47,258 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:32:47,258 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (27 min 36 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 2 min 22 sec)
+2025-10-13 15:32:47,259 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:32:51,225 - tconnectsync.api.tandemsource - INFO - Read 2384902 bytes (est. 91727.0 events)
+2025-10-13 15:32:54,857 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:32:54,870 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:32:55,371 - __main__ - INFO - Processing chunk 39/49: 2024-02-15 to 2024-03-16
+2025-10-13 15:32:55,371 - __main__ - INFO - Fetching data for pump 881235: 2024-02-15 to 2024-03-16
+2025-10-13 15:32:56,373 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:32:56,373 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (27 min 45 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 2 min 13 sec)
+2025-10-13 15:32:56,373 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:33:22,814 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:33:22,815 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (28 min 12 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 1 min 47 sec)
+2025-10-13 15:33:22,815 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:33:33,520 - tconnectsync.api.tandemsource - INFO - Read 2451826 bytes (est. 94301.0 events)
+2025-10-13 15:33:37,029 - __main__ - INFO - Successfully fetched 10 records for pump 881235
+2025-10-13 15:33:37,041 - __main__ - INFO - Saved 10 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:33:37,542 - __main__ - INFO - Processing chunk 40/49: 2024-03-16 to 2024-04-15
+2025-10-13 15:33:37,542 - __main__ - INFO - Fetching data for pump 881235: 2024-03-16 to 2024-04-15
+2025-10-13 15:33:38,544 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:33:38,544 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (28 min 28 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 1 min 31 sec)
+2025-10-13 15:33:38,544 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:33:45,069 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:33:45,070 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (28 min 34 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 1 min 24 sec)
+2025-10-13 15:33:45,070 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:33:49,500 - tconnectsync.api.tandemsource - INFO - Read 3436108 bytes (est. 132158.0 events)
+2025-10-13 15:33:54,642 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:33:54,661 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:33:55,162 - __main__ - INFO - Processing chunk 41/49: 2024-04-15 to 2024-05-15
+2025-10-13 15:33:55,163 - __main__ - INFO - Fetching data for pump 881235: 2024-04-15 to 2024-05-15
+2025-10-13 15:33:56,164 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:33:56,164 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (28 min 45 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 1 min 13 sec)
+2025-10-13 15:33:56,164 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:34:01,585 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:34:01,585 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (28 min 51 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 1 min 8 sec)
+2025-10-13 15:34:01,585 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:34:05,614 - tconnectsync.api.tandemsource - INFO - Read 2715518 bytes (est. 104443.0 events)
+2025-10-13 15:34:09,218 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:34:09,231 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:34:09,732 - __main__ - INFO - Processing chunk 42/49: 2024-05-15 to 2024-06-14
+2025-10-13 15:34:09,733 - __main__ - INFO - Fetching data for pump 881235: 2024-05-15 to 2024-06-14
+2025-10-13 15:34:10,734 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:34:10,734 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (29 min ago), access token expiry 2025-10-13T22:35:10+00:00 (in 59 sec)
+2025-10-13 15:34:10,734 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:34:16,127 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:34:16,127 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (29 min 5 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 53 sec)
+2025-10-13 15:34:16,127 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:34:20,859 - tconnectsync.api.tandemsource - INFO - Read 3023696 bytes (est. 116296.0 events)
+2025-10-13 15:34:24,562 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:34:24,576 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:34:25,077 - __main__ - INFO - Processing chunk 43/49: 2024-06-14 to 2024-07-14
+2025-10-13 15:34:25,077 - __main__ - INFO - Fetching data for pump 881235: 2024-06-14 to 2024-07-14
+2025-10-13 15:34:26,079 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:34:26,079 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (29 min 15 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 43 sec)
+2025-10-13 15:34:26,079 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:34:31,351 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:34:31,351 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (29 min 20 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 38 sec)
+2025-10-13 15:34:31,352 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:34:35,680 - tconnectsync.api.tandemsource - INFO - Read 2963818 bytes (est. 113993.0 events)
+2025-10-13 15:34:39,326 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:34:39,340 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:34:39,842 - __main__ - INFO - Processing chunk 44/49: 2024-07-14 to 2024-08-13
+2025-10-13 15:34:39,842 - __main__ - INFO - Fetching data for pump 881235: 2024-07-14 to 2024-08-13
+2025-10-13 15:34:40,843 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:34:40,844 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (29 min 30 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 29 sec)
+2025-10-13 15:34:40,844 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:34:46,331 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:34:46,331 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (29 min 35 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 23 sec)
+2025-10-13 15:34:46,332 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:34:50,534 - tconnectsync.api.tandemsource - INFO - Read 2978794 bytes (est. 114569.0 events)
+2025-10-13 15:34:54,281 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:34:54,295 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:34:54,796 - __main__ - INFO - Processing chunk 45/49: 2024-08-13 to 2024-09-12
+2025-10-13 15:34:54,797 - __main__ - INFO - Fetching data for pump 881235: 2024-08-13 to 2024-09-12
+2025-10-13 15:34:55,798 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:34:55,798 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (29 min 45 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 14 sec)
+2025-10-13 15:34:55,798 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:35:01,315 - tconnectsync.api.tandemsource - INFO - Logging in to TandemSourceApi (US region)...
+2025-10-13 15:35:01,316 - tconnectsync.api.tandemsource - INFO - Loaded cached credentials from /home/bolt/.config/tconnectsync/.creds_cache: saved at 2025-10-13T22:05:10.521012+00:00 (29 min 50 sec ago), access token expiry 2025-10-13T22:35:10+00:00 (in 8 sec)
+2025-10-13 15:35:01,316 - tconnectsync.api.tandemsource - INFO - Successfully used cached credentials
+2025-10-13 15:35:05,638 - tconnectsync.api.tandemsource - INFO - Read 2869256 bytes (est. 110356.0 events)
+2025-10-13 15:35:09,293 - __main__ - INFO - Successfully fetched 11 records for pump 881235
+2025-10-13 15:35:09,306 - __main__ - INFO - Saved 11 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:35:09,807 - __main__ - INFO - Processing chunk 46/49: 2024-09-12 to 2024-10-12
+2025-10-13 15:35:09,808 - __main__ - INFO - Fetching data for pump 881235: 2024-09-12 to 2024-10-12
+2025-10-13 15:35:18,643 - tconnectsync.api.tandemsource - INFO - Read 2315560 bytes (est. 89060.0 events)
+2025-10-13 15:35:21,530 - __main__ - INFO - Successfully fetched 9 records for pump 881235
+2025-10-13 15:35:21,541 - __main__ - INFO - Saved 9 records to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:35:22,042 - __main__ - INFO - Processing chunk 47/49: 2024-10-12 to 2024-11-11
+2025-10-13 15:35:22,042 - __main__ - INFO - Fetching data for pump 881235: 2024-10-12 to 2024-11-11
+2025-10-13 15:35:23,466 - __main__ - WARNING - No raw events returned for pump 881235 (2024-10-12 to 2024-11-11)
+2025-10-13 15:35:23,967 - __main__ - INFO - Processing chunk 48/49: 2024-11-11 to 2024-12-11
+2025-10-13 15:35:23,967 - __main__ - INFO - Fetching data for pump 881235: 2024-11-11 to 2024-12-11
+2025-10-13 15:35:25,391 - __main__ - WARNING - No raw events returned for pump 881235 (2024-11-11 to 2024-12-11)
+2025-10-13 15:35:25,892 - __main__ - INFO - Processing chunk 49/49: 2024-12-11 to 2024-12-31
+2025-10-13 15:35:25,893 - __main__ - INFO - Fetching data for pump 881235: 2024-12-11 to 2024-12-31
+2025-10-13 15:35:27,342 - __main__ - WARNING - No raw events returned for pump 881235 (2024-12-11 to 2024-12-31)
+2025-10-13 15:35:27,843 - __main__ - INFO - Sync completed for pump 881235
+2025-10-13 15:35:27,843 - __main__ - INFO - Total records processed: 1066
+2025-10-13 15:35:27,843 - __main__ - INFO - Merging pump CSVs into combined format...
+2025-10-13 15:35:27,850 - __main__ - INFO - Loaded 11 records from bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_combined.csv
+2025-10-13 15:35:27,853 - __main__ - INFO - Loaded 1077 records from bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_881235.csv
+2025-10-13 15:35:27,867 - __main__ - INFO - Merged 1088 records from 2 pumps to bloodBath/bloodBank/raw/data/lstm_ready/lstm_ready_combined.csv
+2025-10-13 15:35:27,887 - __main__ - INFO - Combined data summary:
+                      timestamp                      ... basal_rate bolus_dose
+                            min                 max  ...        std        sum
+pump_serial                                          ...                      
+881235      1970-01-05 17:55:00 1970-01-07 03:00:00  ...       2.89        0.0
+combined    1970-01-06 20:15:00 1970-01-06 21:05:00  ...       5.63        0.0
+
+[2 rows x 8 columns]
+
+Sync completed: 1/1 pumps successful
+  Pump 881235: ✅ SUCCESS
