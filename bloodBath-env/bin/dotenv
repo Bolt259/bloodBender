@@ -1,4 +1,4 @@
-#!/home/bolt/projects/bb/.venv/bin/python
+#!/home/bolt/projects/bb/bloodBath-env/bin/python3
 import sys
 from dotenv.__main__ import cli
 if __name__ == '__main__':
