@@ -11,9 +11,9 @@
 !bloodBath/
 !bloodBath/**/*
 
-# Include Senior-Project/ and all its contents
-!Senior-Project/
-!Senior-Project/**/*
+# Include bareMetalBender/ and all its contents
+!bareMetalBender/
+!bareMetalBender/**/*
 
 # Include bloodbank_download.py (main working version)
 !bloodbank_download.py

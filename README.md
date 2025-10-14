@@ -29,7 +29,7 @@ bloodBender/
 │   ├── spec/              # Design specifications
 │   └── bloodBank/         # Data storage (v2.0 architecture)
 │
-├── Senior-Project/        # C++ IVP solver for glucose modeling
+├── bareMetalBender/       # C++ IVP solver - embedded glucose dynamics engine
 │
 ├── bloodBath-env/         # Python virtual environment
 │
@@ -187,7 +187,7 @@ This repository is part of a senior project for diabetes prediction research. Th
 
 ### Key Components
 - **bloodBath Package**: Main processing system
-- **Senior-Project**: C++ IVP solver for glucose dynamics
+- **bareMetalBender**: C++ IVP solver - low-level glucose dynamics engine
 - **bloodbank_download.py**: Standalone download script with v2.0 fixes
 
 ## 📝 License

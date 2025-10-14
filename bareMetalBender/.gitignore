@@ -1,0 +1,5 @@
+*.o
+*.csv
+*.png
+VirtualPatient
+.vscode
