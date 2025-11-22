@@ -21,15 +21,20 @@
 # Include all bloodbank-related log files
 !bloodbank*.log
 
-# Include bloodBath-env/ and all its contents
-!bloodBath-env/
-!bloodBath-env/**/*
+# Exclude Python virtual environments
+bloodBath-env/
+.venv/
+env/
+venv/
 
 # Include this gitignore file
 !.gitignore
 
 # Include README if we create one
 !README.md
+
+# include shell run file
+!run_lstm_inference.sh
 
 # Standard Python excludes (even in included directories)
 **/__pycache__/

@@ -105,11 +105,11 @@
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  bloodTwin LSTM Training System                                 │
-│  - PyTorch Lightning trainer with GPU acceleration             │
+│  - PyTorch Lightning trainer with GPU acceleration              │
 │  - Mixed precision (FP16) training on CUDA                      │
 │  - Multi-pump unified model training                            │
 │  - TensorBoard logging and model checkpointing                  │
-│  - Export to TorchScript (.ts) and ONNX (.onnx)                │
+│  - Export to TorchScript (.ts) and ONNX (.onnx)                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -656,6 +656,7 @@ Example: 2025-10-13_pre_bg_fix/
 bloodTwin is the LSTM-based blood glucose prediction system that trains unified models on multi-pump data. It uses PyTorch Lightning for GPU-accelerated training with automatic mixed precision.
 
 **Key Features**:
+
 - Multi-pump unified training (learns from all patient data)
 - GPU acceleration with CUDA 11.8+ support
 - Mixed precision (FP16) training via Automatic Mixed Precision (AMP)
@@ -683,6 +684,7 @@ lstm_pump_data/
 **Processing Steps**:
 
 1. **Load Multi-Pump Data**
+
    ```python
    # Load train CSVs from all pumps
    for pump_id in config['data']['pump_ids']:
@@ -692,6 +694,7 @@ lstm_pump_data/
    ```
 
 2. **Fit RobustScaler**
+
    ```python
    # Fit on combined training data
    scaler = RobustScaler()
@@ -702,22 +705,23 @@ lstm_pump_data/
    ```
 
 3. **Create Sequences with NaN Filtering**
+
    ```python
    def _create_sequences():
        sequences = []
        for i in range(0, len(data) - total_length, stride):
            sequence = data.iloc[i:i + total_length]
-           
+
            # Skip if target (BG) has any NaN
            if sequence['bg'].isna().any():
                continue
-           
+
            # Skip if >10% features are NaN
-           nan_ratio = sequence[features].isna().sum().sum() / 
+           nan_ratio = sequence[features].isna().sum().sum() /
                       (len(sequence) * len(features))
            if nan_ratio > 0.1:
                continue
-           
+
            sequences.append((i, i + total_length))
        return sequences
    ```
@@ -747,7 +751,7 @@ class BloodTwinLSTM(pl.LightningModule):
                  dropout=0.2,
                  horizon=12):       # 60-min forecast
         super().__init__()
-        
+
         # LSTM encoder
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -756,7 +760,7 @@ class BloodTwinLSTM(pl.LightningModule):
             dropout=dropout,
             batch_first=True
         )
-        
+
         # Decoder (LSTM output → BG predictions)
         self.decoder = nn.Sequential(
             nn.Linear(hidden_size, hidden_size // 2),
@@ -764,17 +768,18 @@ class BloodTwinLSTM(pl.LightningModule):
             nn.Dropout(dropout),
             nn.Linear(hidden_size // 2, horizon)
         )
-    
+
     def forward(self, x):
         # x: (batch, lookback=288, features=8)
         lstm_out, (h_n, c_n) = self.lstm(x)
-        
+
         # Use final hidden state
         prediction = self.decoder(h_n[-1])  # (batch, horizon=12)
         return prediction
 ```
 
 **Input Features** (8 total):
+
 1. `bg` - Blood glucose (normalized)
 2. `delta_bg` - BG first difference (normalized)
 3. `basal_rate` - Insulin basal rate (normalized)
@@ -789,38 +794,42 @@ class BloodTwinLSTM(pl.LightningModule):
 ### 8.4 Training Configuration
 
 **Optimizer**: Adam
+
 - Learning rate: 1e-3
 - Weight decay: 1e-5 (L2 regularization)
 
 **Scheduler**: ReduceLROnPlateau
+
 - Monitor: validation MAE
 - Factor: 0.5 (halve LR on plateau)
 - Patience: 3 epochs
 - Min LR: 1e-6
 
 **Loss Function**: L1Loss (MAE)
+
 - More robust to outliers than MSE
 - Directly optimizes clinical metric
 
 **Metrics**:
+
 - MAE (Mean Absolute Error) - Primary metric
 - RMSE (Root Mean Squared Error)
 - Horizon-specific MAE (30-min, 60-min)
 
 **Callbacks**:
+
 1. **ModelCheckpoint**
    - Save top 3 models by validation MAE
    - Save last checkpoint for resume
-   
 2. **EarlyStopping**
    - Monitor: val_mae
    - Patience: 5 epochs
    - Min delta: 0.001
-   
 3. **LearningRateMonitor**
    - Log LR to TensorBoard
 
 **Mixed Precision Training**:
+
 ```python
 trainer = pl.Trainer(
     precision='16-mixed',  # Automatic Mixed Precision
@@ -830,6 +839,7 @@ trainer = pl.Trainer(
 ```
 
 Benefits:
+
 - 2-3x faster training on Tensor Cores
 - 50% reduced memory usage
 - Minimal accuracy loss
@@ -837,11 +847,13 @@ Benefits:
 ### 8.5 Training Process
 
 **Command**:
+
 ```bash
 python bloodTwin/pipelines/train_lstm.py --config bloodTwin/configs/lstm.yaml
 ```
 
 **Training Loop**:
+
 1. Load configuration
 2. Set random seed (42) for reproducibility
 3. Create dataloaders (train/val/test)
@@ -852,11 +864,13 @@ python bloodTwin/pipelines/train_lstm.py --config bloodTwin/configs/lstm.yaml
 8. Export model
 
 **Typical Training Time**:
+
 - Smoke test (1 epoch): ~15 seconds
 - Full training (50 epochs): ~20-40 minutes on RTX 2070 SUPER
 - Validation every epoch
 
 **GPU Utilization**:
+
 - Memory: ~2-3 GB / 8 GB
 - Utilization: 80-95% during training
 - Batch processing: ~25-30 it/s
@@ -866,6 +880,7 @@ python bloodTwin/pipelines/train_lstm.py --config bloodTwin/configs/lstm.yaml
 After training, models are exported to multiple formats:
 
 **1. PyTorch Lightning Checkpoint (.ckpt)**
+
 ```python
 # Saved automatically during training
 checkpoint_path = "artifacts/bloodTwin_unified_lstm/checkpoints/
@@ -873,6 +888,7 @@ checkpoint_path = "artifacts/bloodTwin_unified_lstm/checkpoints/
 ```
 
 **2. TorchScript (.ts)**
+
 ```python
 # Trace model with example input
 example_input = torch.randn(1, 288, 8, device='cuda')
@@ -881,11 +897,13 @@ model_scripted.save("artifacts/model.ts")
 ```
 
 Use cases:
+
 - C++ deployment
 - Embedded systems (with appropriate hardware)
 - Production inference without Python
 
 **3. ONNX (.onnx)**
+
 ```python
 torch.onnx.export(
     model,
@@ -900,6 +918,7 @@ torch.onnx.export(
 ```
 
 Use cases:
+
 - Cross-platform deployment
 - Inference on non-NVIDIA hardware
 - Integration with C#, Java, etc.
@@ -907,11 +926,13 @@ Use cases:
 ### 8.7 Monitoring and Visualization
 
 **TensorBoard**:
+
 ```bash
 tensorboard --logdir bloodTwin/analytics/tensorboard_logs
 ```
 
 Metrics logged:
+
 - Training/validation loss per step
 - MAE, RMSE per epoch
 - Learning rate schedule
@@ -919,6 +940,7 @@ Metrics logged:
 - Model architecture graph
 
 **Logs**:
+
 ```
 bloodTwin/
 ├── training.log          # Console output
@@ -930,19 +952,22 @@ bloodTwin/
 ### 8.8 Evaluation Pipeline
 
 **Test Metrics**:
+
 ```yaml
-test_mae: 25.27         # Overall MAE (mg/dL)
-test_rmse: 34.44        # Overall RMSE (mg/dL)
-test_mae_30min: 25.27   # 30-minute horizon MAE
-test_mae_60min: XX.XX   # 60-minute horizon MAE (future)
+test_mae: 25.27 # Overall MAE (mg/dL)
+test_rmse: 34.44 # Overall RMSE (mg/dL)
+test_mae_30min: 25.27 # 30-minute horizon MAE
+test_mae_60min: XX.XX # 60-minute horizon MAE (future)
 ```
 
 **Horizon-Specific Analysis**:
+
 - Evaluate accuracy at different forecast horizons
 - Plot error vs. prediction time
 - Analyze failure modes (e.g., during meals, exercise)
 
 **Clinical Metrics** (future):
+
 - Clarke Error Grid Analysis
 - Time in Range (70-180 mg/dL)
 - Hypoglycemia prediction accuracy
@@ -950,6 +975,7 @@ test_mae_60min: XX.XX   # 60-minute horizon MAE (future)
 ### 8.9 Inference Usage
 
 **Load Trained Model**:
+
 ```python
 from bloodTwin.models.lstm import BloodTwinLSTM
 import joblib
@@ -967,7 +993,7 @@ scaler = joblib.load("artifacts/bloodTwin_unified_lstm/scaler.pkl")
 
 # Prepare input (288 timesteps x 8 features)
 input_features = df[['bg', 'delta_bg', 'basal_rate', 'bolus_dose',
-                      'sin_time', 'cos_time', 'bg_clip_flag', 
+                      'sin_time', 'cos_time', 'bg_clip_flag',
                       'bg_missing_flag']].tail(288).values
 
 # Normalize
@@ -978,7 +1004,7 @@ input_features[:, :4] = input_scaled
 with torch.no_grad():
     input_tensor = torch.FloatTensor(input_features).unsqueeze(0).cuda()
     prediction = model(input_tensor)  # (1, 12)
-    
+
 # Denormalize
 bg_pred = scaler.inverse_transform(
     prediction.cpu().numpy().reshape(-1, 1)
@@ -990,6 +1016,7 @@ print(f"Next 60 minutes: {bg_pred}")
 ### 8.10 Performance Benchmarks
 
 **Smoke Test Results** (1 epoch, pump 881235):
+
 - Train sequences: 27,532
 - Val sequences: 5,888
 - Test sequences: 5,888
@@ -998,12 +1025,14 @@ print(f"Next 60 minutes: {bg_pred}")
 - Test RMSE: 34.44 mg/dL
 
 **Expected Full Training Results** (50 epochs, both pumps):
+
 - Total sequences: ~50,000-60,000
 - Training time: 20-40 minutes
 - Expected MAE: 20-30 mg/dL (30-min horizon)
 - Expected MAE: 30-40 mg/dL (60-min horizon)
 
 **Comparison to Clinical Standards**:
+
 - FDA guidance: RMSE < 40 mg/dL for CGM systems
 - Target: MAE < 25 mg/dL for 30-minute forecasts
 - Current smoke test: **Meeting target at 25.27 mg/dL**
@@ -1056,6 +1085,7 @@ print(f"Next 60 minutes: {bg_pred}")
 ### v2.1 (2025-10-14) - bloodTwin LSTM System
 
 **Added bloodTwin LSTM Training System**:
+
 - PyTorch Lightning-based LSTM model for BG prediction
 - Multi-pump unified training on combined datasets
 - GPU acceleration with CUDA 11.8 support
@@ -1066,6 +1096,7 @@ print(f"Next 60 minutes: {bg_pred}")
 - Model export to TorchScript (.ts) and ONNX (.onnx)
 
 **Training Infrastructure**:
+
 - Configurable via YAML (lstm.yaml, smoke_test.yaml)
 - ModelCheckpoint: Save top models by validation MAE
 - EarlyStopping: Prevent overfitting
@@ -1073,6 +1104,7 @@ print(f"Next 60 minutes: {bg_pred}")
 - Automatic artifact organization
 
 **Data Pipeline Updates**:
+
 - Created `split_lstm_data_v2.py` for chronological splitting
 - 70/15/15 train/validate/test split by time
 - Filters sequences with missing BG values
@@ -1080,6 +1112,7 @@ print(f"Next 60 minutes: {bg_pred}")
 - Preserves temporal ordering
 
 **Performance**:
+
 - Smoke test: 25.27 mg/dL MAE @ 30-min horizon
 - Training speed: ~25-30 it/s on RTX 2070 SUPER
 - Memory efficient: ~2-3 GB GPU usage
