@@ -48,6 +48,7 @@ venv/
 # Environment variables and secrets
 **/.env
 **/secret.py
+!**/.env.example
 
 # IDE settings
 **/.vscode/
