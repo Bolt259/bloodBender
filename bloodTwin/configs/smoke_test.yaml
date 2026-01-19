@@ -1,0 +1,114 @@
+# bloodTwin LSTM Smoke Test Configuration
+# Quick training run to verify pipeline works
+
+# Model Architecture (smaller for smoke test)
+model:
+  name: "bloodTwin_smoke_test"
+  hidden_size: 64
+  num_layers: 1
+  dropout: 0.1
+  bidirectional: false
+
+# Data Configuration
+data:
+  # Use the chronologically split data
+  train_dir: "bloodBath/bloodBank/lstm_pump_data"
+  pump_ids:
+    - "881235" # Just one pump for smoke test
+
+  # Features (must match CSV column order after timestamp)
+  features:
+    - bg
+    - delta_bg
+    - basal_rate
+    - bolus_dose
+    - sin_time
+    - cos_time
+    - bg_clip_flag
+    - bg_missing_flag
+
+  target: bg # Predicting blood glucose
+
+  # Sequence parameters (smaller for smoke test)
+  lookback: 144 # 12 hours @ 5-min intervals
+  horizon: 6 # 30 minutes forecast
+  stride: 10 # Skip more data for speed
+
+  # Preprocessing
+  scaler_type: "robust"
+  save_scaler: true
+
+# Training Configuration (fast settings)
+training:
+  batch_size: 64
+  max_epochs: 1 # Just 1 epoch
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-5
+
+  # Optimization
+  optimizer: "adam"
+  scheduler: null # Disable scheduler for smoke test
+
+  # Gradient clipping
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"
+
+  # Mixed precision training (AMP)
+  precision: "16-mixed"
+
+  # Early stopping (disabled for smoke test)
+  early_stopping: null
+
+  # Checkpointing
+  checkpoint:
+    monitor: "val_mae"
+    mode: "min"
+    save_top_k: 1
+    save_last: true
+    filename: "smoke-test-{epoch:02d}"
+
+# Data Loading
+dataloader:
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: false
+  prefetch_factor: 2
+
+# Validation
+validation:
+  check_val_every_n_epoch: 1
+  val_check_interval: 1.0
+
+# Metrics
+metrics:
+  - mae
+  - rmse
+
+# Logging
+logging:
+  tensorboard: true
+  log_dir: "bloodTwin/analytics/smoke_test_logs"
+  log_every_n_steps: 10
+
+# Artifacts
+artifacts:
+  save_dir: "bloodTwin/artifacts/smoke_test"
+  export_formats:
+    - "checkpoint"
+
+# Compute
+compute:
+  accelerator: "gpu"
+  devices: 1
+  strategy: "auto"
+  deterministic: false
+
+# Reproducibility
+seed: 42
+
+# Physiological Constraints
+constraints:
+  bg_min: 20
+  bg_max: 600
+  basal_max: 10.0
+  bolus_max: 25.0

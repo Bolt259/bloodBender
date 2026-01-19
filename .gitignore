@@ -11,6 +11,10 @@
 !bloodBath/
 !bloodBath/**/*
 
+# Include bloodTwin/ and all its contents
+!bloodTwin/
+!bloodTwin/**/*
+
 # Include bareMetalBender/ and all its contents
 !bareMetalBender/
 !bareMetalBender/**/*
@@ -21,6 +25,13 @@
 # Include all bloodbank-related log files
 !bloodbank*.log
 
+# Include shell run file
+!run_lstm_inference.sh
+
+# Include README and documentation
+!README.md
+!CODEBASE_CONTEXT.md
+
 # Exclude Python virtual environments
 bloodBath-env/
 .venv/
@@ -29,12 +40,6 @@ venv/
 
 # Include this gitignore file
 !.gitignore
-
-# Include README if we create one
-!README.md
-
-# include shell run file
-!run_lstm_inference.sh
 
 # Standard Python excludes (even in included directories)
 **/__pycache__/
@@ -77,5 +82,18 @@ venv/
 **/tmp/
 **/.pytest_cache/
 **/.coverage
+
 # Ignore generated LSTM CSV datasets
 bloodBath/bloodBank/lstm_pump_data/**/*.csv
+
+# Exclude massive artifact data (but keep models)
+bloodTwin/artifacts/**/*.csv
+bloodTwin/analytics/tensorboard_logs/**/*.csv
+
+# Keep model files and configs
+!bloodTwin/artifacts/**/*.ckpt
+!bloodTwin/artifacts/**/*.ts
+!bloodTwin/artifacts/**/*.onnx
+!bloodTwin/artifacts/**/*.pkl
+!bloodTwin/artifacts/**/*.yaml
+!bloodTwin/configs/**/*.yaml

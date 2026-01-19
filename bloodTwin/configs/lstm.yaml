@@ -1,0 +1,142 @@
+# bloodTwin LSTM Configuration
+# Unified model trained on both pump datasets
+
+# Model Architecture
+model:
+  name: "bloodTwin_unified_lstm"
+  hidden_size: 128
+  num_layers: 2
+  dropout: 0.2
+  bidirectional: false
+
+# Data Configuration
+data:
+  # Use the chronologically split data
+  train_dir: "bloodBath/bloodBank/lstm_pump_data"
+  pump_ids:
+    - "881235"
+    - "901161470"
+
+  # Features (must match CSV column order after timestamp)
+  features:
+    - bg
+    - delta_bg
+    - basal_rate
+    - bolus_dose
+    - sin_time
+    - cos_time
+    - bg_clip_flag
+    - bg_missing_flag
+
+  target: bg # Predicting blood glucose
+
+  # Sequence parameters
+  lookback: 288 # 24 hours @ 5-min intervals (24 * 60 / 5 = 288)
+  horizon: 12 # 60 minutes forecast @ 5-min intervals (60 / 5 = 12)
+  stride: 1 # Slide window by 1 step (dense sampling)
+
+  # Preprocessing
+  scaler_type: "robust" # RobustScaler for outlier resistance
+  save_scaler: true
+
+# Training Configuration
+training:
+  batch_size: 128
+  max_epochs: 50
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-5
+
+  # Optimization
+  optimizer: "adam"
+  scheduler: "reduce_on_plateau"
+  scheduler_params:
+    mode: "min"
+    factor: 0.5
+    patience: 3
+    min_lr: 1.0e-6
+
+  # Gradient clipping
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"
+
+  # Mixed precision training (AMP)
+  precision: "16-mixed" # Use Tensor Cores on RTX 2070 SUPER
+
+  # Early stopping
+  early_stopping:
+    monitor: "val_mae"
+    patience: 5
+    mode: "min"
+    min_delta: 0.001
+
+  # Checkpointing
+  checkpoint:
+    monitor: "val_mae"
+    mode: "min"
+    save_top_k: 3
+    save_last: true
+    filename: "bloodtwin-{epoch:02d}-{val_mae:.3f}"
+
+# Data Loading
+dataloader:
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+
+# Validation
+validation:
+  check_val_every_n_epoch: 1
+  val_check_interval: 1.0 # Check validation at end of each epoch
+
+# Metrics
+metrics:
+  - mae
+  - rmse
+  - mape
+  - r2
+
+# Horizon-specific metrics (minutes)
+horizon_checkpoints:
+  - 30 # 30 minutes (6 steps)
+  - 60 # 60 minutes (12 steps)
+
+# Logging
+logging:
+  tensorboard: true
+  log_dir: "bloodTwin/analytics/tensorboard_logs"
+  log_every_n_steps: 50
+
+# Artifacts
+artifacts:
+  save_dir: "bloodTwin/artifacts"
+  export_formats:
+    - "checkpoint" # .ckpt (PyTorch Lightning)
+    - "torchscript" # .ts (TorchScript for deployment)
+    - "onnx" # .onnx (ONNX for cross-platform)
+
+  # ONNX export settings
+  onnx:
+    opset_version: 17
+    input_names: ["input"]
+    output_names: ["prediction"]
+    dynamic_axes:
+      input: { 0: "batch_size" }
+      prediction: { 0: "batch_size" }
+
+# Compute
+compute:
+  accelerator: "gpu"
+  devices: 1
+  strategy: "auto"
+  deterministic: false # Set true for reproducibility (slower)
+
+# Reproducibility
+seed: 42
+
+# Physiological Constraints
+constraints:
+  bg_min: 20 # mg/dL (from bloodBath spec)
+  bg_max: 600 # mg/dL (from bloodBath spec)
+  basal_max: 10.0 # U/hr (conservative maximum)
+  bolus_max: 25.0 # U (conservative maximum)

@@ -1,0 +1,10 @@
+bg_max: 600
+bg_min: 20
+dropout: 0.1
+hidden_size: 64
+horizon: 6
+input_size: 8
+learning_rate: 0.001
+num_layers: 1
+scheduler_params: null
+weight_decay: 1.0e-05
