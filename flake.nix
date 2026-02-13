@@ -90,6 +90,7 @@
         # Development tools
         devTools = with pkgs; [
           git
+          uv
           direnv
           nix-direnv
           
@@ -184,10 +185,7 @@
 
       in
       {
-        # Default development shell
-        devShells.default = devShell;
-        
-        # Alternative shells
+        # Development shells
         devShells = {
           default = devShell;
           python = pythonOnlyShell;
