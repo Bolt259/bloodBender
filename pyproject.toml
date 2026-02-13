@@ -1,0 +1,139 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bloodBender"
+version = "2.0.0"
+description = "Advanced Tandem Insulin Pump Data Synchronization & ML Prediction System"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "bloodBender Team", email = "dev@bloodbender.local"}
+]
+keywords = ["diabetes", "insulin-pump", "tandem", "machine-learning", "lstm", "cgm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "numpy>=2.0.0",
+    "pandas>=2.2.0",
+    "arrow>=1.3.0",
+    "requests>=2.31.0",
+    "certifi>=2024.0.0",
+    "pytz>=2024.1",
+    "python-dateutil>=2.8.0",
+    "pyyaml>=6.0",
+    "coloredlogs>=15.0",
+]
+
+[project.optional-dependencies]
+ml = [
+    "torch>=2.0.0",
+    "pytorch-lightning>=2.0.0",
+    "torchmetrics>=1.0.0",
+    "onnx>=1.15.0",
+    "onnxruntime-gpu>=1.16.0; platform_system == 'Linux'",
+    "onnxruntime>=1.16.0; platform_system != 'Linux'",
+]
+
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+    "ipython>=8.0.0",
+    "jupyter>=1.0.0",
+]
+
+test = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-xdist>=3.3.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Bolt259/bloodBender"
+Documentation = "https://github.com/Bolt259/bloodBender/blob/main/README.md"
+Repository = "https://github.com/Bolt259/bloodBender"
+Issues = "https://github.com/Bolt259/bloodBender/issues"
+
+[project.scripts]
+bloodBath = "bloodBath.cli.main:main"
+
+[tool.setuptools]
+packages = ["bloodBath", "bloodTwin"]
+
+[tool.setuptools.package-data]
+bloodBath = ["**/*.yaml", "**/*.json", "**/*.md"]
+bloodTwin = ["**/*.yaml", "**/*.json", "**/*.md"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.git
+  | \.nix
+  | \.venv
+  | bloodBath-env
+  | __pycache__
+  | build
+  | dist
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["bloodBath/test_scripts", "bloodTwin"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "gpu: marks tests requiring GPU",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["bloodBath", "bloodTwin"]
+omit = [
+    "*/test_*",
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

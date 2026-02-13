@@ -27,16 +27,35 @@
 
 # Include shell run file
 !run_lstm_inference.sh
+!cleanup_deprecated.sh
+!monitor_sync.sh
 
 # Include README and documentation
 !README.md
 !CODEBASE_CONTEXT.md
+!NIX*.md
+!CLEANUP_SUMMARY.md
 
-# Exclude Python virtual environments
+# Exclude Python virtual environments (legacy - use Nix now!)
 bloodBath-env/
+bloodBath-env.bak/
 .venv/
 env/
 venv/
+
+# Nix development environment (managed by flake)
+.direnv/
+.envrc.cache
+result
+result-*
+
+# Include Nix configuration files
+!flake.nix
+!flake.lock
+!.envrc
+!pyproject.toml
+!NIX*.md
+!CLEANUP_SUMMARY.md
 
 # Include this gitignore file
 !.gitignore
