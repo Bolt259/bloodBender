@@ -192,6 +192,9 @@
           cpp = cppOnlyShell;
         };
 
+        # Legacy attribute for older Nix versions
+        devShell = devShells.default;
+
         # Packages
         packages = {
           # bloodBath Python package
@@ -240,6 +243,9 @@
             };
           };
         };
+
+        # Legacy default package for older Nix versions
+        defaultPackage = packages.bloodBath;
 
         # Apps (runnable commands)
         apps = {
