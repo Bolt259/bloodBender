@@ -75,6 +75,7 @@ graph LR
 ## 📊 bloodBath: Data Synchronization Module
 
 ### Purpose
+
 Fetch, clean, validate, and prepare Tandem pump data for ML training.
 
 ### Architecture (v2.0)
@@ -130,6 +131,7 @@ bloodBath/
 ### Key Features (v2.0)
 
 **Data Processing:**
+
 - **5-minute resampling**: Standardized temporal resolution
 - **Smart gap handling**: Preserve NaN for missing BG (no synthetic fills)
 - **Extended range**: 20-600 mg/dL (expanded from 40-400)
@@ -138,12 +140,14 @@ bloodBath/
 - **Chronological splits**: 70/15/15 train/val/test by time
 
 **Data Quality:**
+
 - **Post-processing cleanup**: Remove 100% invalid files
 - **Validation pipeline**: Timestamps, ranges, schemas, continuity
 - **Archival system**: Preserve data before regeneration
 - **Comprehensive logging**: Track all operations
 
 **CLI Commands:**
+
 ```bash
 python -m bloodBath sync --pump-serial 123456 --start-date 2024-01-01
 python -m bloodBath status
@@ -152,6 +156,7 @@ python -m bloodBath create-config
 ```
 
 ### Current Data Coverage
+
 - **Pump 881235**: 2021-10-22 to 2024-10-06 (~1.2M records, 45 files)
 - **Pump 901161470**: 2024-10-07 to 2025-10-11 (~883K records, 23 files)
 - **Total**: 54 valid files, ~2.1M records post-cleanup
@@ -161,6 +166,7 @@ python -m bloodBath create-config
 ## 🤖 bloodTwin: LSTM Prediction Module
 
 ### Purpose
+
 Train and deploy LSTM models for 60-minute blood glucose prediction.
 
 ### Architecture
@@ -196,6 +202,7 @@ bloodTwin/
 ### Model Specifications
 
 **Input Features (8 dimensions):**
+
 1. `bg` - Blood glucose (mg/dL)
 2. `delta_bg` - Rate of change
 3. `basal_rate` - Basal insulin (U/hr)
@@ -206,12 +213,14 @@ bloodTwin/
 8. `bg_missing_flag` - Data gap indicator
 
 **Architecture:**
+
 - **Encoder**: 2-layer LSTM, 128 hidden units, dropout 0.2
 - **Decoder**: 2-layer feedforward (128 → 12)
 - **Lookback window**: 288 steps (24 hours @ 5-min)
 - **Forecast horizon**: 12 steps (60 minutes @ 5-min)
 
 **Training:**
+
 - **Loss**: MAE (L1) for outlier robustness
 - **Optimizer**: Adam (lr=1e-3, weight_decay=1e-5)
 - **Scheduler**: ReduceLROnPlateau (factor=0.5, patience=3)
@@ -221,11 +230,13 @@ bloodTwin/
 - **Gradient clipping**: 1.0 norm
 
 **Performance Targets:**
+
 - MAE < 15 mg/dL @ 30-min horizon
 - MAE < 20 mg/dL @ 60-min horizon
 - RMSE < 25 mg/dL overall
 
 **Exports:**
+
 - `.ckpt` - PyTorch Lightning checkpoints
 - `.ts` - TorchScript for Python inference
 - `.onnx` - Cross-platform deployment
@@ -252,6 +263,7 @@ model = torch.jit.load('bloodTwin/artifacts/.../model.ts')
 ## ⚙️ bareMetalBender: C++ Dynamics Solver
 
 ### Purpose
+
 High-performance numerical solver for glucose-insulin dynamics, providing physics-based validation and embedded deployment path.
 
 ### Architecture
@@ -287,6 +299,7 @@ python plot_data.py  # Visualize results
 ### Integration
 
 While bloodBath handles data processing and bloodTwin handles ML predictions, bareMetalBender provides:
+
 - Mathematical validation of LSTM predictions
 - Embedded systems deployment pathway
 - Real-time computation for closed-loop systems
@@ -299,12 +312,14 @@ While bloodBath handles data processing and bloodTwin handles ML predictions, ba
 ### Environment Setup
 
 **Legacy (venv):**
+
 ```bash
 source bloodBath-env/bin/activate
 pip install -r requirements.txt  # What requirements.txt?
 ```
 
 **Current (Nix - NEW!):**
+
 ```bash
 nix develop  # Everything just works!
 ```
@@ -312,6 +327,7 @@ nix develop  # Everything just works!
 ### Configuration Management
 
 **Environment Variables (`.env`):**
+
 ```bash
 # Tandem API Credentials
 TCONNECT_EMAIL=user@example.com
@@ -326,6 +342,7 @@ BLOODBATH_LOG_LEVEL=INFO
 ```
 
 **YAML Configs:**
+
 - `bloodTwin/configs/lstm.yaml` - ML training parameters
 - `bloodTwin/configs/smoke_test.yaml` - Quick validation
 
@@ -513,28 +530,33 @@ python -m pytest --cov=bloodBath bloodBath/test_scripts/
 ## 🚀 Quick Start Commands
 
 ### Setup (Nix)
+
 ```bash
 nix develop
 ```
 
 ### Data Sync
+
 ```bash
 python -m bloodBath sync --pump-serial 881235 --start-date 2024-01-01
 python -m bloodBath status
 ```
 
 ### ML Training
+
 ```bash
 python bloodTwin/pipelines/train_lstm.py
 tensorboard --logdir bloodTwin/analytics/tensorboard_logs
 ```
 
 ### C++ Solver
+
 ```bash
 cd bareMetalBender && make && ./ivp
 ```
 
 ### Testing
+
 ```bash
 python -m pytest bloodBath/test_scripts/
 python bloodTwin/smoke_test.py
@@ -558,6 +580,7 @@ python bloodTwin/smoke_test.py
 ## 🔗 Dependencies
 
 ### Python (71 packages via Nix)
+
 - **Core**: numpy, pandas, pytz, arrow
 - **ML**: torch, pytorch-lightning, torchmetrics
 - **ONNX**: onnx, onnxruntime-gpu
@@ -565,11 +588,13 @@ python bloodTwin/smoke_test.py
 - **Dev**: pytest, black, mypy, jupyter
 
 ### C++
+
 - **Compiler**: gcc/g++
 - **Build**: GNU Make
 - **Standard**: C++11+
 
 ### System
+
 - **CUDA**: 11.8 (for PyTorch GPU)
 - **Nix**: For reproducible environment
 

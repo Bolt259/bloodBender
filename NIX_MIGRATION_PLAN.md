@@ -9,6 +9,7 @@
 ## 📋 Overview
 
 This document outlines the comprehensive plan to:
+
 1. Remove deprecated modules and legacy code
 2. Migrate from Python venv (`bloodBath-env/`) to Nix-based dependency management
 3. Set up a reproducible development environment with Nix flakes
@@ -20,6 +21,7 @@ This document outlines the comprehensive plan to:
 ### Folders to Remove
 
 #### High Priority (Safe to Remove)
+
 1. **`sweetBloodDeprecated/`**
    - **Status:** Fully deprecated, replaced by bloodBank v2.0
    - **Size:** ~10+ subdirectories
@@ -61,6 +63,7 @@ This document outlines the comprehensive plan to:
    - **Notes:** Current training handled by `bloodTwin/pipelines/`
 
 #### Root-Level Test Scripts (Consider Consolidation)
+
 - `test_*.py` files in root (30+ files)
 - **Action:** Review and either move to `bloodBath/test_scripts/` or remove if obsolete
 - **Examples:**
@@ -71,12 +74,14 @@ This document outlines the comprehensive plan to:
   - etc.
 
 #### Log Files (Archive or Clean)
+
 - `bloodbank_*.log` (40+ log files)
 - `csv_repair_*.log`
 - `csv_repair_summary_*.json`
 - **Action:** Archive critical logs, remove routine operation logs
 
 #### Deprecated Scripts
+
 - `batch_csv_repair.py` (if replaced by new validation)
 - `bloodBathMaker.py` (purpose unclear, likely old)
 - `bloodBath_data_consolidator.py` (if replaced)
@@ -86,7 +91,9 @@ This document outlines the comprehensive plan to:
 ### Code Cleanup
 
 #### Files with Deprecated Stubs
+
 - **`bloodBath/cli/main.py`**: Contains deprecated sweetBlood compatibility stubs
+
   ```python
   # Lines 38-56: Remove deprecated stubs after confirming no usage
   def add_sweetblood_args(parser): ...
@@ -94,7 +101,7 @@ This document outlines the comprehensive plan to:
   class SweetBloodIntegration: ...
   ```
 
-- **`bloodBath/utils/structure_utils.py`**: 
+- **`bloodBath/utils/structure_utils.py`**:
   - `setup_sweetblood_environment()` - marked as deprecated
   - `create_sweetblood_structure()` - check for usage
 
@@ -103,6 +110,7 @@ This document outlines the comprehensive plan to:
   - Wraps `UnifiedDataProcessor` for backward compatibility
 
 #### Deprecation Strategy
+
 1. ✅ Search codebase for usage of deprecated functions
 2. ✅ Update callers to use new v2.0 APIs
 3. ✅ Remove deprecated compatibility layers
@@ -115,12 +123,13 @@ This document outlines the comprehensive plan to:
 ### Current Python Environment Analysis
 
 **Dependencies (from `bloodBath-env/`):**
+
 - Core: `numpy==2.2.6`, `pandas==2.3.3`
 - ML: `torch==2.7.1+cu118`, `pytorch-lightning==2.5.5`, `torchmetrics==1.8.2`
 - ONNX: `onnx==1.19.1`, `onnxruntime-gpu==1.23.0`
 - CUDA: Multiple `nvidia-*` packages (CUDA 11.8)
 - Utils: `arrow`, `coloredlogs`, `humanfriendly`, `certifi`
-- API: `tconnectsync` (local package in `tconnectsync-bb/`)
+- API: `bloodBath.api` (integrated tconnectsync functionality)
 
 **Total:** 71 packages
 
@@ -166,24 +175,30 @@ bloodBender/
 ### Nix Flake Implementation
 
 #### Step 1: Create `pyproject.toml`
+
 Convert project to modern Python package with proper metadata.
 
 #### Step 2: Create `flake.nix`
+
 Define reproducible development environments:
+
 - Python environment with all dependencies
 - CUDA support for GPU acceleration
 - C++ build tools for bareMetalBender
 - Multiple shells for different use cases
 
 #### Step 3: Pin Dependencies
+
 Lock all package versions for reproducibility.
 
 #### Step 4: Create Helper Scripts
+
 - `nix/scripts/enter-env.sh` - Enter development shell
 - `nix/scripts/build-cpp.sh` - Build C++ components
 - `nix/scripts/run-training.sh` - Run ML training
 
 #### Step 5: Documentation
+
 - `NIX_QUICK_START.md` - Getting started guide
 - `NIX_TROUBLESHOOTING.md` - Common issues
 - Update main README with Nix instructions
@@ -193,6 +208,7 @@ Lock all package versions for reproducibility.
 ## 🚀 Phase 3: Migration Execution
 
 ### Pre-Migration Checklist
+
 - [x] Create git branch for changes
 - [ ] Archive critical logs and data
 - [ ] Document current environment state
@@ -202,6 +218,7 @@ Lock all package versions for reproducibility.
 ### Migration Steps
 
 #### 1. Deprecated Code Removal (Safe)
+
 ```bash
 # Remove deprecated folders
 git rm -rf sweetBloodDeprecated/
@@ -223,6 +240,7 @@ git commit -m "Remove deprecated modules and legacy code"
 ```
 
 #### 2. Code Cleanup
+
 ```bash
 # Remove deprecated function stubs
 # Update imports and references
@@ -231,6 +249,7 @@ git commit -m "Remove deprecated compatibility stubs"
 ```
 
 #### 3. Nix Flake Creation
+
 ```bash
 # Create flake structure
 # Define dependencies
@@ -240,6 +259,7 @@ git commit -m "Add Nix flake for reproducible builds"
 ```
 
 #### 4. Replace venv with Nix
+
 ```bash
 # Update .gitignore
 # Add bloodBath-env/ to ignore (will be removed after migration)
@@ -248,6 +268,7 @@ git commit -m "Migrate from venv to Nix-based dependency management"
 ```
 
 #### 5. Verify Everything Works
+
 ```bash
 # Enter Nix shell
 nix develop
@@ -270,6 +291,7 @@ cd bareMetalBender && make clean && make
 ## 🎯 Success Criteria
 
 ### Code Cleanup
+
 - ✅ All deprecated folders removed
 - ✅ No broken import statements
 - ✅ All tests pass
@@ -277,6 +299,7 @@ cd bareMetalBender && make clean && make
 - ✅ Reduced repository size
 
 ### Nix Migration
+
 - ✅ `nix develop` enters working environment
 - ✅ All Python dependencies available
 - ✅ CUDA/PyTorch GPU support works
@@ -289,12 +312,14 @@ cd bareMetalBender && make clean && make
 ## 📊 Benefits
 
 ### After Cleanup
+
 - **Smaller repository**: Remove ~500MB+ of deprecated code
 - **Clearer structure**: No confusion about which modules to use
 - **Easier maintenance**: Less code to maintain
 - **Faster CI/CD**: Fewer files to process
 
 ### After Nix Migration
+
 - **Reproducibility**: Exact same environment on any machine
 - **Version control**: Dependencies locked in Git
 - **No more "works on my machine"**: Hermetic builds
@@ -307,12 +332,11 @@ cd bareMetalBender && make clean && make
 ## 🚨 Risks & Mitigation
 
 ### Risks
+
 1. **Breaking changes**: Removing code that's still used
    - **Mitigation**: Thorough grep search, test suite before merge
-   
 2. **Lost historical context**: Important logs deleted
    - **Mitigation**: Archive critical logs before deletion
-   
 3. **Nix learning curve**: Team unfamiliar with Nix
    - **Mitigation**: Comprehensive documentation, fallback scripts
 
@@ -320,6 +344,7 @@ cd bareMetalBender && make clean && make
    - **Mitigation**: Test on actual hardware, provide CPU-only option
 
 ### Rollback Plan
+
 ```bash
 # If anything breaks, rollback is simple:
 git checkout main
@@ -331,7 +356,7 @@ git branch -D cleanup/deprecated-modules-and-nix-migration
 ## 📅 Timeline
 
 - **Phase 1 (Cleanup)**: 2-4 hours
-- **Phase 2 (Nix Setup)**: 4-6 hours  
+- **Phase 2 (Nix Setup)**: 4-6 hours
 - **Phase 3 (Testing)**: 2-3 hours
 - **Total**: ~1-2 days
 
@@ -347,6 +372,7 @@ git branch -D cleanup/deprecated-modules-and-nix-migration
 ---
 
 **Next Steps:**
+
 1. Review this plan with team
 2. Archive any critical data
 3. Execute Phase 1 (cleanup)

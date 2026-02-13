@@ -640,8 +640,8 @@ def cmd_unified_lstm(args):
         if args.source_dir:
             source_dir = Path(args.source_dir)
         else:
-            # Use testing data directory as default
-            source_dir = Path("tconnectsync-bb/testing_sweetBlood")
+            # Use bloodBank data directory as default
+            source_dir = BLOODBANK_ROOT
             print(f"No source directory specified, using default: {source_dir}")
         
         if not source_dir.exists():

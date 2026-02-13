@@ -11,6 +11,7 @@
 ### 1. Comprehensive Codebase Analysis ✅
 
 **Identified Deprecated Modules:**
+
 - `sweetBloodDeprecated/` - Old sweetBlood module (replaced by bloodBank v2.0)
 - `bloodBath-env.bak/` - Backup virtual environment (~500MB)
 - `training_data_legacy/` - Pre-v2.0 training data
@@ -21,8 +22,9 @@
 - 40+ log files - Historical operation logs
 
 **Deprecated Code Stubs Found:**
+
 - `bloodBath/cli/main.py` - sweetBlood compatibility stubs (lines 38-56)
-- `bloodBath/utils/structure_utils.py` - `setup_sweetblood_environment()` 
+- `bloodBath/utils/structure_utils.py` - `setup_sweetblood_environment()`
 - `bloodBath/data/processors.py` - Legacy `DataProcessor` wrapper
 
 ### 2. Created New Git Branch ✅
@@ -36,6 +38,7 @@ Safe isolated branch for all changes with easy rollback to `main`.
 ### 3. Nix Flake Infrastructure Created ✅
 
 **New Files:**
+
 - ✅ `flake.nix` - Main Nix flake definition
 - ✅ `pyproject.toml` - Modern Python project metadata
 - ✅ `.envrc` - direnv auto-activation
@@ -44,6 +47,7 @@ Safe isolated branch for all changes with easy rollback to `main`.
 - ✅ `CLEANUP_SUMMARY.md` - This file
 
 **Flake Features:**
+
 - 3 development shells: default (full), python-only, cpp-only
 - Automatic environment setup with welcome message
 - PyTorch with CUDA 11.8 support
@@ -58,6 +62,7 @@ Safe isolated branch for all changes with easy rollback to `main`.
 ## 📦 What You Get with Nix
 
 ### Before (venv)
+
 ```bash
 # Manual setup required
 python -m venv bloodBath-env
@@ -67,6 +72,7 @@ pip install -r requirements.txt  # What requirements.txt?
 ```
 
 ### After (Nix)
+
 ```bash
 # Automatic, reproducible
 nix develop
@@ -75,16 +81,16 @@ nix develop
 
 ### Benefits
 
-| Feature | venv | Nix |
-|---------|------|-----|
-| Reproducibility | ❌ "Works on my machine" | ✅ Exact same environment everywhere |
-| Version control | ❌ requirements.txt can drift | ✅ flake.lock pins everything |
-| System dependencies | ❌ Manual install (CUDA, etc.) | ✅ Automatic, isolated |
-| Setup time | ⏱️ 10-30 min manual | ⏱️ 1 command, automatic |
-| Multiple projects | ❌ venv conflicts | ✅ Fully isolated per-project |
-| Onboarding | 📄 Long README | 🚀 `nix develop` |
-| Rollback | ❌ Hard | ✅ `git checkout` |
-| CUDA support | 🤷 Maybe? Good luck | ✅ Built-in, tested |
+| Feature             | venv                           | Nix                                  |
+| ------------------- | ------------------------------ | ------------------------------------ |
+| Reproducibility     | ❌ "Works on my machine"       | ✅ Exact same environment everywhere |
+| Version control     | ❌ requirements.txt can drift  | ✅ flake.lock pins everything        |
+| System dependencies | ❌ Manual install (CUDA, etc.) | ✅ Automatic, isolated               |
+| Setup time          | ⏱️ 10-30 min manual            | ⏱️ 1 command, automatic              |
+| Multiple projects   | ❌ venv conflicts              | ✅ Fully isolated per-project        |
+| Onboarding          | 📄 Long README                 | 🚀 `nix develop`                     |
+| Rollback            | ❌ Hard                        | ✅ `git checkout`                    |
+| CUDA support        | 🤷 Maybe? Good luck            | ✅ Built-in, tested                  |
 
 ---
 
@@ -129,6 +135,7 @@ direnv allow
 ### For Immediate Testing
 
 1. **Test Nix environment:**
+
    ```bash
    nix develop
    python --version
@@ -137,6 +144,7 @@ direnv allow
    ```
 
 2. **Test existing functionality:**
+
    ```bash
    # In Nix shell
    python -m pytest bloodBath/test_scripts/test_v2_integration.py
@@ -145,30 +153,32 @@ direnv allow
    ```
 
 3. **If everything works, proceed with cleanup:**
+
    ```bash
    # Remove deprecated folders (can be undone with git)
    git rm -rf sweetBloodDeprecated/
    git rm -rf bloodBath-env.bak/
    git rm -rf training_data_legacy/
    # ... etc (see NIX_MIGRATION_PLAN.md)
-   
+
    # Commit
    git add flake.nix pyproject.toml .envrc NIX_*.md
    git commit -m "feat: Add Nix flake for reproducible development environment"
    ```
 
 4. **Final validation:**
+
    ```bash
    # Fresh Nix environment
    nix develop
-   
+
    # Run full test suite
    python -m pytest bloodBath/test_scripts/
-   
+
    # Test CLI commands
    python -m bloodBath status
    python -m bloodBath create-config
-   
+
    # Test ML pipeline
    cd bloodTwin
    python pipelines/train_lstm.py --config configs/smoke_test.yaml
@@ -205,11 +215,13 @@ direnv allow
 ## 🎓 Learning Resources
 
 ### For Nix Beginners
+
 - [Nix Pills](https://nixos.org/guides/nix-pills/) - Comprehensive tutorial
 - [NixOS Wiki - Flakes](https://nixos.wiki/wiki/Flakes)
 - [Zero to Nix](https://zero-to-nix.com/) - Quick introduction
 
 ### For This Project
+
 - [NIX_QUICK_START.md](NIX_QUICK_START.md) - Getting started guide
 - [NIX_MIGRATION_PLAN.md](NIX_MIGRATION_PLAN.md) - Full migration plan
 - [flake.nix](flake.nix) - Nix configuration (well-commented)
@@ -219,12 +231,14 @@ direnv allow
 ## 🐛 Troubleshooting
 
 ### Issue: Nix not found
+
 ```bash
 # Solution: Install Nix
 sh <(curl -L https://nixos.org/nix/install) --daemon
 ```
 
 ### Issue: "experimental-features" error
+
 ```bash
 # Solution: Enable flakes
 mkdir -p ~/.config/nix
@@ -232,12 +246,14 @@ echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
 ```
 
 ### Issue: CUDA not available in container
+
 ```bash
 # Solution: Add --impure flag for container GPU access
 nix develop --impure
 ```
 
 ### Issue: Build takes forever
+
 ```bash
 # Solution: Use binary caches (see NIX_QUICK_START.md)
 # First build is always slow (downloads ~2GB), subsequent builds are instant
@@ -248,6 +264,7 @@ nix develop --impure
 ## 📊 Success Metrics
 
 ### Before Cleanup
+
 - ❌ ~500MB+ of deprecated code
 - ❌ Confusion about sweetBlood vs bloodBank
 - ❌ Manual venv setup required
@@ -255,6 +272,7 @@ nix develop --impure
 - ❌ 30+ test files scattered around
 
 ### After Migration
+
 - ✅ Clean repository structure
 - ✅ Clear module boundaries
 - ✅ One-command environment setup
@@ -266,6 +284,7 @@ nix develop --impure
 ## 🔒 Safety Features
 
 All changes are on a feature branch:
+
 ```bash
 # Easy rollback if anything breaks
 git checkout main
@@ -273,6 +292,7 @@ git branch -D cleanup/deprecated-modules-and-nix-migration
 ```
 
 No changes to core functionality:
+
 - ✅ bloodBath API unchanged
 - ✅ bloodTwin pipelines unchanged
 - ✅ bareMetalBender builds unchanged
@@ -295,6 +315,7 @@ No changes to core functionality:
 ## 🎉 What's Next?
 
 **Immediate (This PR):**
+
 - ✅ Nix flake created
 - ✅ Documentation written
 - ⏳ **You:** Test and validate
@@ -302,6 +323,7 @@ No changes to core functionality:
 - ⏳ **You:** Merge to main
 
 **Future Enhancements:**
+
 - Add GitHub Actions CI/CD with Nix
 - Create Docker image from Nix (reproducible containers)
 - Add Nix-based deployment
@@ -312,6 +334,7 @@ No changes to core functionality:
 **Questions? Issues? Improvements?**
 
 See detailed documentation in:
+
 - [NIX_MIGRATION_PLAN.md](NIX_MIGRATION_PLAN.md)
 - [NIX_QUICK_START.md](NIX_QUICK_START.md)
 

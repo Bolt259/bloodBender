@@ -6,7 +6,7 @@ Downloads raw pump data using the proven tandem_historical_sync.py approach
 and saves to bloodBank v2.0 structure for subsequent processing.
 
 Adapted from tandem_historical_sync.py which successfully worked.
-All API handling stays within tconnectsync package.
+All API handling stays within bloodBath.api.
 
 Features:
 - Multi-pump support with configurable date ranges
@@ -34,12 +34,9 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-# Add tconnectsync-bb to path
-sys.path.insert(0, '/home/bolt/projects/bb/tconnectsync-bb')
-
-# Import tconnectsync modules
-from tconnectsync.api import TConnectApi
-from tconnectsync import secret
+# Import bloodBath API modules
+from bloodBath.api.connector import TConnectApi
+from bloodBath import secret
 
 # Configure logging
 logging.basicConfig(
