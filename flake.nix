@@ -248,6 +248,12 @@
             program = "${pythonEnv}/bin/python";
             args = [ "-m" "bloodBath" ];
           };
+
+          productionSync = {
+            type = "app";
+            program = "${pythonEnv}/bin/python";
+            args = [ "-m" "bloodBath.cli.main" "production-sync" ];
+          };
           
           trainLSTM = {
             type = "app";
