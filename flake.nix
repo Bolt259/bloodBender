@@ -31,9 +31,9 @@
           arrow
 
           # PyTorch and ML (with CUDA support)
-          pytorch-bin # Pre-built with CUDA
-          torchvision-bin
-          torchaudio-bin
+          pytorch
+          torchvision
+          torchaudio
           
           # Lightning and ML tools
           pytorch-lightning
@@ -45,11 +45,13 @@
           
           # Machine Learning
           scikit-learn
+          scipy
           
           # Utilities
           certifi
           requests
           urllib3
+          python-dotenv
           
           # Logging and formatting
           colorama
@@ -253,11 +255,11 @@
             '');
           };
 
-          productionSync = {
+          sync = {
             type = "app";
-            program = toString (pkgs.writeShellScript "production-sync" ''
+            program = toString (pkgs.writeShellScript "sync" ''
               cd ${toString ./.}
-              ${pythonEnv}/bin/python -m bloodBath.cli.main production-sync "$@"
+              ${pythonEnv}/bin/python -m bloodBath.cli.main sync "$@"
             '');
           };
           
