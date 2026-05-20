@@ -464,24 +464,30 @@ def cmd_lstm(args):
         val_split=getattr(args, 'val_split', 0.2),
         save_data=True
     )
+    try:
+        print("LSTM training data prepared successfully!")
+        print(f"Training samples: {result['metadata']['train_samples']}")
+        print(f"Validation samples: {result['metadata']['val_samples']}")
+        print(f"Test samples: {result['metadata']['test_samples']}")
     
-    print("LSTM training data prepared successfully!")
-    print(f"Training samples: {result['metadata']['train_samples']}")
-    print(f"Validation samples: {result['metadata']['val_samples']}")
-    print(f"Test samples: {result['metadata']['test_samples']}")
     
-    if 'saved_files' in result and result['saved_files']:
-        saved_files = result['saved_files']
-        if isinstance(saved_files, dict) and 'train_X' in saved_files:
-            train_file = saved_files['train_X']
-            if isinstance(train_file, Path):
-                print(f"Data saved to: {train_file.parent}")
+        if 'saved_files' in result and result['saved_files']:
+            saved_files = result['saved_files']
+            if isinstance(saved_files, dict) and 'train_X' in saved_files:
+                train_file = saved_files['train_X']
+                if isinstance(train_file, Path):
+                    print(f"Data saved to: {train_file.parent}")
+                else:
+                    print("Training data prepared (in-memory)")
             else:
                 print("Training data prepared (in-memory)")
         else:
             print("Training data prepared (in-memory)")
-    else:
-        print("Training data prepared (in-memory)")
+    
+    except KeyError as e:
+        print(f"Warning: Missing expected metadata key: {e}")
+        print("Result may be incomplete or in unexpected format.")
+        print(f"Full result: {result}")
 
 
 def cmd_unified_lstm(args):
@@ -540,7 +546,7 @@ def cmd_unified_lstm(args):
             source_dir = Path(args.source_dir)
         else:
             # Use testing data directory as default
-            source_dir = Path("tconnectsync-bb/testing_sweetBlood")
+            source_dir = BLOODBANK_ROOT / 'raw' / 'lstm' / f"lstm_pump_data"
             print(f"No source directory specified, using default: {source_dir}")
         
         if not source_dir.exists():
@@ -559,28 +565,34 @@ def cmd_unified_lstm(args):
         )
         
         # Report results
-        print(f"\nProcessing Results:")
-        print(f"  Status: {result['status']}")
-        print(f"  Months Processed: {result['months_successful']}/{result['months_total']}")
-        print(f"  Total Sequences: {result['total_sequences']}")
-        print(f"  Valid Sequences: {result['valid_sequences']}")
-        print(f"  Success Rate: {result['success_rate']:.1%}")
-        print(f"  Files Saved: {len(result['saved_files'])}")
+        try:
+            print(f"\nProcessing Results:")
+            print(f"  Status: {result['status']}")
+            print(f"  Months Processed: {result['months_successful']}/{result['months_total']}")
+            print(f"  Total Sequences: {result['total_sequences']}")
+            print(f"  Valid Sequences: {result['valid_sequences']}")
+            print(f"  Success Rate: {result['success_rate']:.1%}")
+            print(f"  Files Saved: {len(result['saved_files'])}")
+
+            if result['processing_errors']:
+                print(f"\nProcessing Errors:")
+                for error in result['processing_errors']:
+                    print(f"  - {error}")
         
-        if result['processing_errors']:
-            print(f"\nProcessing Errors:")
-            for error in result['processing_errors']:
-                print(f"  - {error}")
-        
-        # Show validation reports if available
-        if 'validation_reports' in result and result['validation_reports']:
-            print(f"\nValidation Reports:")
-            for month, validation_report in result['validation_reports'].items():
-                summary = validation_report.get('validation_summary', {})
-                print(f"  Month {month}:")
-                print(f"    Sequences validated: {summary.get('total_sequences', 0)}")
-                print(f"    Sequences passed: {summary.get('passed_sequences', 0)}")
-                print(f"    Pass rate: {summary.get('pass_rate', 0):.1%}")
+            # Show validation reports if available
+            if 'validation_reports' in result and result['validation_reports']:
+                print(f"\nValidation Reports:")
+                for month, validation_report in result['validation_reports'].items():
+                    summary = validation_report.get('validation_summary', {})
+                    print(f"  Month {month}:")
+                    print(f"    Sequences validated: {summary.get('total_sequences', 0)}")
+                    print(f"    Sequences passed: {summary.get('passed_sequences', 0)}")
+                    print(f"    Pass rate: {summary.get('pass_rate', 0):.1%}")
+
+        except KeyError as e:
+            print(f"Warning: Missing expected result key: {e}")
+            print("Result may be incomplete or in unexpected format.")
+            print(f"Full result: {result}")
         
         # Verify output files
         print(f"\nVerifying output files...")
@@ -640,25 +652,32 @@ def cmd_status(args):
     
     # Get training data info
     training_info = sweetblood_integration.get_training_data_info()
-    
-    print("sweetBlood Training Data Status:")
-    print(f"  Available datasets: {training_info['total_count']}")
-    if training_info['latest_timestamp']:
-        print(f"  Latest dataset: {training_info['latest_timestamp']}")
-    print(f"  Data directory: {training_info['training_data_dir']}")
-    
-    # Get scaler info
-    scaler_info = sweetblood_integration.get_scaler_info()
-    if scaler_info:
-        print("\nScaler Information:")
-        for name, details in scaler_info.items():
-            print(f"  {name}: {details['type']}")
-    
+    try:
+        print("sweetBlood Training Data Status:")
+        print(f"  Available datasets: {training_info['total_count']}")
+        if training_info['latest_timestamp']:
+            print(f"  Latest dataset: {training_info['latest_timestamp']}")
+        print(f"  Data directory: {training_info['training_data_dir']}")
+        
+        # Get scaler info
+        scaler_info = sweetblood_integration.get_scaler_info()
+        if scaler_info:
+            print("\nScaler Information:")
+            for name, details in scaler_info.items():
+                print(f"  {name}: {details['type']}")
+        
+        
+    except Exception as e:
+        logger.error(f"Error retrieving status: {e}")
+        print(f"Error retrieving status: {e}")
+        print(f"Full Training Info: {training_info}")
+
     # Initialize client for pump status
-    internal_sweetblood_path = str(Path(__file__).parent.parent / 'sweetBlood')
+    internal_sweetblood_path = str(Path(__file__).parent.parent / 'bloodBank')
     client = TandemHistoricalSyncClient(
         output_dir=str(setup_sweetblood_environment(internal_sweetblood_path)['lstm_pump_data'])
     )
+
     status = client.get_sync_status()
     
     if not status:

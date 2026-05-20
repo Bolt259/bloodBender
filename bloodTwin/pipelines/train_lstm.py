@@ -7,6 +7,8 @@ Trains unified LSTM model on multi-pump blood glucose data with GPU acceleration
 import os
 import sys
 from pathlib import Path
+import argparse
+from datetime import datetime
 import yaml
 import logging
 import torch
@@ -17,6 +19,8 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor
 )
 from pytorch_lightning.loggers import TensorBoardLogger
+
+
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -42,7 +46,7 @@ def load_config(config_path: Path) -> dict:
     return config
 
 
-def train(config_path: Path):
+def train(config_path: Path, file_name: str):
     """Main training function."""
     # Load configuration
     config = load_config(config_path)
@@ -65,7 +69,8 @@ def train(config_path: Path):
     logger.info("Creating dataloaders...")
     train_loader, val_loader, test_loader, scaler = create_dataloaders(
         data_dir=data_dir,
-        pump_ids=config['data']['pump_ids'],
+        pump_ids=config["data"].get("pump_ids", []),
+        dataset_dirs=config["data"].get("datasets", []),
         features=config['data']['features'],
         target=config['data']['target'],
         lookback=config['data']['lookback'],
@@ -144,6 +149,16 @@ def train(config_path: Path):
         )
         logger.info(f"TensorBoard logs: {log_dir}")
     
+    # Check GPU availability
+    if config['compute']['accelerator'] == "gpu" and torch.cuda.is_available():
+        logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
+        logger.info(f"CUDA version: {torch.version.cuda}")
+        logger.info(f"GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
+    else:
+        config['compute']['accelerator'] = "auto"
+        config['compute']['devices'] = "auto"
+        logger.warning("No GPU detected! Training on CPU (slow)")
+
     # Trainer
     logger.info("Creating trainer...")
     trainer = pl.Trainer(
@@ -182,8 +197,13 @@ def train(config_path: Path):
         logger.info(f"  {key}: {value:.4f}")
     
     # Save test results
-    results_file = artifacts_dir / 'test_results.yaml'
+    results_file = artifacts_dir / file_name # 'test_results.yaml'
+    if os.path.exists(results_file):
+        timestamp = datetime.now().strftime("%Y%m%d%H%M")
+        # file_name_split = file_name.split(".")
+        results_file = results_file.parent / f"{results_file.stem}-{timestamp}-{results_file.suffix}"
     with open(results_file, 'w') as f:
+        
         yaml.dump(test_results[0], f)
     logger.info(f"Saved test results to {results_file}")
     
@@ -245,7 +265,7 @@ def export_model(
 
 
 def main():
-    import argparse
+
     
     parser = argparse.ArgumentParser(description="Train bloodTwin LSTM model")
     parser.add_argument(
@@ -254,6 +274,13 @@ def main():
         default=CONFIGS_DIR / 'lstm.yaml',
         help='Path to config YAML file'
     )
+
+    parser.add_argument(
+        '--output',
+        type=str,
+        default='test_results.yaml',
+        help='File name of output stats'
+    )
     
     args = parser.parse_args()
     
@@ -261,7 +288,7 @@ def main():
         logger.error(f"Config file not found: {args.config}")
         sys.exit(1)
     
-    train(args.config)
+    train(args.config, args.output)
 
 
 if __name__ == '__main__':

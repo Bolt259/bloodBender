@@ -778,13 +778,15 @@ class FeatureEngineer:
         return enhanced_streams
     
     def normalize_features(self, features_dict: Dict[str, pd.Series], 
-                          exclude_features: Optional[List[str]] = None) -> Dict[str, pd.Series]:
+                          exclude_features: Optional[List[str]] = None,
+                          normalize_flag: bool = False) -> Dict[str, pd.Series]:
         """
         Normalize features using specified method (per-patient normalization).
         
         Args:
             features_dict: Dictionary of feature series
             exclude_features: List of features to exclude from normalization
+            normalize_flag: Whether to perform normalization
             
         Returns:
             Dictionary with normalized features
@@ -804,7 +806,11 @@ class FeatureEngineer:
                 logger.debug(f"Skipping normalization of {feature_name} (all NaN)")
                 continue
             
-            if self.normalization_method == 'z-score':
+            if not normalize_flag:
+                logger.warning(f"Skipping normalization of {feature_name} (normalize_flag=False)")
+                normalized_series = series
+                stats = {}
+            elif self.normalization_method == 'z-score':
                 normalized_series, stats = self._z_score_normalize(series)
             elif self.normalization_method == 'min-max':
                 normalized_series, stats = self._min_max_normalize(series)
