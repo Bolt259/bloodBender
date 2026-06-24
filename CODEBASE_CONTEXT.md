@@ -311,18 +311,14 @@ While bloodBath handles data processing and bloodTwin handles ML predictions, ba
 
 ### Environment Setup
 
-**Legacy (venv):**
+**Nix (supported):**
 
 ```bash
-source bloodBath-env/bin/activate
-pip install -r requirements.txt  # What requirements.txt?
+nix develop
 ```
 
-**Current (Nix - NEW!):**
-
-```bash
-nix develop  # Everything just works!
-```
+See `NIX.md` for shells, verification, and known issues. The legacy
+`bloodBath-env/` venv is no longer tracked in git.
 
 ### Configuration Management
 
@@ -571,9 +567,7 @@ python bloodTwin/smoke_test.py
 - **[bloodTwin/README.md](bloodTwin/README.md)** - ML training guide
 - **[bareMetalBender/README.md](bareMetalBender/README.md)** - C++ solver docs
 - **[bloodBath/spec/bloodBath_Design_Specification_v2.0.md](bloodBath/spec/bloodBath_Design_Specification_v2.0.md)** - Technical specification (685 lines)
-- **[NIX_QUICK_START.md](NIX_QUICK_START.md)** - Nix setup guide (NEW)
-- **[NIX_MIGRATION_PLAN.md](NIX_MIGRATION_PLAN.md)** - Migration strategy (NEW)
-- **[CLEANUP_SUMMARY.md](CLEANUP_SUMMARY.md)** - Cleanup overview (NEW)
+- **[NIX.md](NIX.md)** - Nix setup, verification, and known issues
 
 ---
 

@@ -89,8 +89,8 @@ Each CSV contains:
 ### 1. Environment Setup
 
 ```bash
-# Activate virtual environment
-source bloodBath-env/bin/activate
+# Enter the Nix development environment (see ../NIX.md)
+nix develop
 
 # Verify GPU
 python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
