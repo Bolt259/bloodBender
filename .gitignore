@@ -57,6 +57,8 @@ result-*
 !flake.nix
 !flake.lock
 !.envrc
+!nix/
+!nix/**/*.nix
 !pyproject.toml
 !NIX*.md
 !CLEANUP_SUMMARY.md
