@@ -23,14 +23,14 @@
     {
       packages = forAllSystems ({ pkgs }:
         let
-          python = pkgs.python311.override {
+          syncPython = pkgs.python311.override {
             packageOverrides = self: super: {
               fsspec = super.fsspec.overridePythonAttrs (_: {
                 doCheck = false;
               });
             };
           };
-          pythonSyncEnv = python.withPackages (ps: with ps; [
+          pythonSyncEnv = syncPython.withPackages (ps: with ps; [
             arrow
             cryptography
             numpy
@@ -42,7 +42,9 @@
             scikit-learn
             scipy
           ]);
-          pythonInferenceEnv = python.withPackages (ps: with ps; [
+          # Uses the stock interpreter (not syncPython) so torch/numpy/etc. match
+          # nixpkgs' prebuilt binary cache instead of rebuilding from source.
+          pythonInferenceEnv = pkgs.python311.withPackages (ps: with ps; [
             numpy
             pandas
             scikit-learn
