@@ -29,7 +29,7 @@ class BloodGlucoseDataset(Dataset):
     def __init__(
         self,
         data_dir: Path,
-        pump_ids: List[str],
+        subject_dirs: Dict[str, Path],
         subset: str,  # 'train', 'validate', or 'test'
         features: List[str],
         target: str,
@@ -53,7 +53,7 @@ class BloodGlucoseDataset(Dataset):
             fit_scaler: If True, fit new scaler on this data (train only)
         """
         self.data_dir = Path(data_dir)
-        self.pump_ids = pump_ids
+        self.subject_dirs = subject_dirs
         self.subset = subset
         self.features = features
         self.target = target
@@ -76,49 +76,36 @@ class BloodGlucoseDataset(Dataset):
         
         logger.info(
             f"Created {len(self.sequences)} sequences from {subset} set "
-            f"({len(self.data)} total records, {len(pump_ids)} pumps)"
+            f"({len(self.data)} total records, {len(subject_dirs)} pumps)"
         )
     
     def _load_data(self) -> Tuple[pd.DataFrame, pd.DatetimeIndex]:
-        """Load and concatenate CSV files from all pumps."""
         all_data = []
-        
-        for pump_id in self.pump_ids:
-            pump_dir = self.data_dir / f"pump_{pump_id}" / self.subset
-            
-            if not pump_dir.exists():
-                logger.warning(f"Directory not found: {pump_dir}")
-                continue
-            
-            # Find the lstm_*.csv file (not summary JSONs)
-            csv_files = list(pump_dir.glob(f"lstm_{self.subset}_*.csv"))
-            
+
+        for subject_id, subject_root in self.subject_dirs.items():
+            split_dir = subject_root / self.subset
+
+            csv_files = list(split_dir.glob(f"lstm_{self.subset}_*.csv"))
+
             if not csv_files:
-                logger.warning(f"No CSV files found in {pump_dir}")
+                logger.warning(f"No CSV files found in {split_dir}")
                 continue
-            
-            # Use most recent file
+
             csv_file = sorted(csv_files)[-1]
-            logger.info(f"Loading {csv_file}")
-            
-            # Load CSV (skip comment lines)
-            df = pd.read_csv(csv_file, comment='#')
-            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
-            df['pump_id'] = pump_id
-            
+            df = pd.read_csv(csv_file, comment="#")
+            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+            df["subject_id"] = subject_id
+
             all_data.append(df)
-        
+
         if not all_data:
             raise ValueError(f"No data loaded for {self.subset} set!")
-        
-        # Concatenate all pump data and sort by timestamp
+
         combined = pd.concat(all_data, ignore_index=True)
-        combined.sort_values('timestamp', inplace=True)
+        combined.sort_values(["subject_id", "timestamp"], inplace=True)
         combined.reset_index(drop=True, inplace=True)
-        
-        timestamps = pd.DatetimeIndex(combined['timestamp'])
-        
-        return combined, timestamps
+
+        return combined, pd.DatetimeIndex(combined["timestamp"])
     
     def _create_sequences(self) -> List[Tuple[int, int]]:
         """
@@ -129,23 +116,27 @@ class BloodGlucoseDataset(Dataset):
         """
         sequences = []
         total_length = self.lookback + self.horizon
-        
-        # Slide window with stride
-        for i in range(0, len(self.data) - total_length + 1, self.stride):
-            # Check if this sequence has missing BG values
-            sequence = self.data.iloc[i:i + total_length]
-            
-            # Skip sequences with any NaN in BG (target variable)
-            if sequence[self.target].isna().any():
-                continue
-            
-            # Also skip if too many NaNs in other features (>10%)
-            nan_ratio = sequence[self.features].isna().sum().sum() / (len(sequence) * len(self.features))
-            if nan_ratio > 0.1:
-                continue
-            
-            sequences.append((i, i + total_length))
-        
+
+        for _, group in self.data.groupby("subject_id", sort=False):
+            indices = group.index.to_list()
+
+            for offset in range(0, len(indices) - total_length + 1, self.stride):
+                window_indices = indices[offset:offset + total_length]
+                sequence = self.data.loc[window_indices]
+
+                if sequence[self.target].isna().any():
+                    continue
+
+                nan_ratio = (
+                    sequence[self.features].isna().sum().sum()
+                    / (len(sequence) * len(self.features))
+                )
+
+                if nan_ratio > 0.1:
+                    continue
+
+                sequences.append((window_indices[0], window_indices[-1] + 1))
+
         return sequences
     
     def __len__(self) -> int:
@@ -211,10 +202,43 @@ class BloodGlucoseDataset(Dataset):
         logger.info(f"Loaded scaler from {path}")
         return scaler
 
+def discover_dataset_subject_dirs(
+    data_dir: Path,
+    dataset_dirs: List[str],
+    subset_names=("train", "validate", "test"),
+    ) -> Dict[str, Path]:
+    
+    discovered = {}
+
+    for dataset_name in dataset_dirs:
+        dataset_root = Path(data_dir) / dataset_name
+
+        if not dataset_root.exists():
+            logger.warning(f"Dataset directory not found: {dataset_root}")
+            continue
+
+        for candidate in dataset_root.rglob("*"):
+            if not candidate.is_dir():
+                continue
+
+            has_all_splits = all(
+                (candidate / subset).exists()
+                and list((candidate / subset).glob(f"lstm_{subset}_*.csv"))
+                for subset in subset_names
+            )
+
+            if not has_all_splits:
+                continue
+
+            subject_key = str(candidate.relative_to(data_dir)).replace("/", "__")
+            discovered[subject_key] = candidate
+
+    return discovered
 
 def create_dataloaders(
     data_dir: Path,
-    pump_ids: List[str],
+    pump_ids: Optional[List[str]],
+    dataset_dirs: Optional[List[str]],
     features: List[str],
     target: str,
     lookback: int,
@@ -232,10 +256,35 @@ def create_dataloaders(
     Returns:
         (train_loader, val_loader, test_loader, scaler)
     """
+
+    subject_dirs = {}
+
+    # Manual pump folders
+    for pump_id in pump_ids or []:
+        pump_root = Path(data_dir) / f"pump_{pump_id}"
+
+        if pump_root.exists():
+            subject_dirs[f"pump_{pump_id}"] = pump_root
+        else:
+            logger.warning(f"Pump directory not found: {pump_root}")
+
+    # Auto-discovered dataset subjects
+    subject_dirs.update(
+        discover_dataset_subject_dirs(
+            data_dir=Path(data_dir),
+            dataset_dirs=dataset_dirs or [],
+        )
+    )
+
+    if not subject_dirs:
+        raise ValueError(f"No pump or dataset subject folders found in {data_dir}")
+
+    logger.info(f"Using {subject_dirs.keys()} total subject/pump directories")
+
     # Create training dataset and fit scaler
     train_dataset = BloodGlucoseDataset(
         data_dir=data_dir,
-        pump_ids=pump_ids,
+        subject_dirs=subject_dirs,
         subset='train',
         features=features,
         target=target,
@@ -254,7 +303,7 @@ def create_dataloaders(
     # Create validation dataset with fitted scaler
     val_dataset = BloodGlucoseDataset(
         data_dir=data_dir,
-        pump_ids=pump_ids,
+        subject_dirs=subject_dirs,
         subset='validate',
         features=features,
         target=target,
@@ -267,7 +316,7 @@ def create_dataloaders(
     # Create test dataset with fitted scaler
     test_dataset = BloodGlucoseDataset(
         data_dir=data_dir,
-        pump_ids=pump_ids,
+        subject_dirs=subject_dirs,
         subset='test',
         features=features,
         target=target,

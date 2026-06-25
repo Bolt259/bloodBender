@@ -31,7 +31,8 @@ class UnifiedDataProcessor:
                  max_gap_hours: float = 15.0,
                  max_impute_minutes: int = 60,
                  min_segment_length: int = 12,
-                 normalization_method: str = 'z-score'):
+                 normalization_method: str = 'z-score',
+                 normalize_flag: bool = False):
         """
         Initialize the unified data processor
         
@@ -47,6 +48,7 @@ class UnifiedDataProcessor:
         self.max_impute_minutes = max_impute_minutes
         self.min_segment_length = min_segment_length
         self.normalization_method = normalization_method
+        self.normalize_flag = normalize_flag
         
         # Initialize components
         self.resampler = UnifiedResampler(freq=freq)
@@ -191,10 +193,13 @@ class UnifiedDataProcessor:
         enhanced_data = self.feature_engineer.add_derived_features(segment_data)
         
         # Normalize features
-        normalized_data = self.feature_engineer.normalize_features(enhanced_data)
+        if self.normalize_flag:
+            out_data = self.feature_engineer.normalize_features(enhanced_data)
+        else:
+            out_data = enhanced_data
         
         # Convert to DataFrame
-        segment_df = pd.DataFrame(normalized_data)
+        segment_df = pd.DataFrame(out_data)
         segment_df['timestamp'] = time_index
         
         # Reorder columns for LSTM training

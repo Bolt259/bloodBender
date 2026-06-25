@@ -1,0 +1,7 @@
+test_loss: 38.297645568847656
+test_mae: 38.29767608642578
+test_mae_30min: 18.01218032836914
+test_mae_60min: 23.94657325744629
+test_rmse: 53.86785888671875
+
+# extended horizon 2 hours (48 windows)

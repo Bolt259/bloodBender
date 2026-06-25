@@ -1,0 +1,24 @@
+# bloodBath temporary files
+*.tmp
+*.temp
+*.log
+
+# Large data files
+*.parquet
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# Model checkpoints (keep only final models)
+models/checkpoints/
+*.ckpt
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

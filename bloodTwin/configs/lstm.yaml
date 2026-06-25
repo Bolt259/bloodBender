@@ -12,21 +12,25 @@ model:
 # Data Configuration
 data:
   # Use the chronologically split data
-  train_dir: "bloodBath/bloodBank/lstm_pump_data"
+  train_dir: "bloodBath/bloodBank/merged"
   pump_ids:
-    - "881235"
-    - "901161470"
+    - "931227"
+    - "943052"
+    - "90922560"
 
   # Features (must match CSV column order after timestamp)
   features:
     - bg
-    - delta_bg
     - basal_rate
     - bolus_dose
+    - basal_delta
+    - time_since_last_bolus
+    - bg_slope_15min
+    - bg_slope_30min
     - sin_time
     - cos_time
-    - bg_clip_flag
-    - bg_missing_flag
+    - mask_bg
+    - mask_label
 
   target: bg # Predicting blood glucose
 
@@ -60,7 +64,7 @@ training:
   gradient_clip_algorithm: "norm"
 
   # Mixed precision training (AMP)
-  precision: "16-mixed" # Use Tensor Cores on RTX 2070 SUPER
+  precision: "32-true" # Use Tensor Cores on RTX 2070 SUPER
 
   # Early stopping
   early_stopping:

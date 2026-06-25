@@ -163,6 +163,16 @@ class EventExtractor:
         """
         normalized = []
         
+        # Debugging Bolus attributes
+        # for i, event in enumerate(bolus_events[:5]):
+        #     ts = extract_timestamp_from_event(event)
+        #     dose = self._extract_bolus_dose(event)
+        #     logger.info("BOLUS DEBUG %d type=%s ts=%s dose=%s", i+1, type(event).__name__, ts, dose)
+        #     logger.info(
+        #         "BOLUS DEBUG attrs=%s",
+        #         [a for a in dir(event) if any(k in a.lower() for k in ["bolus","deliver","total","food","correct","request","insulin"])]
+        #     )
+
         for event in bolus_events:
             try:
                 timestamp = extract_timestamp_from_event(event)
@@ -221,19 +231,26 @@ class EventExtractor:
     
     def _extract_bolus_dose(self, event: Any) -> float:
         """Extract bolus dose with proper unit conversion"""
-        bolus_dose = 0.0
-        
-        if hasattr(event, 'bolusAmount') and event.bolusAmount is not None:
-            # bolusAmount is in hundredths of units
-            bolus_dose = float(event.bolusAmount) / 100.0
-        elif hasattr(event, 'insulin') and event.insulin is not None:
-            insulin = float(event.insulin)
-            bolus_dose = insulin / 100.0 if insulin > 10 else insulin
-        elif hasattr(event, 'value') and event.value is not None:
-            value = float(event.value)
-            bolus_dose = value / 100.0 if value > 10 else value
-        
-        return bolus_dose
+        def to_units(v: Any) -> float:
+            try:
+                x = float(v)
+            except (TypeError, ValueError):
+                return 0.0
+            # Heuristic: if it's "large", it's probably hundredths
+            return x / 1000.0 if x > 10 else x
+
+        # 1) Prefer actual delivered insulin if present
+        if hasattr(event, "deliveredTotal") and event.deliveredTotal is not None:
+            return to_units(event.deliveredTotal)
+
+        # # 2) Activated bolus size (often the intended/confirmed amount)
+        # # Handles cancelled insulin
+        # if hasattr(event, "bolussize") and event.bolussize is not None:
+        #     return to_units(event.bolussize)
+
+        # # 3) Requested message totals
+        # if hasattr(event, "totalbolussize") and event.totalbolussize is not None:
+        #     return to_units(event.totalbolussize)
     
     def deduplicate_events(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
