@@ -19,7 +19,7 @@ from jwt.algorithms import RSAAlgorithm
 import requests
 
 from .common import parse_ymd_date, base_headers, base_session, ApiException, ApiLoginException
-from ..eventparser.generic import decode_raw_events, Events, EVENT_LEN
+from ..eventparser.generic import Events
 
 logger = logging.getLogger(__name__)
 
@@ -340,35 +340,33 @@ class TandemSourceApi:
         # Check if token expires in next 5 minutes
         return arrow.get().int_timestamp >= (arrow.get(self.accessTokenExpiresAt).int_timestamp - 300)
 
-    def pump_event_metadata(self):
+    def api_headers(self):
         """
-        Get pump metadata for the account
-        
-        Returns:
-            List of pump metadata dictionaries
-        """
-        if self.needs_relogin():
-            logger.info("Access token expired, re-logging in...")
-            self.login(self._email, self._password)
+        Headers for authenticated data requests to the Tandem Source API.
 
-        try:
-            # Use the proper endpoint from the original implementation
-            endpoint = f'api/reports/reportsfacade/{self.pumperId}/pumpeventmetadata'
-            return self.get(endpoint, {})
-                
-        except Exception as e:
-            logger.error(f"Error getting pump metadata: {e}")
-            raise
+        The WAF enforces same-origin: Origin/Referer must match SOURCE_URL
+        (source.tandemdiabetes.com / source.eu.tandemdiabetes.com), otherwise it
+        returns HTTP 403 ("The request is blocked"). Mirrors upstream v3.0.0
+        api_headers().
+        """
+        if not self.accessToken:
+            raise ApiException(0, 'No access token provided')
+        return {
+            'Authorization': f'Bearer {self.accessToken}',
+            'Origin': self.SOURCE_URL.rstrip('/'),
+            'Referer': self.SOURCE_URL,
+            **base_headers()
+        }
 
     def get(self, endpoint, query, tries=0):
         """
-        Make a GET request to the API with proper authentication
-        
+        Make a GET request to the API with proper (WAF-compliant) authentication.
+
         Args:
-            endpoint: API endpoint path
-            query: Query parameters
+            endpoint: API endpoint path (relative to SOURCE_URL)
+            query: Query parameters (sent as request body, matching upstream)
             tries: Number of retry attempts
-            
+
         Returns:
             Response JSON data
         """
@@ -377,129 +375,176 @@ class TandemSourceApi:
             self.login(self._email, self._password)
 
         try:
-            headers = {
-                'Authorization': f'Bearer {self.accessToken}',
-                **base_headers()
-            }
-            
-            # Build full URL
             url = f"{self.SOURCE_URL}{endpoint}"
-            
             with base_session() as s:
-                response = s.get(url, headers=headers, data=query)
-                
+                response = s.get(url, headers=self.api_headers(), data=query)
+
                 if response.status_code != 200:
                     raise ApiException(response.status_code, f'Error getting {endpoint}: {response.text}')
-                
+
                 return response.json()
-                
+
         except Exception as e:
             logger.error(f"Error making GET request to {endpoint}: {e}")
             raise
 
-    def get_pump_events(self, device_id, start_date, end_date):
+    def pump_event_metadata(self):
         """
-        Get pump events for a specific device
-        
-        Args:
-            device_id: Device ID for the pump
-            start_date: Start date (arrow object)
-            end_date: End date (arrow object)
-            
+        Get the list of pumps on the account.
+
+        Uses the new BFF pumper endpoint (api/reports/bff/pumper/{pumperId}) and
+        maps each pump to the {serialNumber, tconnectDeviceId} shape our consumers
+        depend on. tconnectDeviceId is mapped from the BFF assignmentId (the UUID
+        device id used by the pump-logs endpoint). Best-effort optional fields
+        (modelNumber, softwareVersion, date/upload info) are passed through where
+        the BFF provides them.
+
         Returns:
-            List of events
+            List of pump metadata dictionaries
         """
         if self.needs_relogin():
             logger.info("Access token expired, re-logging in...")
             self.login(self._email, self._password)
 
         try:
-            headers = {
-                'Authorization': f'Bearer {self.accessToken}',
-                **base_headers()
-            }
-            
-            # Format dates for API
-            start_str = start_date.format('YYYY-MM-DD')
-            end_str = end_date.format('YYYY-MM-DD')
-            
-            # Use the source URL to get pump events
-            events_url = f"{self.SOURCE_URL}api/v1/pumps/{device_id}/events"
-            params = {
-                'startDate': start_str,
-                'endDate': end_str
-            }
-            
-            with base_session() as s:
-                response = s.get(events_url, headers=headers, params=params)
-                
-                if response.status_code != 200:
-                    raise ApiException(response.status_code, f'Error getting pump events: {response.text}')
-                
-                events = response.json()
-                logger.info(f"Retrieved {len(events)} events for device {device_id}")
-                return events
-                
+            pumper = self.get_pumper()
         except Exception as e:
-            logger.error(f"Error getting pump events: {e}")
+            logger.error(f"Error getting pump metadata: {e}")
             raise
+
+        pumps = []
+        for pump in (pumper or {}).get('pumps', []) or []:
+            available = pump.get('availableDataRange') or {}
+            pumps.append({
+                'serialNumber': pump.get('serialNumber'),
+                # tconnectDeviceId <- BFF assignmentId (UUID device id)
+                'tconnectDeviceId': pump.get('assignmentId'),
+                'modelNumber': pump.get('modelNumber'),
+                'modelName': pump.get('modelName'),
+                'softwareVersion': pump.get('softwareVersion'),
+                'minDateWithEvents': available.get('start'),
+                'maxDateWithEvents': available.get('end') or pump.get('maxDateOfEvents'),
+                'lastUpload': pump.get('lastUploadDate'),
+                # Preserve the raw BFF pump for any downstream consumer.
+                'raw': pump,
+            })
+        return pumps
+
+    def get_pumper(self):
+        """
+        Returns the pumper's profile plus the list of pumps on the account
+        (BffPumper.pumps) from the new BFF endpoint. Replaces the old reportsfacade
+        pump-event-metadata endpoint: pumps[].assignmentId is the UUID device id
+        used by the pump-logs endpoint.
+        """
+        return self.get(f'api/reports/bff/pumper/{self.pumperId}', {})
+
+    # Matches the Tandem Source web app's getLogIDList() as observed in the live
+    # GET api/reports/bff/pump-logs request. Includes FSL3 ids 477/480/486.
+    DEFAULT_EVENT_IDS = [229,5,28,4,26,99,279,3,16,59,21,55,20,280,64,65,66,61,33,371,171,369,460,172,370,461,372,480,399,256,213,406,477,394,212,404,214,405,486,447,313,60,14,6,90,230,140,12,11,53,13,63,203,307,191]
+
+    # The pump-logs endpoint caps each request at roughly four weeks, so a
+    # longer range is paged in windows no larger than this.
+    PUMP_LOGS_WINDOW_DAYS = 28
+
+    def get_pump_logs(self, device_id, min_date=None, max_date=None, event_ids_filter=DEFAULT_EVENT_IDS):
+        """
+        Fetch pre-decoded pump events for a single date window from the BFF
+        endpoint GET api/reports/bff/pump-logs/{device_id}. device_id is the UUID
+        assignmentId (from pump_event_metadata()/get_pumper()). Returns
+        {events, clockChanges}.
+
+        The server caps the window at ~4 weeks; callers needing a longer range
+        must page by date window (see pump_events).
+
+        Note: the server currently ignores eventIds and returns every event in the
+        window regardless of the filter, so effective filtering happens
+        client-side via EventClass dispatch. We still send eventIds to mirror the
+        web app and stay forward-compatible.
+        """
+        minDate = parse_ymd_date(min_date)
+        maxDate = parse_ymd_date(max_date)
+        logger.debug(f'get_pump_logs({device_id}, {minDate}, {maxDate})')
+
+        query = urllib.parse.urlencode({
+            'pumperId': self.pumperId,
+            'startDate': f'{minDate}T00:00:00Z',
+            'endDate': f'{maxDate}T23:59:59Z',
+            'eventIds': ','.join(map(str, event_ids_filter)) if event_ids_filter else '',
+        })
+        return self.get(f'api/reports/bff/pump-logs/{device_id}?{query}', {})
+
+    @classmethod
+    def _pump_log_windows(cls, min_date, max_date):
+        """
+        Split the (min_date, max_date) range into inclusive date windows no
+        larger than PUMP_LOGS_WINDOW_DAYS. A None bound defaults to today (via
+        parse_ymd_date), so an unset range yields a single one-day window.
+        """
+        start = arrow.get(parse_ymd_date(min_date))
+        end = arrow.get(parse_ymd_date(max_date))
+        if end < start:
+            start, end = end, start
+
+        windows = []
+        cur = start
+        while cur <= end:
+            win_end = min(cur.shift(days=cls.PUMP_LOGS_WINDOW_DAYS - 1), end)
+            windows.append((cur.format('YYYY-MM-DD'), win_end.format('YYYY-MM-DD')))
+            cur = win_end.shift(days=1)
+        return windows
 
     def pump_events_raw(self, tconnect_device_id, min_date=None, max_date=None, event_ids_filter=None):
         """
-        Get raw pump events for a specific device
-        
-        Args:
-            tconnect_device_id: Device ID from pump metadata
-            min_date: Start date (arrow object or string)
-            max_date: End date (arrow object or string)
-            event_ids_filter: List of event IDs to filter
-            
-        Returns:
-            Raw event data string
+        Return the raw (undecoded) pump-logs events list for the given device and
+        date range. Thin wrapper over the new BFF pump-logs endpoint; used by the
+        fetcher purely as a non-empty gate before calling pump_events(). Pages the
+        range in <=28-day windows so a truthy list is returned whenever any events
+        exist in the requested range.
         """
         if self.needs_relogin():
             logger.info("Access token expired, re-logging in...")
             self.login(self._email, self._password)
 
-        min_date_str = parse_ymd_date(min_date)
-        max_date_str = parse_ymd_date(max_date)
-        
-        logger.debug(f'pump_events_raw({tconnect_device_id}, {min_date_str}, {max_date_str})')
-        
-        # Default event IDs from original implementation
-        DEFAULT_EVENT_IDS = [229,5,28,4,26,99,279,3,16,59,21,55,20,280,64,65,66,61,33,371,171,369,460,172,370,461,372,399,256,213,406,394,212,404,214,405,447,313,60,14,6,90,230,140,12,11,53,13,63,203,307,191]
-        
         if event_ids_filter is None:
-            event_ids_filter = DEFAULT_EVENT_IDS
-        
-        # Build endpoint URL exactly like the original implementation
-        eventIdsFilter = '%2C'.join(map(str, event_ids_filter)) if event_ids_filter else None
-        endpoint = f'api/reports/reportsfacade/pumpevents/{self.pumperId}/{tconnect_device_id}?minDate={min_date_str}&maxDate={max_date_str}'
-        
-        if eventIdsFilter:
-            endpoint += f'&eventIds={eventIdsFilter}'
-        
-        return self.get(endpoint, {})
+            event_ids_filter = self.DEFAULT_EVENT_IDS
+
+        events = []
+        for window_start, window_end in self._pump_log_windows(min_date, max_date):
+            resp = self.get_pump_logs(tconnect_device_id, window_start, window_end, event_ids_filter)
+            events.extend((resp or {}).get('events') or [])
+            if events:
+                # Enough to satisfy the non-empty gate; avoid extra requests.
+                break
+        return events
 
     def pump_events(self, tconnect_device_id, min_date=None, max_date=None, fetch_all_event_types=False):
         """
-        Fetch and decode pump events using eventparser.
-        Default of fetch_all_event_types=False will filter to the same eventids used in the Tandem Source backend.
-        If fetch_all_event_types=True, then all event types from the history log will be returned.
+        Fetch and parse pump events from the pump-logs endpoint.
+        Default of fetch_all_event_types=False filters to the same event ids used
+        in the Tandem Source backend. If fetch_all_event_types=True, then all event
+        types from the history log are returned.
+        tconnect_device_id is the UUID assignmentId from pump_event_metadata().
         """
-        # Default event IDs from original implementation
-        DEFAULT_EVENT_IDS = [229,5,28,4,26,99,279,3,16,59,21,55,20,280,64,65,66,61,33,371,171,369,460,172,370,461,372,399,256,213,406,394,212,404,214,405,447,313,60,14,6,90,230,140,12,11,53,13,63,203,307,191]
-        
-        pump_events_raw = self.pump_events_raw(
-            tconnect_device_id,
-            min_date,
-            max_date,
-            event_ids_filter=None if fetch_all_event_types else DEFAULT_EVENT_IDS
-        )
+        event_ids_filter = None if fetch_all_event_types else self.DEFAULT_EVENT_IDS
 
-        pump_events_decoded = decode_raw_events(pump_events_raw)
-        logger.info(f"Read {len(pump_events_decoded)} bytes (est. {len(pump_events_decoded)/EVENT_LEN} events)")
-        return Events(pump_events_decoded)
+        # Page across date windows, deduplicating events that appear in more than
+        # one window by their (sequenceGroup, sequenceNumber) identity.
+        seen = set()
+        events = []
+        clock_change_count = 0
+        for window_start, window_end in self._pump_log_windows(min_date, max_date):
+            resp = self.get_pump_logs(tconnect_device_id, window_start, window_end, event_ids_filter)
+            clock_change_count += len((resp or {}).get('clockChanges') or [])
+            for event in (resp or {}).get('events') or []:
+                key = (event.get('sequenceGroup'), event.get('sequenceNumber'))
+                if key in seen:
+                    continue
+                seen.add(key)
+                events.append(event)
+
+        logger.info(f"Read {len(events)} events ({clock_change_count} clock changes skipped)")
+        return Events(events)
 
     def pumper_info(self):
         """

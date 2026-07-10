@@ -39,15 +39,40 @@ def enumNameFormat(text):
 
     return f'{t[0].upper()}{t[1:]}'
 
+
+def uniqueMemberNames(tx):
+    names = {}
+
+    for key, value in tx.items():
+        name = enumNameFormat(value)
+        if not name:
+            continue
+        names.setdefault(name, []).append(str(key))
+
+    unique_names = {}
+    for key, value in tx.items():
+        name = enumNameFormat(value)
+        if not name:
+            continue
+
+        if len(names[name]) == 1:
+            unique_names[key] = name
+            continue
+
+        unique_names[key] = f'{name}_{key}'
+
+    return unique_names
+
 def transform_enum(event_def, name, name_fmt, field, tx):
     out = []
+    member_names = uniqueMemberNames(tx)
     lines_for_out = json.dumps(tx, indent=4).splitlines()
     out += [f'{enumNameFormat(name_fmt)}Map = {lines_for_out[0]}']
     out += lines_for_out[1:]
     out += ['']
     out += [f'class {enumNameFormat(name_fmt)}Enum(Enum):']
     out += [
-        f'    {enumNameFormat(v)} = {k}' for k, v in tx.items() if enumNameFormat(v)
+        f'    {member_names[k]} = {k}' for k, v in tx.items() if k in member_names
     ]
     out += ['']
     out += [
@@ -77,13 +102,14 @@ def transform_dictionary(event_def, name, name_fmt, field, tx):
 
 def transform_bitmask(event_def, name, name_fmt, field, tx):
     out = []
+    member_names = uniqueMemberNames(tx)
     lines_for_out = json.dumps(tx, indent=4).splitlines()
     out += [f'{enumNameFormat(name_fmt)}Map = {lines_for_out[0]}']
     out += lines_for_out[1:]
     out += ['']
     out += [f'class {enumNameFormat(name_fmt)}Bitmask(IntFlag):',]
     out += [
-        f'    {enumNameFormat(v)} = 2**{k}' for k, v in tx.items() if enumNameFormat(v)
+        f'    {member_names[k]} = 2**{k}' for k, v in tx.items() if k in member_names
     ]
     out += ['']
     out += [
@@ -116,7 +142,7 @@ def transform_battery_charge_percent(event_def, name, name_fmt, field, tx):
     out += [
         '@property',
         f'def batteryChargePercent(self):',
-        f'    return (256*(self.batterychargepercentmsbRaw-14)+self.batterychargepercentlsbRaw)/(3*256)',
+        f'    return (256*(self.batteryChargePercentMSBRaw-14)+self.batteryChargePercentLSBRaw)/(3*256)',
         ''
     ]
 
