@@ -2,10 +2,12 @@
 # Run Blood Bender LSTM inference on latest data and emit prediction + decision-support correction estimate
 #
 # Prereqs:
-# - Env: /home/bolt/projects/bb/bloodBath-env
-# - Repo root: /home/bolt/projects/bb
-# - Artifacts: TorchScript model (.ts) + scaler.pkl under artifacts/{pump_id}/
+# - Env: the nix inference env (onnxruntime), or `nix run .#run-inference`
+# - Artifacts: ONNX model (.onnx) + scaler.pkl under artifacts/{pump_id}/
 # - Data: monthly LSTM CSVs under either bloodBath/bloodBank/merged or training_data_legacy/monthly_lstm
+#
+# Inference runs the exported model.onnx through onnxruntime (CPU). No torch at
+# runtime; export .onnx from training (bloodTwin export_formats includes "onnx").
 
 set -euo pipefail
 
@@ -38,8 +40,8 @@ DATA_ROOT_CANDIDATES=(
   "training_data_legacy/monthly_lstm"
 )
 
-# Resolve artifacts dir and files (prefer TorchScript)
-# Allow explicit overrides via env: ART_DIR, TS_PATH, SCALER_PATH
+# Resolve artifacts dir and files (ONNX runner)
+# Allow explicit overrides via env: ART_DIR, ONNX_PATH, SCALER_PATH
 if [[ -n "${ART_DIR:-}" && -d "${ART_DIR}" ]]; then
   : # use provided ART_DIR
 else
@@ -67,9 +69,10 @@ if [[ -z "${SCALER_PATH:-}" ]]; then
   SCALER_PATH="$(ls -1t "${ART_DIR}"/scaler*.pkl 2>/dev/null | head -n1 || true)"
 fi
 
-# Require TorchScript for this runner (ONNX not used in current Python block)
-if [[ -z "${TS_PATH}" ]]; then
-  echo "ERR: TorchScript model (.ts) not found. Provide TS_PATH or place a .ts file under ${ART_DIR}" >&2
+# Require ONNX for this runner (torch is no longer used at inference time)
+if [[ -z "${ONNX_PATH}" ]]; then
+  echo "ERR: ONNX model (.onnx) not found. Provide ONNX_PATH or place a .onnx file under ${ART_DIR}" >&2
+  echo "     (export it from training: bloodTwin export_formats must include \"onnx\")" >&2
   exit 3
 fi
 if [[ -z "${SCALER_PATH}" ]]; then
@@ -111,7 +114,7 @@ export FEATURE_NAMES="${FEATURE_NAMES:-bg,delta_bg,basal_rate_clipped,basal_anom
 echo "Using:"
 echo "  Pump:       ${PUMP_ID}"
 echo "  Model dir:  ${ART_DIR}"
-echo "  Model ts:   ${TS_PATH:-none}  (onnx: ${ONNX_PATH:-none}, ckpt: ${CKPT_PATH:-none})"
+echo "  Model onnx: ${ONNX_PATH}  (ts: ${TS_PATH:-none}, ckpt: ${CKPT_PATH:-none})"
 echo "  Scaler:     ${SCALER_PATH}"
 echo "  Latest CSV: ${LATEST_CSV}"
 
@@ -129,7 +132,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-import torch
+import onnxruntime as ort
 
 PUMP_ID = os.environ.get("PUMP_ID", "901161470")
 ART_DIR = Path(os.environ.get("ART_DIR", "")) or None
@@ -205,25 +208,16 @@ X_win = feat_df.iloc[-LOOKBACK:].to_numpy(dtype=np.float32)
 
 # Robust scale (ensure float32 throughout)
 X_scaled = (X_win - center.astype(np.float32)) / np.where(scale == 0, 1.0, scale.astype(np.float32))
-X = torch.from_numpy(X_scaled.astype(np.float32)).unsqueeze(0)  # [1, T, F]
+X = X_scaled.astype(np.float32)[np.newaxis, :, :]  # [1, T, F]
 
-# Use CPU to avoid device mismatch issues in exported models
-device = "cpu"
+# Run the exported ONNX model on CPU (no torch at inference time)
+if not ONNX_PATH:
+    raise RuntimeError("ONNX model not found; export model.onnx from training.")
+sess = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])
+input_name = sess.get_inputs()[0].name
+y_hat = sess.run(None, {input_name: X})[0]  # expected [1, H]
 
-# Load model (prefer TorchScript)
-model = None
-if TS_PATH:
-    model = torch.jit.load(TS_PATH, map_location=device)
-else:
-    # Optional: load Lightning checkpoint (requires model class in PYTHONPATH). Skipped here for simplicity.
-    raise RuntimeError("TorchScript model not found; please export .ts")
-
-model.eval()
-
-with torch.inference_mode():
-    y_hat = model(X.to(device))  # expected [1, H]
-
-y_hat = y_hat.detach().float().cpu().numpy().reshape(-1).tolist()
+y_hat = np.asarray(y_hat, dtype=np.float32).reshape(-1).tolist()
 
 # Correction estimate (Decision Support ONLY; not medical advice)
 # You MUST supply personalized parameters: ISF (mg/dL per unit insulin), IOB (active insulin), target BG.
