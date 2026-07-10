@@ -76,6 +76,7 @@ class EventExtractor:
         return (any(keyword in event_type for keyword in ['Cgm', 'cgm', 'Gx']) or
                 hasattr(event, 'sgv') or
                 hasattr(event, 'bg') or
+                hasattr(event, 'currentGlucoseDisplayValue') or
                 hasattr(event, 'currentglucosedisplayvalue') or
                 hasattr(event, 'glucoseValue'))
     
@@ -194,9 +195,14 @@ class EventExtractor:
     def _extract_bg_value(self, event: Any) -> Optional[float]:
         """Extract BG value from CGM event"""
         bg_value = None
-        
-        # Check for currentglucosedisplayvalue (used by LidCgmDataG7)
-        if hasattr(event, 'currentglucosedisplayvalue'):
+
+        # Primary CGM reading is LidCgmDataGxb (id 256): the glucose value lives
+        # in `currentGlucoseDisplayValue` (camelCase, mg/dL). The prior lowercase
+        # lookup never matched the parsed attribute, so ~93% of readings were
+        # silently dropped. Keep a lowercase fallback for any variant.
+        if hasattr(event, 'currentGlucoseDisplayValue'):
+            bg_value = event.currentGlucoseDisplayValue
+        elif hasattr(event, 'currentglucosedisplayvalue'):
             bg_value = event.currentglucosedisplayvalue
         elif hasattr(event, 'sgv'):
             bg_value = event.sgv
@@ -208,7 +214,13 @@ class EventExtractor:
             bg_value = event.glucoseValue
         else:
             logger.debug(f"No BG value found in CGM event type: {type(event).__name__}, attributes: {dir(event)}")
-        
+
+        # glucoseValueStatus 1=HIGH / 2=LOW zero out currentGlucoseDisplayValue;
+        # map those to the Dexcom display rails rather than discarding them.
+        status = getattr(event, 'glucoseValueStatusRaw', None)
+        if status in (1, 2) and (bg_value is None or bg_value == 0):
+            bg_value = 400 if status == 1 else 40
+
         if bg_value is not None:
             logger.debug(f"Extracted BG value: {bg_value} from event type: {type(event).__name__}")
         
