@@ -14,9 +14,7 @@ data:
   # Use the chronologically split data
   train_dir: "bloodBath/bloodBank/merged"
   pump_ids:
-    - "931227"
-    - "943052"
-    - "90922560"
+    - "1539514"
 
   # Features (must match CSV column order after timestamp)
   features:

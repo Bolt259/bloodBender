@@ -109,7 +109,10 @@ fi
 export PUMP_ID ART_DIR TS_PATH ONNX_PATH CKPT_PATH SCALER_PATH LATEST_CSV
 export LOOKBACK="${LOOKBACK:-288}"
 export HORIZON="${HORIZON:-12}"
-export FEATURE_NAMES="${FEATURE_NAMES:-bg,delta_bg,basal_rate_clipped,basal_anomaly_flag,sin_time,cos_time,bg_trend_30min,insulin_on_board}"
+# Fallback only: the scaler.pkl now carries feature_names, so this default is
+# used just for legacy bare-RobustScaler artifacts. Matches the current 11-col
+# LSTM schema (bloodBank pump CSV order after the timestamp column).
+export FEATURE_NAMES="${FEATURE_NAMES:-bg,basal_rate,bolus_dose,basal_delta,time_since_last_bolus,bg_slope_15min,bg_slope_30min,sin_time,cos_time,mask_bg,mask_label}"
 
 echo "Using:"
 echo "  Pump:       ${PUMP_ID}"

@@ -185,20 +185,35 @@ class BloodGlucoseDataset(Dataset):
         }
     
     def save_scaler(self, path: Path):
-        """Save the fitted scaler."""
+        """Save the fitted scaler as a dict carrying the feature-name order.
+
+        Persisting a bare RobustScaler loses which columns (and in what order)
+        it was fit on, forcing consumers to guess feature names — the source of
+        past 8-vs-11-feature mismatches. We save a dict with the scaler plus its
+        feature_names/center_/scale_ so inference can align features exactly.
+        The loader below unwraps it back to a RobustScaler for training reuse.
+        """
         if self.scaler is None:
             raise ValueError("No scaler to save!")
-        
+
+        payload = {
+            'scaler': self.scaler,
+            'feature_names': list(self.features),
+            'center_': self.scaler.center_,
+            'scale_': self.scaler.scale_,
+        }
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'wb') as f:
-            pickle.dump(self.scaler, f)
-        logger.info(f"Saved scaler to {path}")
-    
+            pickle.dump(payload, f)
+        logger.info(f"Saved scaler ({len(self.features)} features) to {path}")
+
     @staticmethod
     def load_scaler(path: Path) -> RobustScaler:
-        """Load a saved scaler."""
+        """Load a saved scaler, unwrapping the dict format (with backward
+        compatibility for older bare-RobustScaler pickles)."""
         with open(path, 'rb') as f:
-            scaler = pickle.load(f)
+            obj = pickle.load(f)
+        scaler = obj['scaler'] if isinstance(obj, dict) else obj
         logger.info(f"Loaded scaler from {path}")
         return scaler
 
