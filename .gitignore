@@ -122,8 +122,10 @@ bloodBath/bloodBank/lstm_pump_data/**/*.csv
 bloodTwin/artifacts/**/*.csv
 bloodTwin/analytics/tensorboard_logs/**/*.csv
 
-# Keep model files and configs
-!bloodTwin/artifacts/**/*.ckpt
+# Training checkpoints are large and regenerable; model.onnx is the deployable artifact
+bloodTwin/artifacts/**/checkpoints/
+
+# Keep deployable model files and configs
 !bloodTwin/artifacts/**/*.ts
 !bloodTwin/artifacts/**/*.onnx
 !bloodTwin/artifacts/**/*.pkl
