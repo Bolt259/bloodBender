@@ -171,16 +171,22 @@ class BloodGlucoseDataset(Dataset):
         if self.scaler is not None:
             input_features = self.scaler.transform(input_features)
         
-        # Get target (BG values for horizon) - should have no NaNs due to filtering
+        # Target BG for the horizon (no NaNs remain after _create_sequences filtering)
         target_values = target_sequence[self.target].values.astype(np.float32)
-        
-        # Convert to tensors
-        input_tensor = torch.from_numpy(input_features)
-        target_tensor = torch.from_numpy(target_values)
-        
+
+        # Observation mask: 1.0 where the horizon BG is genuinely measured, 0.0 where
+        # the resampler interpolated it (mask_bg=True). Loss/metrics reduce over
+        # observed steps only so the model is neither trained nor scored on imputation.
+        if 'mask_bg' in target_sequence.columns:
+            observed = ~target_sequence['mask_bg'].to_numpy().astype(bool)
+        else:
+            observed = np.ones(len(target_sequence), dtype=bool)
+        target_mask = (observed & target_sequence[self.target].notna().to_numpy()).astype(np.float32)
+
         return {
-            'input': input_tensor,
-            'target': target_tensor,
+            'input': torch.from_numpy(input_features),
+            'target': torch.from_numpy(target_values),
+            'target_mask': torch.from_numpy(target_mask),
             'timestamp': str(self.timestamps[start_idx])  # Convert to string for collation
         }
     

@@ -130,95 +130,58 @@ class BloodTwinLSTM(pl.LightningModule):
         
         return predictions
     
+    @staticmethod
+    def _masked_mean(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """Mean of `values` over positions where mask==1 (safe when no positions are set)."""
+        return (values * mask).sum() / mask.sum().clamp_min(1.0)
+
     def _compute_loss(
-        self, 
-        predictions: torch.Tensor, 
-        targets: torch.Tensor
+        self,
+        predictions: torch.Tensor,
+        targets: torch.Tensor,
+        mask: torch.Tensor,
     ) -> torch.Tensor:
-        """Compute loss with optional horizon weighting."""
-        return self.loss_fn(predictions, targets)
+        """Masked MAE: reduce absolute error over observed BG steps only (mask==1)."""
+        return self._masked_mean(torch.abs(predictions - targets), mask)
     
+    def _shared_step(self, batch: Dict[str, torch.Tensor], stage: str) -> torch.Tensor:
+        """Forward + masked loss/metrics for one batch. `stage` in {train,val,test}.
+
+        Every reduction is over observed BG steps only (target_mask==1): the loss
+        gives no gradient on interpolated targets, and MAE/RMSE accumulate solely
+        over measured values, so metrics report real predictive skill.
+        """
+        predictions = self(batch['input'])
+        targets, mask = batch['target'], batch['target_mask']
+        loss = self._compute_loss(predictions, targets, mask)
+
+        mae, rmse = getattr(self, f'{stage}_mae'), getattr(self, f'{stage}_rmse')
+        observed = mask > 0.5
+        if observed.any():
+            mae(predictions[observed], targets[observed])
+            rmse(predictions[observed], targets[observed])
+
+        # Cumulative horizon MAE (e.g. 30/60min), observed steps only.
+        if stage != 'train':
+            for k in self.horizon_checkpoints:
+                if k <= self.horizon:
+                    mae_k = self._masked_mean(torch.abs(predictions[:, :k] - targets[:, :k]), mask[:, :k])
+                    self.log(f'{stage}_mae_{k*5}min', mae_k)
+
+        prog = stage != 'test'
+        self.log(f'{stage}_loss', loss, on_step=(stage == 'train'), on_epoch=True, prog_bar=prog)
+        self.log(f'{stage}_mae', mae, on_step=False, on_epoch=True, prog_bar=prog)
+        self.log(f'{stage}_rmse', rmse, on_step=False, on_epoch=True, prog_bar=(stage == 'val'))
+        return loss
+
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Training step."""
-        inputs = batch['input']
-        targets = batch['target']
-        
-        # Forward pass
-        predictions = self(inputs)
-        
-        # Compute loss
-        loss = self._compute_loss(predictions, targets)
-        
-        # Update metrics
-        self.train_mae(predictions, targets)
-        self.train_rmse(predictions, targets)
-        
-        # Log
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
-        self.log('train_mae', self.train_mae, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('train_rmse', self.train_rmse, on_step=False, on_epoch=True)
-        
-        return loss
-    
+        return self._shared_step(batch, 'train')
+
     def validation_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Validation step."""
-        inputs = batch['input']
-        targets = batch['target']
-        
-        # Forward pass
-        predictions = self(inputs)
-        
-        # Compute loss
-        loss = self._compute_loss(predictions, targets)
-        
-        # Update metrics
-        self.val_mae(predictions, targets)
-        self.val_rmse(predictions, targets)
-        
-        # Horizon-specific metrics
-        for checkpoint in self.horizon_checkpoints:
-            if checkpoint <= self.horizon:
-                checkpoint_mae = torch.mean(torch.abs(
-                    predictions[:, :checkpoint] - targets[:, :checkpoint]
-                ))
-                self.log(f'val_mae_{checkpoint*5}min', checkpoint_mae)
-        
-        # Log
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('val_mae', self.val_mae, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('val_rmse', self.val_rmse, on_step=False, on_epoch=True, prog_bar=True)
-        
-        return loss
-    
+        return self._shared_step(batch, 'val')
+
     def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Test step."""
-        inputs = batch['input']
-        targets = batch['target']
-        
-        # Forward pass
-        predictions = self(inputs)
-        
-        # Compute loss
-        loss = self._compute_loss(predictions, targets)
-        
-        # Update metrics
-        self.test_mae(predictions, targets)
-        self.test_rmse(predictions, targets)
-        
-        # Horizon-specific metrics
-        for checkpoint in self.horizon_checkpoints:
-            if checkpoint <= self.horizon:
-                checkpoint_mae = torch.mean(torch.abs(
-                    predictions[:, :checkpoint] - targets[:, :checkpoint]
-                ))
-                self.log(f'test_mae_{checkpoint*5}min', checkpoint_mae)
-        
-        # Log
-        self.log('test_loss', loss, on_step=False, on_epoch=True)
-        self.log('test_mae', self.test_mae, on_step=False, on_epoch=True)
-        self.log('test_rmse', self.test_rmse, on_step=False, on_epoch=True)
-        
-        return loss
+        return self._shared_step(batch, 'test')
     
     def predict_step(
         self, 
