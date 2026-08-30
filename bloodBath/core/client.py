@@ -293,15 +293,17 @@ class TandemHistoricalSyncClient:
                                    pump_serial: str,
                                    start_date: str,
                                    end_date: str) -> None:
-        """Save chronological train/validate/test splits for merged LSTM datasets."""
-        if lstm_df.empty:
-            return
+        """Re-split the FULL per-pump LSTM series chronologically (70/15/15).
 
-        split_df = lstm_df.copy()
-        if 'timestamp' in split_df.columns:
-            split_df['timestamp'] = pd.to_datetime(split_df['timestamp'], errors='coerce')
-            split_df = split_df.dropna(subset=['timestamp']).sort_values('timestamp').reset_index(drop=True)
-
+        Incremental (--update) syncs write one raw window at a time. Splitting
+        only the current window and leaving prior split files in place made the
+        loader concatenate independently-split windows, so a later window's
+        train data landed chronologically AFTER an earlier window's test data
+        (temporal leakage). Here we rebuild the whole series from every raw
+        window for this pump, dedup on timestamp, split once, and replace any
+        stale split files so exactly one file per split remains.
+        """
+        split_df = self._load_full_pump_series(pump_serial, fallback=lstm_df)
         if split_df.empty:
             return
 
@@ -309,30 +311,47 @@ class TandemHistoricalSyncClient:
         train_end = max(int(total * 0.70), 1)
         validate_end = max(train_end + int(total * 0.15), train_end)
 
-        train_df = split_df.iloc[:train_end]
-        validate_df = split_df.iloc[train_end:validate_end]
-        test_df = split_df.iloc[validate_end:]
-
-        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-        
-
         split_outputs = {
-            'train': train_df,
-            'validate': validate_df,
-            'test': test_df,
+            'train': split_df.iloc[:train_end],
+            'validate': split_df.iloc[train_end:validate_end],
+            'test': split_df.iloc[validate_end:],
         }
 
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
         for split_name, split_data in split_outputs.items():
+            split_path = DATA_PATHS['merged'][split_name]
+            pump_dir = split_path.parent / f"pump_{pump_serial}" / split_path.name
+            pump_dir.mkdir(parents=True, exist_ok=True)
+            # Drop stale split files for this pump so the loader sees one file.
+            for stale in pump_dir.glob(f"lstm_{split_name}_{pump_serial}_*.csv"):
+                stale.unlink()
             if split_data.empty:
                 continue
-
-            base_name = f"pump_{pump_serial}_{start_date}_to_{end_date}_{timestamp}.csv"
-            lstm_name = f"lstm_{split_name}_{pump_serial}_{timestamp}.csv"
-            split_path = DATA_PATHS['merged'][split_name]
-            split_path.mkdir(parents=True, exist_ok=True)
-            output_file = self._chron_split_path(split_path, lstm_name, pump_serial)
+            output_file = pump_dir / f"lstm_{split_name}_{pump_serial}_{timestamp}.csv"
             split_data.to_csv(output_file, index=False)
             logger.info(f"Saved {split_name} split ({len(split_data)} rows) to {output_file}")
+
+    def _load_full_pump_series(self,
+                               pump_serial: str,
+                               fallback: pd.DataFrame = None) -> pd.DataFrame:
+        """Concatenate every raw LSTM window for a pump into one clean,
+        timestamp-sorted, de-duplicated series. Returns an empty frame if none."""
+        raw_files = sorted(DATA_PATHS['raw']['lstm'].glob(f"pump_{pump_serial}_*.csv"))
+        frames = []
+        for path in raw_files:
+            try:
+                frames.append(pd.read_csv(path, comment='#'))
+            except Exception as exc:
+                logger.warning(f"Skipping unreadable raw LSTM file {path}: {exc}")
+        combined = pd.concat(frames, ignore_index=True) if frames else (
+            fallback.copy() if fallback is not None else pd.DataFrame())
+        if combined.empty or 'timestamp' not in combined.columns:
+            return pd.DataFrame()
+        combined['timestamp'] = pd.to_datetime(combined['timestamp'], errors='coerce', utc=True)
+        return (combined.dropna(subset=['timestamp'])
+                        .drop_duplicates(subset=['timestamp'], keep='last')
+                        .sort_values('timestamp')
+                        .reset_index(drop=True))
     
     def _chron_split_path(self, merged_path, base_name, serial_number):
         split_path = merged_path.parent / f"pump_{serial_number}" / merged_path.name / base_name
