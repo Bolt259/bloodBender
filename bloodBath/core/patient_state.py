@@ -42,10 +42,20 @@ import pandas as pd
 # ── Schema version ────────────────────────────────────────────────────────────
 # Bump when the model-input feature set changes (field added/removed/renamed).
 # model.onnx artifacts are tagged against this version at export time.
-SCHEMA_VERSION: str = "1.0"
+SCHEMA_VERSION: str = "1.1"
 
 # Minutes per CGM sample interval (5 min for Dexcom G-series / Tandem CGM)
 CGM_STEP_MINUTES: int = 5
+
+# Default duration of insulin action used for IOB computation (minutes).
+# Matches Tandem Control-IQ default (5 h).  Override per-patient via
+# the derive_iob() dia_minutes parameter.
+DEFAULT_DIA_MINUTES: float = 300.0
+
+# Bi-linear IOB model peak time (fraction of DIA).  At DIA=300 min,
+# peak insulin action occurs at ~75 min, consistent with rapid-acting
+# analogues (Humalog / NovoLog).
+_IOB_PEAK_FRACTION: float = 0.25
 
 
 # ── Field descriptor ──────────────────────────────────────────────────────────
@@ -134,6 +144,27 @@ SCHEMA: tuple[PatientStateField, ...] = (
         dtype="float32",
         unit="dimensionless",
         description="Cosine component of time-of-day circular encoding",
+        is_model_input=True,
+        is_derived=True,
+    ),
+    PatientStateField(
+        name="iob",
+        dtype="float32",
+        unit="U",
+        description="Insulin on board: cumulative remaining insulin effect from all "
+                    "recent boluses, decayed via a bi-linear pharmacokinetic model "
+                    "(DIA=300 min, peak ~75 min).  Population PK — LSTM corrects the "
+                    "patient-specific residual implicitly from BG response history.",
+        is_model_input=True,
+        is_derived=True,
+    ),
+    PatientStateField(
+        name="bg_acceleration",
+        dtype="float32",
+        unit="mg/dL/min^2",
+        description="2nd derivative of BG (change in bg_slope_15min per minute). "
+                    "Primary meal-onset detection signal — captures BG 'speeding up' "
+                    "before the slope itself becomes large.",
         is_model_input=True,
         is_derived=True,
     ),
@@ -234,6 +265,89 @@ def derive_time_of_day(
     return sin_t, cos_t
 
 
+def _iob_kernel(dia_minutes: float, step_minutes: int) -> np.ndarray:
+    """
+    Build a causal convolution kernel representing the IOB remaining fraction
+    at each step offset from a bolus delivery.
+
+    Uses the bi-linear insulin action model (OpenAPS/Loop lineage):
+      action(t) rises linearly to its peak at t_peak, then falls linearly to
+      zero at t=DIA.  The IOB_remaining kernel is the tail-integral of this
+      action curve, giving the fraction of the bolus effect still ahead.
+
+    kernel[0] = 1.0  (full bolus just delivered, all effect still ahead)
+    kernel[k] = fraction remaining k*step_minutes after delivery
+    kernel[DIA_steps+] = 0.0
+    """
+    n_steps = int(dia_minutes / step_minutes) + 1
+    t_peak  = dia_minutes * _IOB_PEAK_FRACTION
+    kernel  = np.zeros(n_steps, dtype=np.float32)
+    for k in range(n_steps):
+        t = k * step_minutes
+        if t >= dia_minutes:
+            kernel[k] = 0.0
+        elif t < t_peak:
+            # Linearly rising action: IOB remaining = 1 - integral_0^t action(s)ds
+            # = 1 - t^2 / (2 * t_peak * DIA) ... normalised to total area = 1
+            kernel[k] = 1.0 - (t ** 2) / (2.0 * t_peak * dia_minutes)
+        else:
+            # Linearly falling action: tail integral
+            remaining = (dia_minutes - t) ** 2 / (2.0 * (dia_minutes - t_peak) * dia_minutes)
+            kernel[k] = max(0.0, remaining)
+    return kernel
+
+
+def derive_iob(
+    bolus_dose: pd.Series,
+    dia_minutes: float = DEFAULT_DIA_MINUTES,
+    step_minutes: int = CGM_STEP_MINUTES,
+) -> pd.Series:
+    """
+    Insulin on board (U) at each timestep — the sum of remaining active
+    insulin from all prior boluses.
+
+    Computed as a causal convolution of bolus_dose with the bi-linear IOB
+    kernel.  Population PK parameters (DIA=300 min, peak~75 min) are used;
+    the LSTM learns the patient-specific residual correction implicitly from
+    the BG response history.
+
+    This gives the model a clean, monotonically decaying "insulin still
+    acting" signal that is more informative than the (bolus_dose,
+    time_since_last_bolus) two-feature proxy it replaces — they are kept
+    alongside as complementary features.
+    """
+    kernel = _iob_kernel(dia_minutes, step_minutes)
+    doses  = bolus_dose.fillna(0.0).to_numpy(dtype=np.float32)
+    # Full convolution then truncate to causal (past-only) length
+    iob_vals = np.convolve(doses, kernel, mode="full")[: len(doses)]
+    return pd.Series(iob_vals.astype(np.float32), index=bolus_dose.index, name="iob")
+
+
+def derive_bg_acceleration(
+    bg_slope_15min: pd.Series,
+    window_minutes: int = 15,
+    step_minutes: int = CGM_STEP_MINUTES,
+) -> pd.Series:
+    """
+    2nd derivative of BG: the rate of change of bg_slope_15min (mg/dL/min²).
+
+    Computed as a backward difference of the slope over the same 15-min
+    window used for bg_slope_15min itself — so it captures the change in BG
+    velocity over a 15-min comparison window.
+
+    This is the primary meal-onset signal: BG 'speeding up' (positive
+    acceleration) is detectable ~10-15 min before the raw slope becomes
+    large, which helps the LSTM front-run post-meal highs and rebound
+    corrections.
+
+    Note: 3rd derivative is not included — CGM noise at 5-min resolution
+    dominates beyond the 2nd derivative even after denoising.
+    """
+    n_steps = window_minutes // step_minutes
+    accel = (bg_slope_15min - bg_slope_15min.shift(n_steps)) / float(window_minutes)
+    return accel.fillna(0.0).astype("float32")
+
+
 # ── Feature builder ───────────────────────────────────────────────────────────
 
 def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -270,7 +384,7 @@ def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
 
     out = df.copy()
 
-    # Derived features
+    # Derived features (order matters: bg_acceleration depends on bg_slope_15min)
     out["basal_delta"] = derive_basal_delta(out["basal_rate"])
     out["time_since_last_bolus"] = derive_time_since_last_bolus(
         out["bolus_dose"], ts_index
@@ -278,6 +392,8 @@ def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
     out["bg_slope_15min"] = derive_bg_slope(out["bg"], window_minutes=15)
     out["bg_slope_30min"] = derive_bg_slope(out["bg"], window_minutes=30)
     out["sin_time"], out["cos_time"] = derive_time_of_day(ts_index)
+    out["iob"]             = derive_iob(out["bolus_dose"])
+    out["bg_acceleration"] = derive_bg_acceleration(out["bg_slope_15min"])
 
     # Quality masks: pass through if present, otherwise default to all-observed
     if "mask_bg" not in out.columns:

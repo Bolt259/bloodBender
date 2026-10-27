@@ -19,6 +19,8 @@ from ..core.patient_state import (
     derive_time_since_last_bolus,
     derive_bg_slope,
     derive_time_of_day,
+    derive_iob,
+    derive_bg_acceleration,
 )
 
 logger = logging.getLogger(__name__)
@@ -768,6 +770,11 @@ class FeatureEngineer:
             enhanced_streams['bg_slope_30min'] = pd.Series(0.0, index=ts_index)
 
         enhanced_streams['sin_time'], enhanced_streams['cos_time'] = derive_time_of_day(ts_index)
+        enhanced_streams['iob'] = derive_iob(aligned_streams['bolus_dose'])
+        # bg_acceleration depends on bg_slope_15min being set above
+        enhanced_streams['bg_acceleration'] = derive_bg_acceleration(
+            enhanced_streams['bg_slope_15min']
+        )
 
         logger.info(f"Added {len(enhanced_streams) - len(aligned_streams)} derived features")
         return enhanced_streams
