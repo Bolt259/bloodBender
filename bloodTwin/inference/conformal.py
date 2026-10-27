@@ -328,10 +328,19 @@ class ConformalPredictor:
         """
         Run inference on a raw DataFrame of at least LOOKBACK rows.
 
-        build_feature_frame() is called internally (lazy import), so callers
-        only need to supply bg / basal_rate / bolus_dose + timestamp columns.
+        build_feature_frame() is loaded directly from patient_state.py by
+        file path so this method works in the lightweight inference env
+        (no arrow/sync-stack dependency via bloodBath.__init__).
         """
-        from bloodBath.core.patient_state import build_feature_frame  # lazy
+        import importlib.util as _ilu, sys as _sys
+        _mod_name = "bloodBath.core.patient_state"
+        if _mod_name not in _sys.modules:
+            _ps_path = Path(__file__).parents[2] / "bloodBath" / "core" / "patient_state.py"
+            _spec = _ilu.spec_from_file_location(_mod_name, _ps_path)
+            _mod  = _ilu.module_from_spec(_spec)
+            _sys.modules[_mod_name] = _mod   # register before exec so dataclasses can find it
+            _spec.loader.exec_module(_mod)
+        build_feature_frame = _sys.modules[_mod_name].build_feature_frame  # noqa
         feature_df = build_feature_frame(df)
         if len(feature_df) < LOOKBACK:
             raise ValueError(f"Need ≥{LOOKBACK} rows, got {len(feature_df)}")
