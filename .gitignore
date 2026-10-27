@@ -37,6 +37,8 @@
 # Include README and documentation
 !README.md
 !CODEBASE_CONTEXT.md
+!docs/
+!docs/**
 !NIX*.md
 !CLEANUP_SUMMARY.md
 
