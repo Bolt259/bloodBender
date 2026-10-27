@@ -38,6 +38,7 @@
         scikit-learn
         scipy
         onnxruntime
+        matplotlib
       ]);
     in
     {

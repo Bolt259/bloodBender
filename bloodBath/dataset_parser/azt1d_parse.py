@@ -4,6 +4,7 @@ import pandas as pd
 import argparse
 import re
 from bloodBath.dataset_parser.save_splits import save_chronological_splits
+from bloodBath.core.patient_state import build_feature_frame, ALL_COLUMN_NAMES
 
 DATASET = "azt1d"
 DATASET_PATH = Path("/home/desktop/Sneior_Project/datasets/azt1d/cgm")
@@ -150,53 +151,19 @@ def parse_csv_to_df(csv_file: Path):
     bolus_df = build_bolus_grid(df, timestamp_col, bolus_col, out["timestamp"])
     out = out.merge(bolus_df, on="timestamp", how="left")
 
-    out["basal_delta"] = out["basal_rate"].diff().fillna(0.0)
-
-    last_bolus_time = pd.NaT
-    tslb = []
-    for ts, dose in zip(out["timestamp"], out["bolus_dose"]):
-        if dose > 0:
-            last_bolus_time = ts
-
-        if pd.isna(last_bolus_time):
-            tslb.append(1440.0)
-        else:
-            tslb.append((ts - last_bolus_time).total_seconds() / 60.0)
-
-    out["time_since_last_bolus"] = tslb
-
-    out["bg_slope_15min"] = (out["bg"] - out["bg"].shift(3)) / 15.0
-    out["bg_slope_30min"] = (out["bg"] - out["bg"].shift(6)) / 30.0
-    out["bg_slope_15min"] = out["bg_slope_15min"].fillna(0.0)
-    out["bg_slope_30min"] = out["bg_slope_30min"].fillna(0.0)
-
-    minutes_of_day = out["timestamp"].dt.hour * 60 + out["timestamp"].dt.minute
-    angle = 2 * np.pi * minutes_of_day / (24 * 60)
-    out["sin_time"] = np.sin(angle)
-    out["cos_time"] = np.cos(angle)
-
-    # Final masks
     out["mask_bg"] = out["mask_bg"].astype(bool)
     out["mask_label"] = (~out["mask_bg"]).astype(bool)
 
     subject_id = extract_subject_id(csv_file)
 
-    out = out[
-        [
-            "timestamp",
-            "bg",
-            "basal_rate",
-            "bolus_dose",
-            "basal_delta",
-            "time_since_last_bolus",
-            "bg_slope_15min",
-            "bg_slope_30min",
-            "sin_time",
-            "cos_time",
-            "mask_bg",
-            "mask_label",
-        ]
-    ]
+    # All derived features computed from the canonical patient_state module
+    out = build_feature_frame(out)
+    out.insert(0, "timestamp", out.index if "timestamp" not in out.columns
+               else out.pop("timestamp") if "timestamp" in out.columns else pd.NaT)
+
+    # Restore timestamp column in front (build_feature_frame preserves it)
+    cols = ["timestamp"] + [c for c in ALL_COLUMN_NAMES if c in out.columns]
+    out = out[[c for c in cols if c in out.columns]]
 
     return out, subject_id
 

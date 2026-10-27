@@ -14,6 +14,12 @@ from datetime import timedelta
 
 from ..utils.time_utils import generate_time_index, extract_timestamp_from_event
 from ..core.exceptions import DataValidationError
+from ..core.patient_state import (
+    derive_basal_delta,
+    derive_time_since_last_bolus,
+    derive_bg_slope,
+    derive_time_of_day,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -745,35 +751,24 @@ class FeatureEngineer:
         logger.info("Adding derived features for LSTM training...")
         
         enhanced_streams = aligned_streams.copy()
-        
-        # Time since last bolus
-        enhanced_streams['time_since_last_bolus'] = self._calculate_time_since_last_bolus(
-            aligned_streams['bolus_dose']
+
+        ts_index = pd.DatetimeIndex(pd.to_datetime(aligned_streams['bolus_dose'].index))
+
+        enhanced_streams['basal_delta'] = derive_basal_delta(aligned_streams['basal_rate'])
+        enhanced_streams['time_since_last_bolus'] = derive_time_since_last_bolus(
+            aligned_streams['bolus_dose'], ts_index
         )
-        
-        # Basal delta
-        enhanced_streams['basal_delta'] = aligned_streams['basal_rate'].diff().fillna(0.0)
-        
-        # BG slopes (if BG data exists)
-        if 'bg' in aligned_streams and aligned_streams['bg'].notna().any():
-            enhanced_streams['bg_slope_15min'] = self._calculate_bg_slope(
-                aligned_streams['bg'], window_intervals=3
-            )
-            enhanced_streams['bg_slope_30min'] = self._calculate_bg_slope(
-                aligned_streams['bg'], window_intervals=6
-            )
+
+        bg = aligned_streams.get('bg', pd.Series(dtype=float))
+        if bg.notna().any():
+            enhanced_streams['bg_slope_15min'] = derive_bg_slope(bg, window_minutes=15)
+            enhanced_streams['bg_slope_30min'] = derive_bg_slope(bg, window_minutes=30)
         else:
-            # Fill with zeros if no BG data
-            time_index = aligned_streams['bolus_dose'].index
-            enhanced_streams['bg_slope_15min'] = pd.Series(0.0, index=time_index)
-            enhanced_streams['bg_slope_30min'] = pd.Series(0.0, index=time_index)
-        
-        # Time-of-day cyclical features
-        time_index = pd.to_datetime(aligned_streams['bolus_dose'].index)
-        sin_time, cos_time = self._add_time_of_day_features(time_index)
-        enhanced_streams['sin_time'] = sin_time
-        enhanced_streams['cos_time'] = cos_time
-        
+            enhanced_streams['bg_slope_15min'] = pd.Series(0.0, index=ts_index)
+            enhanced_streams['bg_slope_30min'] = pd.Series(0.0, index=ts_index)
+
+        enhanced_streams['sin_time'], enhanced_streams['cos_time'] = derive_time_of_day(ts_index)
+
         logger.info(f"Added {len(enhanced_streams) - len(aligned_streams)} derived features")
         return enhanced_streams
     

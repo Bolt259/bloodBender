@@ -7,7 +7,10 @@
     in
     {
       devShells.default = pkgs.mkShell {
-        packages = [ pythonSyncEnv ];
+        packages = [ pythonSyncEnv pkgs.uv ];
+        # uv must use the Nix-provided Python on NixOS (can't run bundled glibc binaries)
+        UV_PYTHON_DOWNLOADS = "never";
+        UV_PYTHON = "${pythonSyncEnv}/bin/python3";
         shellHook = pyHook + ''
           echo "bloodBender sync shell (CPU)"
         '';

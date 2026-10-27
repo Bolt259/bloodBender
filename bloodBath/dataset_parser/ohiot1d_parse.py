@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import argparse
 from bloodBath.dataset_parser.save_splits import save_chronological_splits
+from bloodBath.core.patient_state import build_feature_frame, ALL_COLUMN_NAMES
 
 DATASET = "ohiot1d"
 DATASET_PATH = "/home/desktop/Sneior_Project/datasets/ohiot1d/"
@@ -151,62 +152,16 @@ def parse_xml_to_df(xml_file):
         df["bolus_dose"] = df["bolus_dose_new"].fillna(df["bolus_dose"])
         df = df.drop(columns=["bolus_dose_new"])
 
-    # ----------------------------
-    # 6) Derived features
-    # ----------------------------
-    df["basal_delta"] = df["basal_rate"].diff().fillna(0.0)
-
-    # time since last bolus in minutes
-    last_bolus_time = pd.NaT
-    tslb = []
-    for ts, dose in zip(df["timestamp"], df["bolus_dose"]):
-        if dose > 0:
-            last_bolus_time = ts
-
-        if pd.isna(last_bolus_time):
-            tslb.append(1440.0)
-        else:
-            tslb.append((ts - last_bolus_time).total_seconds() / 60.0)
-
-    df["time_since_last_bolus"] = tslb
-
-    # slopes based on 5-min rows
-    # 15 min = 3 rows, 30 min = 6 rows
-    df["bg_slope_15min"] = (df["bg"] - df["bg"].shift(3)) / 15.0
-    df["bg_slope_30min"] = (df["bg"] - df["bg"].shift(6)) / 30.0
-    df["bg_slope_15min"] = df["bg_slope_15min"].fillna(0.0)
-    df["bg_slope_30min"] = df["bg_slope_30min"].fillna(0.0)
-
-    # cyclical time features
-    minutes_of_day = df["timestamp"].dt.hour * 60 + df["timestamp"].dt.minute
-    angle = 2 * np.pi * minutes_of_day / (24 * 60)
-    df["sin_time"] = np.sin(angle)
-    df["cos_time"] = np.cos(angle)
-
-    # label mask
-    # for now: True where a row exists and can be used
+    # label mask — True where row can be used in training
     df["mask_label"] = ~df["mask_bg"]
 
     # optional patient id
     patient_id = root.get("id")
 
-    # final order
-    df = df[
-        [
-            "timestamp",
-            "bg",
-            "basal_rate",
-            "bolus_dose",
-            "basal_delta",
-            "time_since_last_bolus",
-            "bg_slope_15min",
-            "bg_slope_30min",
-            "sin_time",
-            "cos_time",
-            "mask_bg",
-            "mask_label",
-        ]
-    ]
+    # All derived features computed from the canonical patient_state module
+    df = build_feature_frame(df)
+    cols = ["timestamp"] + [c for c in ALL_COLUMN_NAMES if c in df.columns]
+    df = df[[c for c in cols if c in df.columns]]
 
     return df, patient_id
 

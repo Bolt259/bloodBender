@@ -140,3 +140,18 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
+
+# ── uv ────────────────────────────────────────────────────────────────────────
+# uv manages fast dev-iteration deps; Nix remains the canonical reproducible
+# environment for CI/training/inference.  Use both together:
+#
+#   nix develop   → hermetic, cache-backed, GPU-capable environments
+#   uv sync       → fast local installs for IDE integration, quick scripts
+#
+# Install uv: nix develop (adds uv to PATH), then: uv sync --extra dev
+# Add deps:   uv add <pkg>          → updates pyproject.toml + uv.lock
+# Update:     uv lock --upgrade
+# Run script: uv run python my_script.py
+
+[tool.uv]
+package = true

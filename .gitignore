@@ -60,6 +60,7 @@ result-*
 !nix/
 !nix/**/*.nix
 !pyproject.toml
+!uv.lock
 !NIX*.md
 !CLEANUP_SUMMARY.md
 
