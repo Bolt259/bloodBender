@@ -1,0 +1,26 @@
+{
+  "pumps": {
+    "881235": {
+      "n": 526,
+      "median": 17.0,
+      "p25": 9.8,
+      "p75": 30.0
+    },
+    "901161470": {
+      "n": 277,
+      "median": 20.5,
+      "p25": 15.1,
+      "p75": 28.8
+    },
+    "1539514": {
+      "n": 199,
+      "median": 24.0,
+      "p25": 16.6,
+      "p75": 33.2
+    }
+  },
+  "current_isf_30d": 23.6,
+  "rolling_window_days": 90,
+  "total_events": 1002,
+  "trend_note": "ISF increasing over 5 years: 17\u219220.5\u219224 mg/dL/U \u2014 patient becoming more insulin-sensitive"
+}
