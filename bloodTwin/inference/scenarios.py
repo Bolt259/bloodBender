@@ -144,7 +144,31 @@ class ScenarioFan:
     scenarios: list[Scenario]           # ordered by dose_u ascending
     isf_used: float
     correction_target: float
-    estimated_correction_dose: float    # ECD from ISF + predicted peak
+    estimated_correction_dose: float    # ECD from LSTM-predicted peak / ISF
+
+    # ── LSTM-derived insight fields ────────────────────────────────────────
+    # All populated by ScenarioSimulator.run(); defaults for callers that
+    # build ScenarioFan manually without going through the simulator.
+    model_predicted_peak: float = 0.0   # LSTM predicted BG peak within horizon
+    current_bg: float | None = None     # last observed BG (context display)
+    model_trigger: str = ""             # natural-language reason for the suggestion
+    meal_probability: float = 0.0      # from aux LSTM head
+    # Optional — set by caller after running FailureModeClassifier
+    failure_top_state: str = "nominal"
+    failure_top_prob: float = 0.0
+
+    @property
+    def baseline(self) -> Scenario:
+        """The 0U 'do nothing' scenario."""
+        return self.scenarios[0]
+
+    # Model-derived insight fields (set by ScenarioSimulator after run())
+    model_predicted_peak: float = 0.0        # LSTM's predicted BG peak within horizon
+    current_bg: float | None = None          # BG at window end (for context)
+    model_trigger: str = ""                  # Why LSTM predicts a rise ("dawn pattern", etc.)
+    meal_probability: float = 0.0           # From aux head
+    failure_top_state: str = "nominal"
+    failure_top_prob: float = 0.0
 
     @property
     def baseline(self) -> Scenario:
@@ -153,21 +177,44 @@ class ScenarioFan:
 
     @property
     def best_scenario(self) -> Scenario:
-        """Scenario whose 60-min median prediction is closest to correction_target."""
-        return min(
-            self.scenarios,
-            key=lambda s: abs(s.predicted_bg_at_60min - self.correction_target)
-        )
+        """
+        LSTM-informed scenario selection.
+
+        Chooses the dose whose predicted 60-min BG is closest to
+        correction_target, weighted toward the lower end of the dose range
+        when meal_probability is high (anticipatory pre-bolus) and toward
+        0U when the failure mode suggests site failure (insulin won't absorb).
+        """
+        if self.failure_top_state == "site_failure" and self.failure_top_prob > 0.6:
+            # Site failure suspected: don't suggest correction, it won't absorb
+            return self.scenarios[0]
+
+        # Penalise doses that overshoot into hypoglycaemia
+        def score(s: Scenario) -> float:
+            dist = abs(s.predicted_bg_at_60min - self.correction_target)
+            # Extra penalty if lower bound risks hypo (<70)
+            hypo_penalty = max(0.0, 70.0 - s.lower_at_60min) * 2.0
+            return dist + hypo_penalty
+
+        return min(self.scenarios, key=score)
 
     def to_dict(self) -> dict:
+        best = self.best_scenario
         return {
             "window_end_utc":             self.window_end_utc.isoformat(),
             "pump_serial":                self.pump_serial,
             "horizon_minutes":            self.horizon_minutes,
+            "current_bg":                 round(self.current_bg, 1) if self.current_bg else None,
+            "model_predicted_peak":       round(self.model_predicted_peak, 1),
+            "model_trigger":              self.model_trigger,
+            "meal_probability":           round(self.meal_probability, 4),
+            "failure_top_state":          self.failure_top_state,
+            "failure_top_prob":           round(self.failure_top_prob, 4),
             "isf_used":                   round(self.isf_used, 1),
             "correction_target":          round(self.correction_target, 1),
             "estimated_correction_dose":  round(self.estimated_correction_dose, 2),
-            "best_dose_u":                round(self.best_scenario.dose_u, 2),
+            "best_dose_u":                round(best.dose_u, 2),
+            "best_reasoning":             best.delta_reasoning,
             "scenarios":                  [s.to_dict() for s in self.scenarios],
         }
 
@@ -219,14 +266,42 @@ class ScenarioSimulator:
         """
         cfg = self._config
 
-        # Single LSTM forward pass for the baseline (0U)
+        # ── Single LSTM forward pass (baseline, 0U) ───────────────────────
         baseline = self._pred.predict_from_df(df, coverage=coverage, pump_serial=pump_serial)
 
-        # ECD from ISF + baseline predicted peak
-        peak_bg = float(np.max(baseline.predicted_bg))
-        ecd = max(0.0, (peak_bg - cfg.correction_target) / cfg.isf) if cfg.isf > 0 else 0.0
+        # Current BG (last observed, non-NaN value in lookback)
+        bg_col = df["bg"] if "bg" in df.columns else pd.Series(dtype=float)
+        current_bg = float(bg_col.dropna().iloc[-1]) if not bg_col.dropna().empty else None
 
-        # Dose grid: 0 → max(ECD×1.5, min_range) at dose_step
+        # ── ECD from LSTM-predicted peak, not current BG ──────────────────
+        # This is the core LSTM-informed component: even when current slope=0,
+        # if the model predicts BG will reach 160 (dawn / post-meal pattern),
+        # ECD reflects that rise — not the current value.
+        peak_idx = int(np.argmax(baseline.predicted_bg))
+        peak_bg  = float(baseline.predicted_bg[peak_idx])
+        peak_min = baseline.horizon_minutes[peak_idx]
+        ecd      = max(0.0, (peak_bg - cfg.correction_target) / cfg.isf) if cfg.isf > 0 else 0.0
+
+        # ── Model trigger: WHY is the LSTM predicting a rise? ────────────
+        # Synthesised from meal_prob, failure mode, and trajectory shape.
+        meal_prob  = baseline.meal_probability
+        bg_delta   = peak_bg - (current_bg or peak_bg)
+        traj_trend = float(baseline.predicted_bg[-1]) - float(baseline.predicted_bg[0])
+
+        if meal_prob >= 0.5 and bg_delta > 15:
+            trigger = f"model detects meal-rise pattern (P={meal_prob:.0%}); BG expected +{bg_delta:.0f} mg/dL"
+        elif meal_prob >= 0.3 and traj_trend > 10:
+            trigger = f"model predicts rising trajectory (meal probability {meal_prob:.0%})"
+        elif current_bg is not None and bg_delta > 20 and meal_prob < 0.25:
+            trigger = f"model predicts rise without meal signal — possible dawn/stress/hormonal pattern"
+        elif bg_delta > 5:
+            trigger = f"model projects BG to peak at {peak_bg:.0f} mg/dL @ +{peak_min}min"
+        elif ecd == 0:
+            trigger = "model predicts BG will remain at or below target — no correction indicated"
+        else:
+            trigger = f"model: current BG {current_bg:.0f} → predicted peak {peak_bg:.0f} mg/dL"
+
+        # ── Dose grid ─────────────────────────────────────────────────────
         upper   = min(cfg.max_dose, max(ecd * 1.5, cfg.min_dose_range))
         n_steps = math.ceil(upper / cfg.dose_step)
         doses   = [round(i * cfg.dose_step, 2) for i in range(n_steps + 1)]
@@ -239,29 +314,26 @@ class ScenarioSimulator:
             if dose == 0.0:
                 pred = baseline
             else:
-                # ISF offset: expected BG drop per horizon step
-                delta = _dose_bg_delta(dose, cfg.isf, HORIZON)
-                new_pred  = (baseline.predicted_bg + delta).astype(np.float32)
-                new_lower = (baseline.lower + delta).astype(np.float32)
-                new_upper = (baseline.upper + delta).astype(np.float32)
                 import dataclasses
+                delta     = _dose_bg_delta(dose, cfg.isf, HORIZON)
+                new_pred  = (baseline.predicted_bg + delta).astype(np.float32)
+                new_lower = (baseline.lower         + delta).astype(np.float32)
+                new_upper = (baseline.upper         + delta).astype(np.float32)
                 pred = dataclasses.replace(
-                    baseline,
-                    predicted_bg=new_pred,
-                    lower=new_lower,
-                    upper=new_upper,
+                    baseline, predicted_bg=new_pred, lower=new_lower, upper=new_upper,
                 )
 
             d30 = float(pred.predicted_bg[5])  - base_30
             d60 = float(pred.predicted_bg[11]) - base_60
             reasoning = (
-                f"vs 0U: {d30:+.1f} mg/dL @30min, {d60:+.1f} mg/dL @60min"
-                f" (main effect continues 1-4h beyond window)"
-                if dose > 0 else "baseline (no dose)"
+                f"vs 0U: {d30:+.1f} @30min, {d60:+.1f} @60min mg/dL"
+                f" — bulk of {dose:.2f}U effect arrives 1-4h after delivery"
+                if dose > 0 else
+                f"no dose: model predicts peak {peak_bg:.0f} mg/dL @ +{peak_min}min"
             )
             scenarios.append(Scenario(dose_u=dose, prediction=pred, delta_reasoning=reasoning))
 
-        return ScenarioFan(
+        fan = ScenarioFan(
             window_end_utc=baseline.window_end_utc,
             pump_serial=pump_serial,
             horizon_minutes=baseline.horizon_minutes,
@@ -269,4 +341,9 @@ class ScenarioSimulator:
             isf_used=cfg.isf,
             correction_target=cfg.correction_target,
             estimated_correction_dose=round(ecd, 2),
+            model_predicted_peak=round(peak_bg, 1),
+            current_bg=round(current_bg, 1) if current_bg is not None else None,
+            model_trigger=trigger,
+            meal_probability=round(meal_prob, 4),
         )
+        return fan
