@@ -466,11 +466,15 @@ class TandemSourceApi:
         maxDate = parse_ymd_date(max_date)
         logger.debug(f'get_pump_logs({device_id}, {minDate}, {maxDate})')
 
+        # eventIds was previously sent to mirror the web app but the server
+        # always returned all events regardless (and now rejects the param
+        # with a ZodError). Client-side filtering via EventClass dispatch is
+        # the effective gate; event_ids_filter is kept for the call signature
+        # but no longer forwarded to the BFF.
         query = urllib.parse.urlencode({
             'pumperId': self.pumperId,
             'startDate': f'{minDate}T00:00:00Z',
             'endDate': f'{maxDate}T23:59:59Z',
-            'eventIds': ','.join(map(str, event_ids_filter)) if event_ids_filter else '',
         })
         return self.get(f'api/reports/bff/pump-logs/{device_id}?{query}', {})
 
