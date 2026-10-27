@@ -89,6 +89,7 @@ def train(config_path: Path, file_name: str):
     
     # Create model
     logger.info("Creating model...")
+    meal_cfg = config.get('meal_classifier', {})
     model = BloodTwinLSTM(
         input_size=len(config['data']['features']),
         hidden_size=config['model']['hidden_size'],
@@ -99,7 +100,9 @@ def train(config_path: Path, file_name: str):
         weight_decay=config['training']['weight_decay'],
         scheduler_params=config['training'].get('scheduler_params'),
         bg_min=config['constraints']['bg_min'],
-        bg_max=config['constraints']['bg_max']
+        bg_max=config['constraints']['bg_max'],
+        meal_loss_weight=meal_cfg.get('loss_weight', 0.1),
+        meal_pos_weight=meal_cfg.get('pos_weight', 3.0),
     )
     
     # Log model info
@@ -243,21 +246,25 @@ def export_model(
         except Exception as e:
             logger.error(f"Failed to export TorchScript: {e}")
     
-    # ONNX
+    # ONNX — exports both outputs: bg_prediction [batch,horizon] + meal_logit [batch]
     if 'onnx' in export_formats:
         try:
-            onnx_path = artifacts_dir / 'model.onnx'
+            onnx_path   = artifacts_dir / 'model.onnx'
             onnx_config = config['artifacts']['onnx']
-            
+            dynamic_axes = onnx_config.get('dynamic_axes', {})
+            # Ensure meal_logit axis is covered
+            if 'meal_logit' not in dynamic_axes:
+                dynamic_axes['meal_logit'] = {0: 'batch_size'}
+
             torch.onnx.export(
                 model,
                 example_input,
                 str(onnx_path),
                 input_names=onnx_config['input_names'],
                 output_names=onnx_config['output_names'],
-                dynamic_axes=onnx_config.get('dynamic_axes', None),
+                dynamic_axes=dynamic_axes,
                 opset_version=onnx_config['opset_version'],
-                do_constant_folding=True
+                do_constant_folding=True,
             )
             logger.info(f"Exported ONNX model to {onnx_path}")
         except Exception as e:

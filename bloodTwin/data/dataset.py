@@ -183,11 +183,23 @@ class BloodGlucoseDataset(Dataset):
             observed = np.ones(len(target_sequence), dtype=bool)
         target_mask = (observed & target_sequence[self.target].notna().to_numpy()).astype(np.float32)
 
+        # Meal-rise label (indirect supervision): 1 if BG rises ≥35 mg/dL over the
+        # horizon AND current BG is ≥80.  Covers post-meal highs and rebound
+        # hyperglycaemia after a prolonged low.  Computed on raw (unscaled) BG.
+        current_bg = input_sequence[self.target].values[-1]  # last raw BG in lookback
+        valid_future = target_values[target_mask > 0]        # observed horizon BG only
+        if len(valid_future) > 0 and not np.isnan(current_bg):
+            max_rise = float(np.nanmax(valid_future) - current_bg)
+            meal_label = float(max_rise >= 35.0 and current_bg >= 80.0)
+        else:
+            meal_label = 0.0
+
         return {
-            'input': torch.from_numpy(input_features),
-            'target': torch.from_numpy(target_values),
+            'input':       torch.from_numpy(input_features),
+            'target':      torch.from_numpy(target_values),
             'target_mask': torch.from_numpy(target_mask),
-            'timestamp': str(self.timestamps[start_idx])  # Convert to string for collation
+            'meal_label':  torch.tensor(meal_label, dtype=torch.float32),
+            'timestamp':   str(self.timestamps[start_idx]),
         }
     
     def save_scaler(self, path: Path):

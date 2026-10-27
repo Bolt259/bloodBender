@@ -79,6 +79,7 @@ class ConformalPrediction:
 
     volatility_scale: float = 1.0          # how much intervals were expanded
     q_hat: np.ndarray = field(default_factory=lambda: np.zeros(HORIZON))  # raw quantiles used
+    meal_probability: float = 0.0          # P(significant BG rise in horizon) from aux head
 
     @property
     def predicted_timestamps(self) -> list[pd.Timestamp]:
@@ -92,14 +93,15 @@ class ConformalPrediction:
 
     def to_dict(self) -> dict:
         return {
-            "window_end_utc": self.window_end_utc.isoformat(),
-            "pump_serial": self.pump_serial,
-            "coverage": self.coverage,
-            "predicted_bg": self.predicted_bg.tolist(),
-            "lower": self.lower.tolist(),
-            "upper": self.upper.tolist(),
-            "horizon_minutes": self.horizon_minutes,
+            "window_end_utc":   self.window_end_utc.isoformat(),
+            "pump_serial":      self.pump_serial,
+            "coverage":         self.coverage,
+            "predicted_bg":     self.predicted_bg.tolist(),
+            "lower":            self.lower.tolist(),
+            "upper":            self.upper.tolist(),
+            "horizon_minutes":  self.horizon_minutes,
             "volatility_scale": round(self.volatility_scale, 3),
+            "meal_probability": round(self.meal_probability, 4),
         }
 
 
@@ -366,8 +368,12 @@ class ConformalPredictor:
         scaled = ((raw_arr - self._center) / scale_safe).astype(np.float32)
         X = scaled[np.newaxis]  # [1, LOOKBACK, n_features]
 
-        # ONNX forward
-        predicted = self._sess.run(None, {self._input_name: X})[0].reshape(-1).astype(np.float32)
+        # ONNX forward — outputs: [bg_prediction, meal_logit] (meal_logit may be absent
+        # in older models exported before the aux head was added)
+        onnx_out  = self._sess.run(None, {self._input_name: X})
+        predicted = onnx_out[0].reshape(-1).astype(np.float32)
+        meal_logit = float(onnx_out[1].reshape(-1)[0]) if len(onnx_out) > 1 else 0.0
+        meal_prob  = float(1.0 / (1.0 + np.exp(-meal_logit)))  # sigmoid
 
         # Conformal interval
         bg_col_idx = self._feature_names.index("bg") if "bg" in self._feature_names else 0
@@ -383,6 +389,7 @@ class ConformalPredictor:
             upper=upper,
             volatility_scale=vscale,
             q_hat=self._cal.q_hat.copy(),
+            meal_probability=meal_prob,
         )
 
     @property

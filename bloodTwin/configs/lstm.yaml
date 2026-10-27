@@ -129,10 +129,17 @@ artifacts:
   onnx:
     opset_version: 17
     input_names: ["input"]
-    output_names: ["prediction"]
+    output_names: ["prediction", "meal_logit"]
     dynamic_axes:
       input: { 0: "batch_size" }
       prediction: { 0: "batch_size" }
+      meal_logit: { 0: "batch_size" }
+
+# Auxiliary meal-rise classification head
+meal_classifier:
+  loss_weight: 0.1      # meal_bce weight relative to bg_mae (keep BG prediction dominant)
+  pos_weight: 3.0       # BCEWithLogitsLoss pos_weight for ~25% positive class prevalence
+  rise_threshold_mgdl: 35.0  # BG rise ≥ this over horizon → positive label
 
 # Compute
 compute:
