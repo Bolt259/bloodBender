@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Sequence
 
 import numpy as np
@@ -48,14 +49,56 @@ SCHEMA_VERSION: str = "1.1"
 CGM_STEP_MINUTES: int = 5
 
 # Default duration of insulin action used for IOB computation (minutes).
-# Matches Tandem Control-IQ default (5 h).  Override per-patient via
-# the derive_iob() dia_minutes parameter.
+# NOTE: this is the *community/safety* DIA, not the physiological one.  The
+# true pharmacodynamic tail of rapid-acting analogues is ~3-4 h, but OpenAPS /
+# Loop / Control-IQ convention uses a 5 h (300 min) floor so IOB is never
+# under-counted when stacking corrections.  All current insulin types below
+# share this 300-min DIA; only t_peak differs between them.
 DEFAULT_DIA_MINUTES: float = 300.0
 
-# Bi-linear IOB model peak time (fraction of DIA).  At DIA=300 min,
-# peak insulin action occurs at ~75 min, consistent with rapid-acting
-# analogues (Humalog / NovoLog).
-_IOB_PEAK_FRACTION: float = 0.25
+
+# ── Insulin pharmacokinetics ────────────────────────────────────────────────
+# Each rapid-acting analogue has a characteristic action-peak time (t_peak,
+# minutes after a bolus) that shapes the bi-linear IOB curve.  DIA is held at
+# the 300-min community floor for all of them (see DEFAULT_DIA_MINUTES).
+#
+# t_peak values are community-consensus / published-PK grounded:
+#   Humalog / NovoLog / Apidra : ~75 min  (classic rapid-acting analogues)
+#   Fiasp (faster aspart)      :  55 min  (onset ~4 min, action peak ~45-60)
+#   Lyumjev (ultra-rapid lispro): 55 min  (comparable accelerated profile)
+#
+# Fiasp is the consensus 55 min, NOT the 30 min aggressive estimate — see the
+# PK research notes in the IOB-fix commit.
+
+class InsulinType(str, Enum):
+    """Rapid-acting insulin analogues with distinct PK action-peak timing."""
+    HUMALOG = "humalog"
+    NOVALOG = "novalog"
+    APIDRA = "apidra"
+    FIASP = "fiasp"
+    LYUMJEV = "lyumjev"
+
+
+@dataclass(frozen=True)
+class InsulinPK:
+    """Pharmacokinetic parameters for an insulin type (bi-linear IOB model)."""
+    t_peak_minutes: float   # time of peak insulin action after a bolus
+    dia_minutes: float      # duration of insulin action (community floor)
+
+
+INSULIN_PK: dict[InsulinType, InsulinPK] = {
+    InsulinType.HUMALOG: InsulinPK(t_peak_minutes=75.0, dia_minutes=300.0),
+    InsulinType.NOVALOG: InsulinPK(t_peak_minutes=75.0, dia_minutes=300.0),
+    InsulinType.APIDRA:  InsulinPK(t_peak_minutes=75.0, dia_minutes=300.0),
+    InsulinType.FIASP:   InsulinPK(t_peak_minutes=55.0, dia_minutes=300.0),
+    InsulinType.LYUMJEV: InsulinPK(t_peak_minutes=55.0, dia_minutes=300.0),
+}
+
+# This patient uses Fiasp (faster aspart) — the default everywhere.
+DEFAULT_INSULIN_TYPE: InsulinType = InsulinType.FIASP
+
+# Default action-peak time (minutes) corresponding to DEFAULT_INSULIN_TYPE.
+DEFAULT_T_PEAK_MINUTES: float = INSULIN_PK[DEFAULT_INSULIN_TYPE].t_peak_minutes
 
 
 # ── Field descriptor ──────────────────────────────────────────────────────────
@@ -153,8 +196,8 @@ SCHEMA: tuple[PatientStateField, ...] = (
         unit="U",
         description="Insulin on board: cumulative remaining insulin effect from all "
                     "recent boluses, decayed via a bi-linear pharmacokinetic model "
-                    "(DIA=300 min, peak ~75 min).  Population PK — LSTM corrects the "
-                    "patient-specific residual implicitly from BG response history.",
+                    "(Fiasp: t_peak=55 min, DIA=300 min).  Population PK — LSTM corrects "
+                    "the patient-specific residual implicitly from BG response history.",
         is_model_input=True,
         is_derived=True,
     ),
@@ -265,7 +308,11 @@ def derive_time_of_day(
     return sin_t, cos_t
 
 
-def _iob_kernel(dia_minutes: float, step_minutes: int) -> np.ndarray:
+def _iob_kernel(
+    dia_minutes: float,
+    step_minutes: int,
+    t_peak_minutes: float = DEFAULT_T_PEAK_MINUTES,
+) -> np.ndarray:
     """
     Build a causal convolution kernel representing the IOB remaining fraction
     at each step offset from a bolus delivery.
@@ -275,24 +322,31 @@ def _iob_kernel(dia_minutes: float, step_minutes: int) -> np.ndarray:
       zero at t=DIA.  The IOB_remaining kernel is the tail-integral of this
       action curve, giving the fraction of the bolus effect still ahead.
 
+    The action curve is normalised so that its total area = 1, giving a peak
+    action rate of 2/DIA.  Integrating the tail yields the continuous
+    closed form below (NO factor of 2 — both pieces equal 1 - t_peak/DIA at
+    t = t_peak, so the kernel is continuous there):
+
+      rising  (t <  t_peak): IOB_remaining = 1 - t^2 / (t_peak * DIA)
+      falling (t >= t_peak): IOB_remaining = (DIA - t)^2 / ((DIA - t_peak) * DIA)
+
     kernel[0] = 1.0  (full bolus just delivered, all effect still ahead)
     kernel[k] = fraction remaining k*step_minutes after delivery
     kernel[DIA_steps+] = 0.0
     """
     n_steps = int(dia_minutes / step_minutes) + 1
-    t_peak  = dia_minutes * _IOB_PEAK_FRACTION
+    t_peak  = t_peak_minutes
     kernel  = np.zeros(n_steps, dtype=np.float32)
     for k in range(n_steps):
         t = k * step_minutes
         if t >= dia_minutes:
             kernel[k] = 0.0
         elif t < t_peak:
-            # Linearly rising action: IOB remaining = 1 - integral_0^t action(s)ds
-            # = 1 - t^2 / (2 * t_peak * DIA) ... normalised to total area = 1
-            kernel[k] = 1.0 - (t ** 2) / (2.0 * t_peak * dia_minutes)
+            # Linearly rising action, tail integral (area-normalised to 1)
+            kernel[k] = 1.0 - (t ** 2) / (t_peak * dia_minutes)
         else:
-            # Linearly falling action: tail integral
-            remaining = (dia_minutes - t) ** 2 / (2.0 * (dia_minutes - t_peak) * dia_minutes)
+            # Linearly falling action, tail integral
+            remaining = (dia_minutes - t) ** 2 / ((dia_minutes - t_peak) * dia_minutes)
             kernel[k] = max(0.0, remaining)
     return kernel
 
@@ -301,22 +355,31 @@ def derive_iob(
     bolus_dose: pd.Series,
     dia_minutes: float = DEFAULT_DIA_MINUTES,
     step_minutes: int = CGM_STEP_MINUTES,
+    t_peak_minutes: float = DEFAULT_T_PEAK_MINUTES,
+    insulin_type: InsulinType | None = None,
 ) -> pd.Series:
     """
     Insulin on board (U) at each timestep — the sum of remaining active
     insulin from all prior boluses.
 
     Computed as a causal convolution of bolus_dose with the bi-linear IOB
-    kernel.  Population PK parameters (DIA=300 min, peak~75 min) are used;
-    the LSTM learns the patient-specific residual correction implicitly from
-    the BG response history.
+    kernel.  Population PK parameters are used (this patient: Fiasp,
+    t_peak=55 min, DIA=300 min); the LSTM learns the patient-specific
+    residual correction implicitly from the BG response history.
+
+    Pass ``insulin_type`` to pull (t_peak, DIA) from the INSULIN_PK table, or
+    pass ``t_peak_minutes`` / ``dia_minutes`` directly to override.
 
     This gives the model a clean, monotonically decaying "insulin still
     acting" signal that is more informative than the (bolus_dose,
     time_since_last_bolus) two-feature proxy it replaces — they are kept
     alongside as complementary features.
     """
-    kernel = _iob_kernel(dia_minutes, step_minutes)
+    if insulin_type is not None:
+        pk = INSULIN_PK[insulin_type]
+        t_peak_minutes = pk.t_peak_minutes
+        dia_minutes = pk.dia_minutes
+    kernel = _iob_kernel(dia_minutes, step_minutes, t_peak_minutes)
     doses  = bolus_dose.fillna(0.0).to_numpy(dtype=np.float32)
     # Full convolution then truncate to causal (past-only) length
     iob_vals = np.convolve(doses, kernel, mode="full")[: len(doses)]
@@ -350,7 +413,10 @@ def derive_bg_acceleration(
 
 # ── Feature builder ───────────────────────────────────────────────────────────
 
-def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
+def build_feature_frame(
+    df: pd.DataFrame,
+    insulin_type: InsulinType = DEFAULT_INSULIN_TYPE,
+) -> pd.DataFrame:
     """
     Compute all derived features and return a DataFrame in canonical column
     order (matching FEATURE_NAMES).
@@ -362,6 +428,9 @@ def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
         bolus_dose.  mask_bg and mask_label are passed through unchanged if
         present; set to False/True respectively if absent (assumes all rows
         are observed and usable — caller should supply these for training data).
+    insulin_type : InsulinType
+        Rapid-acting analogue whose PK shapes the IOB feature.  Defaults to
+        Fiasp (this patient's insulin).
 
     Returns
     -------
@@ -392,7 +461,7 @@ def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
     out["bg_slope_15min"] = derive_bg_slope(out["bg"], window_minutes=15)
     out["bg_slope_30min"] = derive_bg_slope(out["bg"], window_minutes=30)
     out["sin_time"], out["cos_time"] = derive_time_of_day(ts_index)
-    out["iob"]             = derive_iob(out["bolus_dose"])
+    out["iob"]             = derive_iob(out["bolus_dose"], insulin_type=insulin_type)
     out["bg_acceleration"] = derive_bg_acceleration(out["bg_slope_15min"])
 
     # Quality masks: pass through if present, otherwise default to all-observed

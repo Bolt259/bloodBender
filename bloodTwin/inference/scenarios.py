@@ -40,36 +40,55 @@ import pandas as pd
 
 from .conformal import ConformalPredictor, ConformalPrediction, LOOKBACK, HORIZON
 
-# Re-implement the IOB kernel inline so this module has no bloodBath dependency
-def _iob_remaining(t_min: float, dia_min: float = 300.0) -> float:
+# Insulin PK (t_peak minutes) by type.  Kept inline so this module has no
+# bloodBath dependency, but MUST stay in sync with bloodBath INSULIN_PK.
+# This patient uses Fiasp: t_peak=55 min, DIA=300 min.
+INSULIN_T_PEAK_MINUTES: dict[str, float] = {
+    "humalog": 75.0,
+    "novalog": 75.0,
+    "apidra":  75.0,
+    "fiasp":   55.0,
+    "lyumjev": 55.0,
+}
+DEFAULT_INSULIN_TYPE: str = "fiasp"
+DEFAULT_DIA_MINUTES: float = 300.0
+
+
+# Re-implement the IOB kernel inline so this module has no bloodBath dependency.
+# Bi-linear model, area-normalised to 1 (peak action rate = 2/DIA).  The tail
+# integral is continuous at t_peak (both branches = 1 - t_peak/DIA): there is
+# NO factor of 2 in the denominators (the previous version had one, which made
+# the curve discontinuous at t_peak).
+def _iob_remaining(t_min: float, t_peak_min: float = 55.0,
+                   dia_min: float = DEFAULT_DIA_MINUTES) -> float:
     """Fraction of a bolus's effect still ahead at t_min after delivery."""
-    t_peak = dia_min * 0.25
-    if t_min <= 0:      return 1.0
+    if t_min <= 0:       return 1.0
     if t_min >= dia_min: return 0.0
-    if t_min < t_peak:
-        return 1.0 - (t_min ** 2) / (2.0 * t_peak * dia_min)
-    return max(0.0, (dia_min - t_min) ** 2 / (2.0 * (dia_min - t_peak) * dia_min))
+    if t_min < t_peak_min:
+        return 1.0 - (t_min ** 2) / (t_peak_min * dia_min)
+    return max(0.0, (dia_min - t_min) ** 2 / ((dia_min - t_peak_min) * dia_min))
 
 
 def _dose_bg_delta(dose_u: float, isf: float, horizon_steps: int,
-                   step_min: int = 5, dia_min: float = 300.0) -> np.ndarray:
+                   step_min: int = 5, t_peak_min: float = 55.0,
+                   dia_min: float = DEFAULT_DIA_MINUTES) -> np.ndarray:
     """
     Expected BG change at each horizon step h from a bolus delivered right now.
 
     delta[h] = -dose_u × ISF × (iob_remaining(0) − iob_remaining(h × step_min))
              = -dose_u × ISF × (1.0 − iob_remaining(h × step_min))
 
-    Physiology: rapid-acting insulin (Humalog/NovoLog) at DIA=5h peaks ~75 min.
-    Within a 60-min window only ~8-12% of the dose has acted — most effect is
-    in the 1-4 h window BEYOND the forecast horizon.  So corrections show a
-    modest -1 to -12 mg/dL delta within the display window (dose-size dependent)
-    with the bulk of the action labelled separately as "expect BG to continue
-    falling over the next 2-4 h."
+    Physiology: this patient uses Fiasp (faster aspart), t_peak≈55 min, with a
+    5 h community DIA floor.  With the corrected (continuous) IOB curve, ~22%
+    of the dose has acted by 60 min — most effect is still in the 1-4 h window
+    BEYOND the forecast horizon.  Corrections therefore show a modest delta
+    within the display window, with the bulk of the action labelled separately
+    as "expect BG to continue falling over the next 2-4 h."
     """
     deltas = np.zeros(horizon_steps, dtype=np.float32)
     for h in range(horizon_steps):
         t = (h + 1) * step_min
-        fraction_acted = 1.0 - _iob_remaining(t, dia_min)
+        fraction_acted = 1.0 - _iob_remaining(t, t_peak_min, dia_min)
         deltas[h] = float(-dose_u * isf * fraction_acted)
     return deltas
 
@@ -115,9 +134,19 @@ class PatientConfig:
     dose_step: float = 0.25       # granularity (U)
     min_dose_range: float = 1.0   # always show at least this range even if ECD≈0
 
+    # Insulin PK — shapes the dose→BG offset in the scenario fan.  Defaults to
+    # Fiasp (this patient's insulin: t_peak=55 min, DIA=300 min).
+    insulin_type: str = DEFAULT_INSULIN_TYPE
+    dia_minutes: float = DEFAULT_DIA_MINUTES
+
     # Display overlays — not used in model logic
     hypo_threshold: float = 70.0
     hyper_threshold: float = 180.0
+
+    @property
+    def t_peak_minutes(self) -> float:
+        """Action-peak time (min) for this patient's insulin type."""
+        return INSULIN_T_PEAK_MINUTES.get(self.insulin_type, 55.0)
 
 
 # ── Single scenario output ─────────────────────────────────────────────────────
@@ -324,13 +353,13 @@ class ScenarioSimulator:
         2. For each candidate dose, apply an ISF-based BG offset to the baseline:
                delta[h] = -dose × ISF × (1 − iob_remaining(h × 5min))
            This is the expected BG change at each horizon step from insulin acting
-           according to the bi-linear PK model (DIA=5h, peak~75min).
+           according to the bi-linear PK model (Fiasp: t_peak=55min, DIA=5h).
         3. Apply the same offset to the conformal interval bounds.
 
-        Physics note: within a 60-min window, only ~8-12% of rapid-acting insulin
-        has acted.  A 3U correction lowers 60-min BG by roughly 6-9 mg/dL — not
-        dramatic, but honest.  The UI should note that the main effect continues
-        for 2-4 h BEYOND the displayed window.
+        Physics note: within a 60-min window, only ~22% of Fiasp has acted
+        (corrected, continuous IOB curve).  A 3U correction lowers 60-min BG by
+        roughly 16 mg/dL at ISF=24 — modest but honest.  The UI should note that
+        the main effect continues for 2-4 h BEYOND the displayed window.
         """
         cfg = self._config
 
@@ -412,7 +441,9 @@ class ScenarioSimulator:
             if dose == 0.0:
                 pred = baseline
             else:
-                delta     = _dose_bg_delta(dose, isf_eff, HORIZON)
+                delta     = _dose_bg_delta(dose, isf_eff, HORIZON,
+                                           t_peak_min=cfg.t_peak_minutes,
+                                           dia_min=cfg.dia_minutes)
                 new_pred  = (baseline.predicted_bg + delta).astype(np.float32)
                 new_lower = (baseline.lower         + delta).astype(np.float32)
                 new_upper = (baseline.upper         + delta).astype(np.float32)
