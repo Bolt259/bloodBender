@@ -229,6 +229,16 @@ class FailureModeClassifier:
 
     @classmethod
     def load(cls, path: Path | str) -> "FailureModeClassifier":
+        # The classifier is fit via `python failure_modes.py --fit`, so the pkl
+        # stores the class as `__main__.FailureModeClassifier`.  When loaded from
+        # a different entry point (e.g. the inference service), `__main__` is that
+        # entry point and the attribute is absent — unpickling then fails.  Alias
+        # the class into __main__ before load so the reference always resolves.
+        import sys as _sys
+        _main = _sys.modules.get("__main__")
+        if _main is not None and not hasattr(_main, "FailureModeClassifier"):
+            _main.FailureModeClassifier = cls
+            _main.FailureModeProbs = FailureModeProbs
         with open(Path(path), "rb") as f:
             obj = pickle.load(f)
         if not isinstance(obj, cls):
