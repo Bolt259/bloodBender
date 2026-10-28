@@ -166,7 +166,11 @@ class BloodTwinLSTM(pl.LightningModule):
         total = bg_loss + meal_loss_weight * meal_loss
         """
         bg_preds, meal_logit = self(batch['input'])
-        targets, mask = batch['target'], batch['target_mask']
+        targets = batch['target']
+        # target_mask = observed AND pre-correction (used for loss gradient)
+        # target_mask_obs_only = observed only (used for MAE/RMSE metrics)
+        mask      = batch['target_mask']
+        mask_obs  = batch.get('target_mask_obs_only', mask)  # fallback for old batches
 
         bg_loss   = self._compute_loss(bg_preds, targets, mask)
         meal_loss = torch.tensor(0.0, device=bg_loss.device)
@@ -181,7 +185,9 @@ class BloodTwinLSTM(pl.LightningModule):
         loss = bg_loss + self.meal_loss_weight * meal_loss
 
         mae, rmse = getattr(self, f'{stage}_mae'), getattr(self, f'{stage}_rmse')
-        observed = mask > 0.5
+        # Metrics use observed-only mask (not the correction-masked version)
+        # so MAE/RMSE are comparable before and after applying correction masking.
+        observed = mask_obs > 0.5
         if observed.any():
             mae(bg_preds[observed], targets[observed])
             rmse(bg_preds[observed], targets[observed])
@@ -190,7 +196,7 @@ class BloodTwinLSTM(pl.LightningModule):
             for k in self.horizon_checkpoints:
                 if k <= self.horizon:
                     mae_k = self._masked_mean(
-                        torch.abs(bg_preds[:, :k] - targets[:, :k]), mask[:, :k]
+                        torch.abs(bg_preds[:, :k] - targets[:, :k]), mask_obs[:, :k]
                     )
                     self.log(f'{stage}_mae_{k*5}min', mae_k)
 

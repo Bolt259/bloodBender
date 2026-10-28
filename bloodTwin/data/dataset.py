@@ -194,27 +194,41 @@ class BloodGlucoseDataset(Dataset):
         else:
             meal_label = 0.0
 
-        # Correction-in-horizon flag: 1.0 if patient delivered a non-trivial
-        # bolus during the prediction window.  When True, the actual target BG
-        # reflects the patient's intervention, not a "no-dose" trajectory.
-        # Used to:
-        #   (a) annotate retrospective evaluations so the comparison is honest
-        #   (b) future: exclude from "0U trajectory" training loss to avoid
-        #       systematically training the model to under-predict peaks
-        #       (because the patient always corrected, actual BG looks lower
-        #       than the true no-intervention outcome would have been)
+        # Per-step correction mask: 1.0 = this horizon step is pre-correction
+        # (safe to include in loss), 0.0 = a patient bolus occurred at or before
+        # this step (actual BG reflects the intervention, not a 0U trajectory).
+        #
+        # Key design decision (per Opus agent review 2026-10-27):
+        #   - Mask FROM the correction step onward, NOT the whole window.
+        #     Early horizon steps before the correction are still valid signal.
+        #   - Applied as an ADDITIONAL mask on top of target_mask so the loss
+        #     sees: observed AND pre-correction steps only.
+        #   - At N=1 (single patient) this matters: 33.8% of windows have a
+        #     correction in the 60-min horizon; 20.9% of horizon steps are
+        #     affected.  Without this mask the 0U trajectory is systematically
+        #     biased low (model learned "BG comes back down" because the patient
+        #     always corrected — the intervention is absorbed into the target).
         if 'bolus_dose' in target_sequence.columns:
-            horizon_boluses = target_sequence['bolus_dose'].fillna(0.0)
-            corrected_in_horizon = float((horizon_boluses > 0.5).any())
+            horizon_boluses = target_sequence['bolus_dose'].fillna(0.0).to_numpy()
+            has_correction  = horizon_boluses > 0.5
+            first_corr_idx  = int(np.argmax(has_correction)) if has_correction.any() else len(has_correction)
+            # 1.0 for steps before first correction, 0.0 from correction onward
+            correction_step_mask = np.ones(len(target_values), dtype=np.float32)
+            if has_correction.any():
+                correction_step_mask[first_corr_idx:] = 0.0
         else:
-            corrected_in_horizon = 0.0
+            correction_step_mask = np.ones(len(target_values), dtype=np.float32)
+
+        # Combined effective mask: observed AND pre-correction
+        effective_mask = (target_mask * correction_step_mask).astype(np.float32)
 
         return {
             'input':                torch.from_numpy(input_features),
             'target':               torch.from_numpy(target_values),
-            'target_mask':          torch.from_numpy(target_mask),
+            'target_mask':          torch.from_numpy(effective_mask),   # combined mask used for loss
+            'target_mask_obs_only': torch.from_numpy(target_mask),      # observation-only (for metrics)
             'meal_label':           torch.tensor(meal_label, dtype=torch.float32),
-            'corrected_in_horizon': torch.tensor(corrected_in_horizon, dtype=torch.float32),
+            'corrected_in_horizon': torch.tensor(float(has_correction.any() if 'bolus_dose' in target_sequence.columns else False), dtype=torch.float32),
             'timestamp':            str(self.timestamps[start_idx]),
         }
     

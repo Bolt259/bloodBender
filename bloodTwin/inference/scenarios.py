@@ -91,7 +91,10 @@ ISF_MULTIPLIERS: dict[str, float] = {
     # for delayed onset; expect BG to come down later than normal.
     # Distinguishable from true failure by: (a) patient confirms recent change,
     # (b) pattern resolves rather than persisting.
-    "new_site_lag":       0.35,  # absorption delayed, not absent; dose more, expect lag
+    # 0.35 was too aggressive (risked over-dosing post-change); raised to 0.5
+    # per Opus review: literature supports "reduced and variable" in first ~90min
+    # but not a 65% reduction — engineering estimate, tunable per patient.
+    "new_site_lag":       0.50,
 }
 
 
