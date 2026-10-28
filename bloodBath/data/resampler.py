@@ -284,13 +284,18 @@ class UnifiedResampler:
             logger.debug("Empty basal data, filling with 0.0")
             return pd.Series(0.0, index=master_index, name='basal_rate')
         
-        # Resample using forward fill method (rates persist)
-        basal_resampled = basal_df['basal_rate'].resample(self.freq).last()
-        
+        # Resample and ffill within the resampled series so gaps between events
+        # carry the last known rate (pump runs at programmed rate until an event
+        # explicitly changes it). reindex ffill only fills newly-added index
+        # positions, not NaN bins already present after resample — so we must
+        # ffill before reindex. fillna(0.0) only fires for leading NaN (before
+        # the first ever basal event in this window).
+        basal_resampled = basal_df['basal_rate'].resample(self.freq).last().ffill()
+
         # Align to master index with forward fill
         basal_aligned = basal_resampled.reindex(master_index, method='ffill')
-        
-        # Fill any remaining NaN values with 0.0
+
+        # Only fills period before the first basal event in this window
         basal_aligned = basal_aligned.fillna(0.0)
         basal_aligned.name = 'basal_rate'
         

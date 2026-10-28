@@ -217,6 +217,28 @@ class TestUnifiedResamplerAlignment:
         assert float(streams["basal_rate"].iloc[0]) == pytest.approx(1.0)
         assert float(streams["basal_rate"].iloc[5]) == pytest.approx(0.5)
 
+    def test_basal_gap_between_events_forward_filled(self):
+        """
+        Intervals between two basal events must carry the prior rate, not 0.0.
+
+        The pump delivers basal at the last programmed rate until an explicit
+        event changes it. A gap in the event log means no change, not zero
+        delivery. Control-IQ suspensions appear as explicit 0.0 events.
+        """
+        master = self._master_index(n=10)
+        basal_data = [
+            {"timestamp": master[0], "basal_rate": 0.75, "event_type": "basal"},
+            {"timestamp": master[8], "basal_rate": 0.90, "event_type": "basal"},
+        ]
+        resampler = UnifiedResampler()
+        streams = resampler.align_streams_to_master_index([], basal_data, [], master)
+        vals = streams["basal_rate"].values.astype(float)
+        # Indices 1-7 are between events — must be 0.75, not 0.0
+        assert all(abs(v - 0.75) < 1e-6 for v in vals[1:8]), (
+            f"Expected 0.75 for gap indices 1-7, got {vals[1:8]}"
+        )
+        assert float(vals[8]) == pytest.approx(0.90)
+
     def test_bg_aligned_preserves_values(self):
         """BG values at exact 5-min timestamps must survive alignment."""
         master = self._master_index(n=6)
