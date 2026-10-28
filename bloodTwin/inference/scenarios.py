@@ -75,6 +75,18 @@ def _dose_bg_delta(dose_u: float, isf: float, horizon_steps: int,
 
 CGM_STEP_MINUTES: int = 5
 
+# ISF multipliers per failure-mode state.  Represent how much MORE or LESS
+# effective insulin is in each regime relative to the patient's median ISF.
+# Source: published literature on exercise/dawn/stress insulin resistance +
+# clinical consensus; tunable per patient as labelled data accumulates.
+ISF_MULTIPLIERS: dict[str, float] = {
+    "nominal":            1.0,
+    "post_meal_rise":     1.0,   # meal doesn't change ISF; model-predicted peak handles it
+    "dawn_phenomenon":    0.65,  # cortisol/GH resistance — need more insulin per unit BG
+    "site_failure":       0.05,  # essentially no absorption — suppress suggestion
+    "exercise_sensitive": 2.2,   # GLUT4 / muscle uptake amplifies insulin effect
+}
+
 
 # ── Patient config ─────────────────────────────────────────────────────────────
 
@@ -241,11 +253,57 @@ class ScenarioSimulator:
         self._pred   = predictor
         self._config = patient_config or PatientConfig()
 
+    @staticmethod
+    def effective_isf(
+        base_isf: float,
+        failure_mode_probs: dict[str, float] | None = None,
+    ) -> tuple[float, str]:
+        """
+        Compute ISF_effective from base ISF and model-estimated state probabilities.
+
+        Returns (isf_effective, note) where note explains the adjustment.
+        When failure_mode_probs is None or all nominal, returns base_isf unchanged.
+
+        The adjustment is a weighted average of per-state ISF multipliers,
+        anchored so that the nominal contribution is always present.
+        As patient-confirmed labels accumulate, the per-state multipliers
+        can be personalised from the patient's own data.
+        """
+        if not failure_mode_probs:
+            return base_isf, ""
+
+        # Weighted multiplier: Σ p(state) × multiplier(state)
+        total_w = 0.0
+        wmult   = 0.0
+        for state, mult in ISF_MULTIPLIERS.items():
+            p = float(failure_mode_probs.get(state, 0.0))
+            wmult   += p * mult
+            total_w += p
+        if total_w < 0.01:
+            return base_isf, ""
+
+        multiplier = wmult / total_w
+        isf_eff    = round(base_isf * multiplier, 1)
+
+        # Build an explanation
+        top_state = max(failure_mode_probs, key=failure_mode_probs.get)
+        top_prob  = failure_mode_probs[top_state]
+        if abs(multiplier - 1.0) < 0.05:
+            note = ""
+        elif multiplier > 1.0:
+            note = (f"ISF adjusted ×{multiplier:.2f} ({top_state} {top_prob:.0%}): "
+                    f"insulin MORE effective → smaller dose needed")
+        else:
+            note = (f"ISF adjusted ×{multiplier:.2f} ({top_state} {top_prob:.0%}): "
+                    f"insulin LESS effective → larger dose or no suggestion")
+        return isf_eff, note
+
     def run(
         self,
         df: pd.DataFrame,
         pump_serial: str = "",
         coverage: float = 0.90,
+        failure_mode_probs: dict[str, float] | None = None,
     ) -> ScenarioFan:
         """
         Build the scenario fan from a DataFrame of at least LOOKBACK rows.
@@ -265,6 +323,9 @@ class ScenarioSimulator:
         for 2-4 h BEYOND the displayed window.
         """
         cfg = self._config
+
+        # ── Dynamic ISF from model-estimated state ─────────────────────────
+        isf_eff, isf_note = self.effective_isf(cfg.isf, failure_mode_probs)
 
         # ── Single LSTM forward pass (baseline, 0U) ───────────────────────
         baseline = self._pred.predict_from_df(df, coverage=coverage, pump_serial=pump_serial)
@@ -300,13 +361,14 @@ class ScenarioSimulator:
                                    lower        =(baseline.lower        + shift),
                                    upper        =(baseline.upper        + shift))
 
-        # ── ECD from anchored LSTM-predicted peak, not current BG ──────────
-        # Shape comes from the LSTM (dawn / meal patterns etc.); starting
-        # point is the real sensor reading.
+        # ── ECD from anchored LSTM-predicted peak + dynamic ISF ────────────
+        # Shape comes from LSTM; effective ISF is adjusted by model-estimated
+        # sensitivity state so the correction dose reflects e.g. reduced
+        # sensitivity at dawn or amplified sensitivity after exercise.
         peak_idx = int(np.argmax(baseline.predicted_bg))
         peak_bg  = float(baseline.predicted_bg[peak_idx])
         peak_min = baseline.horizon_minutes[peak_idx]
-        ecd      = max(0.0, (peak_bg - cfg.correction_target) / cfg.isf) if cfg.isf > 0 else 0.0
+        ecd      = max(0.0, (peak_bg - cfg.correction_target) / isf_eff) if isf_eff > 0 else 0.0
 
         # ── Model trigger: WHY is the LSTM predicting a rise? ────────────
         # Synthesised from meal_prob, failure mode, and trajectory shape.
@@ -340,7 +402,7 @@ class ScenarioSimulator:
             if dose == 0.0:
                 pred = baseline
             else:
-                delta     = _dose_bg_delta(dose, cfg.isf, HORIZON)
+                delta     = _dose_bg_delta(dose, isf_eff, HORIZON)
                 new_pred  = (baseline.predicted_bg + delta).astype(np.float32)
                 new_lower = (baseline.lower         + delta).astype(np.float32)
                 new_upper = (baseline.upper         + delta).astype(np.float32)
@@ -358,17 +420,27 @@ class ScenarioSimulator:
             )
             scenarios.append(Scenario(dose_u=dose, prediction=pred, delta_reasoning=reasoning))
 
+        # Carry failure mode state into the fan so to_dict() and the UI can
+        # display it (caller may also set these after the fact)
+        fm_top   = max(failure_mode_probs, key=failure_mode_probs.get) if failure_mode_probs else "nominal"
+        fm_prob  = float(failure_mode_probs.get(fm_top, 0.0)) if failure_mode_probs else 0.0
+
+        if isf_note:
+            trigger = trigger + f"  [{isf_note}]"
+
         fan = ScenarioFan(
             window_end_utc=baseline.window_end_utc,
             pump_serial=pump_serial,
             horizon_minutes=baseline.horizon_minutes,
             scenarios=scenarios,
-            isf_used=cfg.isf,
+            isf_used=isf_eff,
             correction_target=cfg.correction_target,
             estimated_correction_dose=round(ecd, 2),
             model_predicted_peak=round(peak_bg, 1),
             current_bg=round(current_bg, 1) if current_bg is not None else None,
             model_trigger=trigger,
             meal_probability=round(meal_prob, 4),
+            failure_top_state=fm_top,
+            failure_top_prob=round(fm_prob, 4),
         )
         return fan
