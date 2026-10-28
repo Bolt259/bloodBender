@@ -269,14 +269,40 @@ class ScenarioSimulator:
         # ── Single LSTM forward pass (baseline, 0U) ───────────────────────
         baseline = self._pred.predict_from_df(df, coverage=coverage, pump_serial=pump_serial)
 
-        # Current BG (last observed, non-NaN value in lookback)
+        # Current BG: last OBSERVED (non-NaN, non-imputed) reading in the lookback
         bg_col = df["bg"] if "bg" in df.columns else pd.Series(dtype=float)
-        current_bg = float(bg_col.dropna().iloc[-1]) if not bg_col.dropna().empty else None
+        mask_col = df["mask_bg"].astype(bool) if "mask_bg" in df.columns else pd.Series(False, index=df.index)
+        obs_bg = bg_col[~mask_col].dropna()
+        current_bg = float(obs_bg.iloc[-1]) if not obs_bg.empty else None
 
-        # ── ECD from LSTM-predicted peak, not current BG ──────────────────
-        # This is the core LSTM-informed component: even when current slope=0,
-        # if the model predicts BG will reach 160 (dawn / post-meal pattern),
-        # ECD reflects that rise — not the current value.
+        # ── Residual anchor: shift prediction to start from current observed BG ──
+        # The LSTM's trajectory shape (rate of rise, peak timing, plateau) is
+        # learned from 6+ years of patterns.  But the model can predict
+        # "BG=185 at +5min" when actual BG is currently 114 — physically
+        # impossible.  We anchor the fan to the real sensor reading by shifting
+        # the entire trajectory by (current_bg - predicted_bg[0]), preserving
+        # the LSTM's learned shape while grounding the starting point in reality.
+        # The conformal intervals are shifted by the same offset so coverage is
+        # maintained relative to the anchored trajectory.
+        import dataclasses as _dc
+        anchor_offset = 0.0
+        if current_bg is not None:
+            # Tapered anchor: at h=0, fully trust current_bg; by h=HORIZON,
+            # fully trust the LSTM's absolute prediction.  Linear taper.
+            # This corrects the physically-impossible early-step jumps while
+            # letting the LSTM's learned trajectory shape take over as the
+            # horizon grows (where the current reading has less predictive power).
+            anchor_offset = float(current_bg - baseline.predicted_bg[0])
+            taper = np.linspace(1.0, 0.0, HORIZON, dtype=np.float32)  # 1→0
+            shift = (anchor_offset * taper).astype(np.float32)
+            baseline = _dc.replace(baseline,
+                                   predicted_bg=(baseline.predicted_bg + shift),
+                                   lower        =(baseline.lower        + shift),
+                                   upper        =(baseline.upper        + shift))
+
+        # ── ECD from anchored LSTM-predicted peak, not current BG ──────────
+        # Shape comes from the LSTM (dawn / meal patterns etc.); starting
+        # point is the real sensor reading.
         peak_idx = int(np.argmax(baseline.predicted_bg))
         peak_bg  = float(baseline.predicted_bg[peak_idx])
         peak_min = baseline.horizon_minutes[peak_idx]
@@ -314,12 +340,11 @@ class ScenarioSimulator:
             if dose == 0.0:
                 pred = baseline
             else:
-                import dataclasses
                 delta     = _dose_bg_delta(dose, cfg.isf, HORIZON)
                 new_pred  = (baseline.predicted_bg + delta).astype(np.float32)
                 new_lower = (baseline.lower         + delta).astype(np.float32)
                 new_upper = (baseline.upper         + delta).astype(np.float32)
-                pred = dataclasses.replace(
+                pred = _dc.replace(
                     baseline, predicted_bg=new_pred, lower=new_lower, upper=new_upper,
                 )
 
