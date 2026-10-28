@@ -67,7 +67,7 @@ MERGED_DIR    = PROJECT_ROOT / "bloodBath/bloodBank/merged"
 LOOKBACK = 288
 HORIZON  = 12
 STATES   = ["post_meal_rise", "dawn_phenomenon", "site_failure",
-            "exercise_sensitive", "nominal"]
+            "new_site_lag", "exercise_sensitive", "nominal"]
 
 
 # ── Output container ──────────────────────────────────────────────────────────
@@ -78,6 +78,7 @@ class FailureModeProbs:
     post_meal_rise:     float
     dawn_phenomenon:    float
     site_failure:       float
+    new_site_lag:       float   # transient absorption delay after site change (~90 min)
     exercise_sensitive: float
     nominal:            float
     top_state:          str

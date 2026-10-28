@@ -150,10 +150,27 @@ def plot_fan(
     if actuals is not None and not actuals.empty:
         obs = actuals[actuals["bg"].notna() & ~actuals["mask_bg"].astype(bool)]
         if not obs.empty:
-            ax_main.scatter(obs["timestamp"], obs["bg"], s=30, color="#111",
-                            zorder=7, marker="o", label="Actual BG (observed)")
+            # Flag rows where a correction bolus occurred — these actuals are
+            # post-intervention and will look lower than a true 0U trajectory
+            has_bolus = (obs["bolus_dose"].fillna(0) > 0.5) if "bolus_dose" in obs.columns \
+                        else pd.Series(False, index=obs.index)
+            corrected = obs[has_bolus]
+            clean     = obs[~has_bolus]
+
+            ax_main.scatter(clean["timestamp"],     clean["bg"],
+                            s=30, color="#111", zorder=7, marker="o",
+                            label="Actual BG (no correction)")
             ax_main.plot(obs["timestamp"], obs["bg"], color="#111",
                          lw=1.5, zorder=6, alpha=0.8)
+            if not corrected.empty:
+                ax_main.scatter(corrected["timestamp"], corrected["bg"],
+                                s=60, color="red", zorder=8, marker="^",
+                                label="Actual BG (correction bolus given ↑)")
+                ax_main.annotate(
+                    "⚠ patient corrected — actual BG lower than true 0U trajectory",
+                    xy=(0.01, 0.02), xycoords="axes fraction",
+                    fontsize=7, color="red", alpha=0.8,
+                )
 
     # ── Colour legend (dose gradient bar) ────────────────────────────────
     cmap_patches = [
@@ -262,7 +279,10 @@ def retrospective_summary(fan: ScenarioFan, actuals: pd.DataFrame | None) -> Non
     print(f"Current BG at prediction time: {fan.current_bg or '?'} mg/dL")
     print(f"Model trigger: \"{fan.model_trigger}\"")
     print()
-    print(f"  {'min':>5}  {'predicted':>10}  {'actual':>8}  {'error':>8}  {'in 90% CI':>10}")
+    bolus_col = obs.get("bolus_dose", pd.Series(0.0, index=obs.index)) \
+                   if hasattr(obs, "get") else pd.Series(0.0)
+
+    print(f"  {'min':>5}  {'predicted':>10}  {'actual':>8}  {'error':>8}  {'in 90% CI':>10}  note")
     for i in range(n):
         pred  = float(baseline_preds[i])
         act   = float(actual_bg[i])
@@ -271,7 +291,13 @@ def retrospective_summary(fan: ScenarioFan, actuals: pd.DataFrame | None) -> Non
         hi    = float(fan.baseline.prediction.upper[i])
         in_ci = "✓" if lo <= act <= hi else "✗"
         ts    = pd.Timestamp(actual_ts[i]).strftime("%H:%M")
-        print(f"  {fan.horizon_minutes[i]:>5}  {pred:>10.1f}  {act:>8.1f}  {err:>+8.1f}  {in_ci:>10}  @{ts}")
+        # Flag if a correction bolus occurred at or before this step
+        note = ""
+        if i < len(obs) and "bolus_dose" in obs.columns:
+            step_bolus = float(obs["bolus_dose"].iloc[i]) if i < len(obs) else 0.0
+            if step_bolus > 0.5:
+                note = f"  ← patient gave {step_bolus:.1f}U (actual reflects correction)"
+        print(f"  {fan.horizon_minutes[i]:>5}  {pred:>10.1f}  {act:>8.1f}  {err:>+8.1f}  {in_ci:>10}  @{ts}{note}")
 
     actual_peak = float(actual_bg[:n].max())
     pred_peak   = float(max(baseline_preds[:n]))

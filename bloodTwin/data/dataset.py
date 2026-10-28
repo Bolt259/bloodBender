@@ -194,12 +194,28 @@ class BloodGlucoseDataset(Dataset):
         else:
             meal_label = 0.0
 
+        # Correction-in-horizon flag: 1.0 if patient delivered a non-trivial
+        # bolus during the prediction window.  When True, the actual target BG
+        # reflects the patient's intervention, not a "no-dose" trajectory.
+        # Used to:
+        #   (a) annotate retrospective evaluations so the comparison is honest
+        #   (b) future: exclude from "0U trajectory" training loss to avoid
+        #       systematically training the model to under-predict peaks
+        #       (because the patient always corrected, actual BG looks lower
+        #       than the true no-intervention outcome would have been)
+        if 'bolus_dose' in target_sequence.columns:
+            horizon_boluses = target_sequence['bolus_dose'].fillna(0.0)
+            corrected_in_horizon = float((horizon_boluses > 0.5).any())
+        else:
+            corrected_in_horizon = 0.0
+
         return {
-            'input':       torch.from_numpy(input_features),
-            'target':      torch.from_numpy(target_values),
-            'target_mask': torch.from_numpy(target_mask),
-            'meal_label':  torch.tensor(meal_label, dtype=torch.float32),
-            'timestamp':   str(self.timestamps[start_idx]),
+            'input':                torch.from_numpy(input_features),
+            'target':               torch.from_numpy(target_values),
+            'target_mask':          torch.from_numpy(target_mask),
+            'meal_label':           torch.tensor(meal_label, dtype=torch.float32),
+            'corrected_in_horizon': torch.tensor(corrected_in_horizon, dtype=torch.float32),
+            'timestamp':            str(self.timestamps[start_idx]),
         }
     
     def save_scaler(self, path: Path):

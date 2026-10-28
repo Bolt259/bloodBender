@@ -81,10 +81,17 @@ CGM_STEP_MINUTES: int = 5
 # clinical consensus; tunable per patient as labelled data accumulates.
 ISF_MULTIPLIERS: dict[str, float] = {
     "nominal":            1.0,
-    "post_meal_rise":     1.0,   # meal doesn't change ISF; model-predicted peak handles it
-    "dawn_phenomenon":    0.65,  # cortisol/GH resistance — need more insulin per unit BG
+    "post_meal_rise":     1.0,   # meal doesn't change ISF; predicted peak handles it
+    "dawn_phenomenon":    0.65,  # cortisol/GH resistance — more insulin needed
     "site_failure":       0.05,  # essentially no absorption — suppress suggestion
-    "exercise_sensitive": 2.2,   # GLUT4 / muscle uptake amplifies insulin effect
+    "exercise_sensitive": 2.2,   # GLUT4/muscle uptake amplifies effect
+    # New site insertion lag: first ~90 min after site change, tissue trauma
+    # delays absorption.  Similar to site failure in the short term but
+    # transient — normalises within 1-2h.  Dose MORE (not less) to account
+    # for delayed onset; expect BG to come down later than normal.
+    # Distinguishable from true failure by: (a) patient confirms recent change,
+    # (b) pattern resolves rather than persisting.
+    "new_site_lag":       0.35,  # absorption delayed, not absent; dose more, expect lag
 }
 
 
