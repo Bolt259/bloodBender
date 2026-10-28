@@ -83,7 +83,12 @@ def get_window(df: pd.DataFrame, offset: int = 0) -> tuple[pd.DataFrame, pd.Data
 def build_fan(window: pd.DataFrame, pump_id: str, isf: float) -> ScenarioFan:
     predictor = ConformalPredictor(ART/"model.onnx", ART/"scaler.pkl", ART/"conformal_cal.pkl")
     config    = PatientConfig(isf=isf, correction_target=100.0, max_dose=6.0, dose_step=0.25)
-    return ScenarioSimulator(predictor, config).run(window, pump_serial=pump_id, coverage=0.90)
+    # The learned local/dynamic ISF model (if present) overrides the static
+    # `isf` with a state-conditioned base ISF; falls back to `isf` otherwise.
+    isf_model_path = ART / f"isf_model_{pump_id}.pkl"
+    return ScenarioSimulator(
+        predictor, config, isf_model_path=isf_model_path
+    ).run(window, pump_serial=pump_id, coverage=0.90)
 
 
 # ── Main plot ─────────────────────────────────────────────────────────────────

@@ -40,6 +40,14 @@ import pandas as pd
 
 from .conformal import ConformalPredictor, ConformalPrediction, LOOKBACK, HORIZON
 
+# ISFModel is optional at import time — the scenario path must still work if the
+# module or its artifact is missing (falls back to the static config ISF).
+try:
+    from .isf_model import ISFModel, FEATURE_ORDER as _ISF_FEATURE_ORDER
+except Exception:  # pragma: no cover - defensive
+    ISFModel = None          # type: ignore
+    _ISF_FEATURE_ORDER = ()
+
 # Insulin PK (t_peak minutes) by type.  Kept inline so this module has no
 # bloodBath dependency, but MUST stay in sync with bloodBath INSULIN_PK.
 # This patient uses Fiasp: t_peak=55 min, DIA=300 min.
@@ -96,6 +104,19 @@ CGM_STEP_MINUTES: int = 5
 
 # ISF multipliers per failure-mode state.  Represent how much MORE or LESS
 # effective insulin is in each regime relative to the patient's median ISF.
+#
+# Division of labour with the learned ISFModel (isf_model.py):
+#   * The LEARNED model handles the NORMAL, day-to-day sensitivity variation
+#     for ordinary corrections — it is trained on exactly those episodes
+#     (isolated boluses, no meal/site-failure) and sets the *base* ISF.
+#   * These multipliers SUPPLEMENT it for the hard physiological failure modes
+#     that are deliberately EXCLUDED from the model's training set (site
+#     failure, acute exercise, fresh-site lag) and therefore cannot be learned
+#     from the correction-episode data.  They are applied on top of the
+#     learned base ISF via effective_isf().
+# The old hardcoded nominal/dawn adjustment is now redundant with the learned
+# model (dawn showed no signal for this patient — the GP flattened it), so
+# nominal stays 1.0 and dawn is kept only as a conservative safety floor.
 # Source: published literature on exercise/dawn/stress insulin resistance +
 # clinical consensus; tunable per patient as labelled data accumulates.
 ISF_MULTIPLIERS: dict[str, float] = {
@@ -288,9 +309,52 @@ class ScenarioSimulator:
         self,
         predictor: ConformalPredictor,
         patient_config: PatientConfig | None = None,
+        isf_model_path: str | Path | None = None,
     ) -> None:
         self._pred   = predictor
         self._config = patient_config or PatientConfig()
+
+        # Optional learned local/dynamic ISF model.  Loaded lazily and
+        # defensively: if the module, file, or load fails, the simulator falls
+        # back to the static config ISF (self._config.isf).
+        self._isf_model = None
+        if ISFModel is not None:
+            path = isf_model_path
+            if path is None:
+                path = Path(__file__).resolve().parents[1] / (
+                    "artifacts/bloodTwin_unified_lstm/"
+                    f"isf_model_{getattr(self._config, 'pump_serial', '') or '1539514'}.pkl"
+                )
+            try:
+                p = Path(path)
+                if p.exists():
+                    self._isf_model = ISFModel.load(p)
+            except Exception:
+                self._isf_model = None
+
+    def _derive_isf(self, df: pd.DataFrame) -> float:
+        """
+        Base ISF for the current window: learned local model if available,
+        else the static config ISF (which itself comes from the hard-derived
+        median JSON via the caller).
+
+        The learned model takes the patient state at the END of the lookback
+        window (last row) and returns a state-conditioned ISF.  Any failure —
+        no model, missing columns, predict error — returns the static ISF so
+        the inference path can never break on this component.
+        """
+        if self._isf_model is None or df is None or df.empty:
+            return float(self._config.isf)
+        try:
+            last = df.iloc[-1]
+            features = {}
+            for feat in _ISF_FEATURE_ORDER:
+                col = "bg" if feat == "bg_at_bolus" else feat
+                val = last.get(col) if hasattr(last, "get") else None
+                features[feat] = float(val) if val is not None and pd.notna(val) else 0.0
+            return float(self._isf_model.predict(features))
+        except Exception:
+            return float(self._config.isf)
 
     @staticmethod
     def effective_isf(
@@ -363,8 +427,14 @@ class ScenarioSimulator:
         """
         cfg = self._config
 
-        # ── Dynamic ISF from model-estimated state ─────────────────────────
-        isf_eff, isf_note = self.effective_isf(cfg.isf, failure_mode_probs)
+        # ── Base ISF: learned local/dynamic model (falls back to static) ───
+        # Two-component ISF: the learned model sets a state-conditioned BASE
+        # (global baseline × local multiplier); effective_isf() then layers the
+        # hard failure-mode multipliers for regimes the model can't learn.
+        base_isf = self._derive_isf(df)
+
+        # ── Dynamic ISF from model-estimated failure-mode state ────────────
+        isf_eff, isf_note = self.effective_isf(base_isf, failure_mode_probs)
 
         # ── Single LSTM forward pass (baseline, 0U) ───────────────────────
         baseline = self._pred.predict_from_df(df, coverage=coverage, pump_serial=pump_serial)
