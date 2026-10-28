@@ -17,6 +17,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Features that must not be shifted or rescaled.
+# sin_time/cos_time: already in [-1,1]; rescaling distorts circadian signal.
+# mask_bg/mask_label: binary flags; subtracting their median inverts meaning.
+_PASSTHROUGH_FEATURES = frozenset(["sin_time", "cos_time", "mask_bg", "mask_label"])
+
 
 class BloodGlucoseDataset(Dataset):
     """
@@ -69,7 +74,20 @@ class BloodGlucoseDataset(Dataset):
         if fit_scaler:
             self.scaler = RobustScaler()
             self.scaler.fit(self.data[self.features].values)
-            logger.info(f"Fitted RobustScaler on {subset} data")
+            # Binary flags and bounded circular encodings must not be shifted or
+            # scaled — pass them through unchanged by zeroing their center and
+            # fixing their scale to 1.  The formula (x-0)/1 = x is a no-op.
+            # sin_time/cos_time are already in [-1,1] by construction; rescaling
+            # them adds dataset-specific distortion and can suppress circadian
+            # patterns (dawn, meal-time, sleep IS) the model needs to learn.
+            # mask_bg/mask_label are binary flags: RobustScaler with IQR=0 falls
+            # back to scale=1 but still subtracts the median, inverting/shifting
+            # their meaning (mask_label median=1 → True becomes 0, False → -1).
+            for i, feat in enumerate(self.features):
+                if feat in _PASSTHROUGH_FEATURES:
+                    self.scaler.center_[i] = 0.0
+                    self.scaler.scale_[i]  = 1.0
+            logger.info(f"Fitted RobustScaler on {subset} data (passthrough: {_PASSTHROUGH_FEATURES})")
         
         # Create sequences
         self.sequences = self._create_sequences()
