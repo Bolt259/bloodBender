@@ -25,6 +25,7 @@
         requests
         scikit-learn
         scipy
+        pytest
       ]);
 
       # Inference runs the exported model.onnx through onnxruntime, so torch is
