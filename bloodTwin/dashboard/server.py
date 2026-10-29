@@ -1,0 +1,359 @@
+#!/usr/bin/env python
+"""
+bloodBender local dashboard — single-file, stdlib-only web server.
+
+Displays the latest inference result written by the cron job to
+``bloodBath/logs/inference_latest.json``. Reads the file fresh on every page
+load, auto-refreshes the browser every 60s, and flags stale data (>10 min old).
+
+FastAPI/Jinja2 are NOT available in the ``.#inference`` Nix shell, so this uses
+only the Python standard library (``http.server`` + inline HTML). No CDN, no JS
+charting libraries — fully self-contained and offline.
+
+Run via the launcher:  ./bloodTwin/dashboard/serve.sh
+Or directly inside the inference shell:
+    PYTHONPATH=. python bloodTwin/dashboard/server.py
+"""
+
+from __future__ import annotations
+
+import html
+import json
+import os
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+# Repo root = two levels up from this file (bloodTwin/dashboard/server.py).
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+LATEST_JSON = os.path.join(REPO_ROOT, "bloodBath", "logs", "inference_latest.json")
+
+HOST = os.environ.get("DASHBOARD_HOST", "127.0.0.1")
+PORT = int(os.environ.get("DASHBOARD_PORT", "8765"))
+
+STALE_SECONDS = 10 * 60  # data older than this triggers the stale warning
+
+
+# ── Rendering helpers ─────────────────────────────────────────────────────────
+
+def _fmt(v, nd=1):
+    try:
+        return f"{float(v):.{nd}f}"
+    except (TypeError, ValueError):
+        return str(v)
+
+
+def _parse_ts(raw):
+    """Parse the ISO timestamp from the inference JSON into an aware datetime."""
+    try:
+        dt = datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _load():
+    """Load the latest inference JSON. Returns (data, error_message)."""
+    try:
+        mtime = os.path.getmtime(LATEST_JSON)
+        with open(LATEST_JSON, "r") as f:
+            data = json.load(f)
+        data["_file_mtime"] = mtime
+        return data, None
+    except FileNotFoundError:
+        return None, f"Inference output not found at {LATEST_JSON}. Has the cron job run yet?"
+    except json.JSONDecodeError as e:
+        return None, f"Inference output is not valid JSON (mid-write?): {e}"
+    except Exception as e:  # pragma: no cover - defensive
+        return None, f"Could not read inference output: {e}"
+
+
+def _conformal_cell(ci, horizon):
+    pair = (ci or {}).get(str(horizon)) or (ci or {}).get(horizon)
+    if not pair or len(pair) != 2:
+        return "n/a"
+    return f"[{_fmt(pair[0])} – {_fmt(pair[1])}]"
+
+
+def _point_at(fan, idx):
+    """Point prediction from the nominal (dose 0) scenario at a 5-min step index."""
+    if not fan:
+        return None
+    nominal = fan[0]
+    for s in fan:
+        if abs(float(s.get("dose_u", 0.0))) < 1e-9:
+            nominal = s
+            break
+    preds = nominal.get("predicted_bg") or []
+    if idx < len(preds):
+        return preds[idx]
+    return None
+
+
+# ── SVG scenario fan ────────────────────────────────────────────────────────
+
+def _render_fan_svg(fan):
+    """Render the scenario fan as a self-contained SVG line chart.
+
+    One line per dose scenario (nominal highlighted), x = 5-min steps (0..60min),
+    y = predicted BG. No external deps.
+    """
+    if not fan:
+        return "<p>No scenarios.</p>"
+
+    W, H = 820, 360
+    ml, mr, mt, mb = 55, 20, 20, 40
+    pw, ph = W - ml - mr, H - mt - mb
+
+    all_vals = []
+    for s in fan:
+        for seq in (s.get("predicted_bg"), s.get("lower"), s.get("upper")):
+            if seq:
+                all_vals.extend(float(v) for v in seq)
+    if not all_vals:
+        return "<p>No prediction values.</p>"
+
+    ymin, ymax = min(all_vals), max(all_vals)
+    ymin = min(ymin, 70.0)   # always show hypo line
+    ymax = max(ymax, 180.0)  # always show hyper line
+    pad = (ymax - ymin) * 0.05 or 1.0
+    ymin -= pad
+    ymax += pad
+    nsteps = max(len(s.get("predicted_bg") or []) for s in fan)
+    nsteps = max(nsteps, 1)
+
+    def x(i):
+        return ml + (pw * i / max(nsteps - 1, 1))
+
+    def y(v):
+        return mt + ph * (1 - (float(v) - ymin) / (ymax - ymin))
+
+    parts = [f'<svg viewBox="0 0 {W} {H}" width="100%" preserveAspectRatio="xMidYMid meet" '
+             f'style="background:#0e1116;border:1px solid #2a2f3a;border-radius:8px">']
+
+    # Horizontal gridlines + y labels.
+    for gv in _axis_ticks(ymin, ymax):
+        gy = y(gv)
+        parts.append(f'<line x1="{ml}" y1="{gy:.1f}" x2="{W - mr}" y2="{gy:.1f}" '
+                     f'stroke="#222833" stroke-width="1"/>')
+        parts.append(f'<text x="{ml - 8}" y="{gy + 4:.1f}" fill="#8a93a6" font-size="11" '
+                     f'text-anchor="end">{gv:.0f}</text>')
+
+    # Target band 70–180 mg/dL.
+    yt_hi, yt_lo = y(180.0), y(70.0)
+    parts.append(f'<rect x="{ml}" y="{yt_hi:.1f}" width="{pw}" height="{yt_lo - yt_hi:.1f}" '
+                 f'fill="#1b3a2a" opacity="0.35"/>')
+
+    # X axis labels (minutes).
+    for i in range(0, nsteps, max(nsteps // 6, 1)):
+        parts.append(f'<text x="{x(i):.1f}" y="{H - mb + 20}" fill="#8a93a6" font-size="11" '
+                     f'text-anchor="middle">{i * 5}m</text>')
+
+    # Nominal scenario index.
+    nominal_idx = 0
+    for i, s in enumerate(fan):
+        if abs(float(s.get("dose_u", 0.0))) < 1e-9:
+            nominal_idx = i
+            break
+
+    for i, s in enumerate(fan):
+        preds = s.get("predicted_bg") or []
+        if not preds:
+            continue
+        pts = " ".join(f"{x(j):.1f},{y(v):.1f}" for j, v in enumerate(preds))
+        if i == nominal_idx:
+            parts.append(f'<polyline points="{pts}" fill="none" stroke="#5ea0ff" '
+                         f'stroke-width="2.5"/>')
+        else:
+            parts.append(f'<polyline points="{pts}" fill="none" stroke="#5a6472" '
+                         f'stroke-width="1" opacity="0.55"/>')
+
+    parts.append('</svg>')
+    return "".join(parts)
+
+
+def _axis_ticks(lo, hi, n=6):
+    step = (hi - lo) / n
+    return [lo + step * k for k in range(n + 1)]
+
+
+# ── Fan table ─────────────────────────────────────────────────────────────────
+
+def _render_fan_table(fan):
+    rows = []
+    for s in fan:
+        dose = _fmt(s.get("dose_u"), 2)
+        p = s.get("predicted_bg") or []
+        lo = s.get("lower") or []
+        up = s.get("upper") or []
+
+        def cell(idx):
+            if idx < len(p):
+                band = ""
+                if idx < len(lo) and idx < len(up):
+                    band = f'<span class="band">[{_fmt(lo[idx])}–{_fmt(up[idx])}]</span>'
+                return f"{_fmt(p[idx])}<br>{band}"
+            return "—"
+
+        is_nominal = abs(float(s.get("dose_u", 0.0))) < 1e-9
+        cls = ' class="nominal"' if is_nominal else ""
+        rows.append(
+            f"<tr{cls}><td>{dose}</td><td>{cell(0)}</td><td>{cell(5)}</td>"
+            f"<td>{cell(11)}</td></tr>"
+        )
+    return (
+        '<table class="fan"><thead><tr>'
+        '<th>Dose (U)</th><th>5 min</th><th>30 min</th><th>60 min</th>'
+        '</tr></thead><tbody>' + "".join(rows) + '</tbody></table>'
+    )
+
+
+# ── Page ────────────────────────────────────────────────────────────────────
+
+def render_page():
+    data, err = _load()
+    now = datetime.now(timezone.utc)
+
+    if err:
+        body = f'<div class="warn">{html.escape(err)}</div>'
+        return _wrap(body)
+
+    ts = _parse_ts(data.get("timestamp"))
+    age_sec = (now - ts).total_seconds() if ts else None
+    stale = age_sec is not None and age_sec > STALE_SECONDS
+
+    ci = data.get("conformal_intervals") or {}
+    fan = data.get("fan") or []
+    fms = data.get("failure_modes") or []
+    top_fm = fms[0] if fms else {}
+    # Field is "probability" in the real output (task doc said "prob"); handle both.
+    top_prob = top_fm.get("probability", top_fm.get("prob"))
+
+    p30 = _point_at(fan, 5)
+    p60 = _point_at(fan, 11)
+
+    stale_banner = ""
+    if stale:
+        mins = int(age_sec // 60)
+        stale_banner = (
+            f'<div class="warn">STALE DATA — last inference was {mins} min ago '
+            f'(threshold {STALE_SECONDS // 60} min). Cron job may be stopped.</div>'
+        )
+
+    ts_disp = ts.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z") if ts else "unknown"
+    age_disp = f"{int(age_sec)}s ago" if age_sec is not None else "unknown"
+
+    cards = f"""
+    <div class="grid">
+      <div class="card big"><div class="label">Current BG</div>
+        <div class="value">{_fmt(data.get('current_bg'))} <span class="unit">mg/dL</span></div></div>
+      <div class="card"><div class="label">30 min point</div>
+        <div class="value">{_fmt(p30)} <span class="unit">mg/dL</span></div>
+        <div class="sub">90% CI {_conformal_cell(ci, 30)}</div></div>
+      <div class="card"><div class="label">60 min point</div>
+        <div class="value">{_fmt(p60)} <span class="unit">mg/dL</span></div>
+        <div class="sub">90% CI {_conformal_cell(ci, 60)}</div></div>
+      <div class="card"><div class="label">Top failure mode</div>
+        <div class="value">{html.escape(str(top_fm.get('state', 'n/a')))}</div>
+        <div class="sub">p = {_fmt(top_prob, 2) if top_prob is not None else 'n/a'}</div></div>
+      <div class="card"><div class="label">Effective ISF</div>
+        <div class="value">{_fmt(data.get('isf'))} <span class="unit">mg/dL/U</span></div>
+        <div class="sub">est. correction {_fmt(data.get('ecd_u'), 2)} U</div></div>
+      <div class="card"><div class="label">Meal probability</div>
+        <div class="value">{_fmt(data.get('meal_probability'), 2)}</div>
+        <div class="sub">trigger: {html.escape(str(data.get('model_trigger', 'n/a')))}</div></div>
+    </div>
+    """
+
+    body = f"""
+    {stale_banner}
+    <div class="meta">Last inference: <b>{html.escape(ts_disp)}</b> ({age_disp}) &middot;
+      corrected in horizon: {data.get('corrected_in_horizon')}</div>
+    {cards}
+    <h2>Scenario fan</h2>
+    {_render_fan_svg(fan)}
+    <p class="legend"><span class="sw-nom"></span> nominal (0 U) &nbsp;
+      <span class="sw-alt"></span> dose scenarios &nbsp;
+      <span class="sw-band"></span> target band 70–180</p>
+    {_render_fan_table(fan)}
+    """
+    return _wrap(body)
+
+
+def _wrap(body):
+    return f"""<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="60">
+<title>bloodBender dashboard</title>
+<style>
+  :root {{ color-scheme: dark; }}
+  body {{ font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0a0c10;
+         color:#e6e9ef; margin:0; padding:24px; }}
+  h1 {{ font-size:20px; margin:0 0 4px; }}
+  h2 {{ font-size:15px; margin:28px 0 10px; color:#aab2c4; }}
+  .meta {{ color:#8a93a6; font-size:13px; margin:8px 0 18px; }}
+  .warn {{ background:#3a1c1c; border:1px solid #7a2e2e; color:#ffb4b4;
+          padding:12px 16px; border-radius:8px; margin:0 0 16px; font-weight:600; }}
+  .grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; }}
+  .card {{ background:#12161d; border:1px solid #232a36; border-radius:10px; padding:14px 16px; }}
+  .card.big {{ border-color:#2f4a6b; }}
+  .label {{ color:#8a93a6; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }}
+  .value {{ font-size:26px; font-weight:700; margin-top:4px; }}
+  .unit {{ font-size:13px; color:#8a93a6; font-weight:400; }}
+  .sub {{ color:#8a93a6; font-size:12px; margin-top:4px; }}
+  table.fan {{ border-collapse:collapse; margin-top:12px; font-size:13px; width:100%; max-width:720px; }}
+  table.fan th, table.fan td {{ border:1px solid #232a36; padding:6px 10px; text-align:center; }}
+  table.fan th {{ background:#12161d; color:#aab2c4; }}
+  table.fan tr.nominal {{ background:#152335; }}
+  .band {{ color:#8a93a6; font-size:11px; }}
+  .legend {{ font-size:12px; color:#8a93a6; margin-top:10px; }}
+  .legend span {{ display:inline-block; width:14px; height:4px; margin-right:4px; vertical-align:middle; }}
+  .sw-nom {{ background:#5ea0ff; }} .sw-alt {{ background:#5a6472; }}
+  .sw-band {{ background:#1b3a2a; height:12px !important; }}
+</style></head>
+<body>
+<h1>bloodBender — single-patient T1D inference</h1>
+{body}
+<div class="meta" style="margin-top:28px">Auto-refresh 60s &middot; reads {html.escape(LATEST_JSON)}</div>
+</body></html>"""
+
+
+# ── HTTP ──────────────────────────────────────────────────────────────────────
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):  # noqa: N802
+        if self.path.split("?", 1)[0] not in ("/", "/index.html"):
+            self.send_error(404, "Not found")
+            return
+        try:
+            page = render_page().encode("utf-8")
+        except Exception as e:  # pragma: no cover - defensive
+            self.send_error(500, f"render error: {e}")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(page)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(page)
+
+    def log_message(self, fmt, *args):  # quieter logging
+        pass
+
+
+def main():
+    srv = ThreadingHTTPServer((HOST, PORT), Handler)
+    print(f"bloodBender dashboard serving on http://{HOST}:{PORT}  (reading {LATEST_JSON})")
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        print("\nshutting down")
+    finally:
+        srv.server_close()
+
+
+if __name__ == "__main__":
+    main()
