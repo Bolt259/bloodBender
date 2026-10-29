@@ -144,6 +144,12 @@ def collect_predictions(
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values("timestamp").reset_index(drop=True)
 
+    # Dose-conditioned schema v1.2: CSVs predate the hypothetical_dose feature.
+    # At eval/passive time it equals the actual bolus delivered each step.
+    if "hypothetical_dose" in feat_names and "hypothetical_dose" not in df.columns:
+        df["hypothetical_dose"] = df["bolus_dose"].fillna(0.0) \
+            if "bolus_dose" in df.columns else 0.0
+
     feat_arr  = df[feat_names].to_numpy(dtype=np.float32)
     bg_arr    = df["bg"].to_numpy(dtype=np.float32)
     bolus_arr = df["bolus_dose"].fillna(0).to_numpy(dtype=np.float32) \
@@ -260,10 +266,16 @@ def report(pump_id: str, stride: int) -> None:
 
 
 def main():
+    global ARTIFACTS_DIR
     ap = argparse.ArgumentParser()
     ap.add_argument("--pump",   default="1539514")
     ap.add_argument("--stride", type=int, default=6)
+    ap.add_argument("--model",  "--artifacts", dest="artifacts", default=None,
+                    help="Artifacts dir containing model.onnx/scaler.pkl "
+                         "(default: bloodTwin_unified_lstm)")
     args = ap.parse_args()
+    if args.artifacts:
+        ARTIFACTS_DIR = Path(args.artifacts)
     report(args.pump, args.stride)
 
 

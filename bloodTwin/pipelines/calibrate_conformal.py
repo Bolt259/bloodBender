@@ -49,6 +49,11 @@ def load_val_csv(pump_id: str) -> pd.DataFrame:
         raise FileNotFoundError(f"No validate CSVs in {split_dir}")
     df = pd.read_csv(csvs[-1], comment="#")
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    # Dose-conditioned schema v1.2: CSVs predate hypothetical_dose; it equals
+    # the actual bolus delivered each step for calibration windows.
+    if "hypothetical_dose" not in df.columns:
+        df["hypothetical_dose"] = df["bolus_dose"].fillna(0.0) \
+            if "bolus_dose" in df.columns else 0.0
     return df.sort_values("timestamp").reset_index(drop=True)
 
 
@@ -121,7 +126,7 @@ def main():
     ap.add_argument("--coverage",   type=float, default=0.90)
     ap.add_argument("--stride",     type=int,   default=6,
                     help="Row stride for rolling inference (6 = every 30 min)")
-    ap.add_argument("--artifacts",  default=str(ARTIFACTS_DIR))
+    ap.add_argument("--artifacts", "--model", dest="artifacts", default=str(ARTIFACTS_DIR))
     ap.add_argument("--pumps",      nargs="+",  default=PUMP_IDS,
                     help="Pump serials to include in calibration set")
     ap.add_argument("--max-buffer", type=int,   default=None,
