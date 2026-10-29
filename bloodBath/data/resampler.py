@@ -129,41 +129,52 @@ class UnifiedResampler:
         
         return master_index
     
-    def align_streams_to_master_index(self, 
-                                    cgm_data: List[Dict[str, Any]], 
-                                    basal_data: List[Dict[str, Any]], 
-                                    bolus_data: List[Dict[str, Any]], 
-                                    master_index: pd.DatetimeIndex) -> Dict[str, pd.Series]:
+    def align_streams_to_master_index(self,
+                                    cgm_data: List[Dict[str, Any]],
+                                    basal_data: List[Dict[str, Any]],
+                                    bolus_data: List[Dict[str, Any]],
+                                    master_index: pd.DatetimeIndex,
+                                    site_change_data: Optional[List[Dict[str, Any]]] = None) -> Dict[str, pd.Series]:
         """
         Align all data streams to the unified master time index using appropriate aggregation rules.
-        
+
         Stream alignment rules:
         - BG: Last observed value within each interval (no interpolation yet)
         - Basal: Forward-fill (stepwise rate persists until changed)
         - Bolus: Sum all events within each 5-minute interval
-        
+        - Site change: Binary 0/1 flag per interval (1 if any cannula-fill event)
+
         Args:
             cgm_data: List of CGM events
-            basal_data: List of basal events  
+            basal_data: List of basal events
             bolus_data: List of bolus events
             master_index: Unified master time index
-            
+            site_change_data: List of site-change events (optional; defaults to
+                empty for backward compatibility with callers that predate the
+                new_site_lag feature)
+
         Returns:
             Dictionary with aligned pandas Series for each stream
         """
         logger.info("Aligning data streams to master index...")
-        
+
+        if site_change_data is None:
+            site_change_data = []
+
         aligned_streams = {}
-        
+
         # Align BG stream - last observed value
         aligned_streams['bg'] = self._align_bg_stream(cgm_data, master_index)
-        
+
         # Align basal stream - forward fill stepwise rates
         aligned_streams['basal_rate'] = self._align_basal_stream(basal_data, master_index)
-        
+
         # Align bolus stream - sum events per interval
         aligned_streams['bolus_dose'] = self._align_bolus_stream(bolus_data, master_index)
-        
+
+        # Align site-change stream - binary 0/1 flag per interval
+        aligned_streams['site_change'] = self._align_site_change_stream(site_change_data, master_index)
+
         # Calculate coverage statistics
         self._calculate_coverage_stats(aligned_streams, master_index)
         
@@ -320,6 +331,29 @@ class UnifiedResampler:
         
         return bolus_aligned
     
+    def _align_site_change_stream(self, site_change_data: List[Dict[str, Any]], master_index: pd.DatetimeIndex) -> pd.Series:
+        """
+        Align site-change stream as a binary 0/1 flag per 5-minute interval.
+
+        Events are summed within each interval (like bolus), then clipped to a
+        0/1 indicator so multiple cannula-fills in the same bin still read as a
+        single site change. Intervals with no event are 0.0 (never NaN).
+        """
+        site_df = self._events_to_dataframe(site_change_data, 'site_change', 'SiteChange')
+
+        if site_df.empty:
+            logger.debug("Empty site-change data, filling with 0.0")
+            return pd.Series(0.0, index=master_index, name='site_change')
+
+        # Sum events within each interval, then collapse to a 0/1 binary flag.
+        site_resampled = site_df['site_change'].resample(self.freq).sum()
+        site_aligned = site_resampled.reindex(master_index, fill_value=0.0)
+        site_aligned = (site_aligned > 0).astype(float)
+        site_aligned = site_aligned.fillna(0.0)
+        site_aligned.name = 'site_change'
+
+        return site_aligned
+
     def _calculate_coverage_stats(self, aligned_streams: Dict[str, pd.Series], master_index: pd.DatetimeIndex):
         """Calculate coverage statistics for aligned streams"""
         total_intervals = len(master_index)
@@ -512,6 +546,102 @@ class SequenceSegmenter:
             'total_gaps_detected': 0,
             'avg_gap_size_hours': 0.0
         }
+
+
+class BgHampelFilter:
+    """Sliding-window Hampel identifier for CGM spike detection.
+
+    The Hampel identifier marks a sample as an outlier when it deviates from
+    the local window median by more than ``threshold`` scaled MADs.  The MAD
+    is multiplied by 1.4826 to make it a consistent estimator of the standard
+    deviation under Gaussianity, matching the original Hampel formulation.
+
+    Outliers are replaced with the local window median so downstream slope and
+    acceleration features are not pulled by CGM sensor spikes.  The boolean
+    ``outlier_mask`` is returned so callers can audit or mask-out flagged steps.
+
+    Parameters
+    ----------
+    window : int
+        One-sided half-width in samples (total window = 2*window+1).
+        Default 2 → ±10 min at 5-min CGM resolution (25-min total window).
+    threshold : float
+        Number of scaled MADs beyond which a sample is an outlier.
+        Default 3.0 (≈ 3σ for Gaussian data).
+    min_bg : float
+        Hard physiological floor used when the window has no valid data.
+    max_bg : float
+        Hard physiological ceiling.
+    """
+
+    K_SCALE = 1.4826  # consistency constant: MAD → σ̂
+
+    def __init__(
+        self,
+        window: int = 2,
+        threshold: float = 3.0,
+        min_bg: float = 20.0,
+        max_bg: float = 600.0,
+    ) -> None:
+        self.window = window
+        self.threshold = threshold
+        self.min_bg = min_bg
+        self.max_bg = max_bg
+        self._stats = {'spikes_detected': 0, 'spikes_replaced': 0}
+
+    def filter(
+        self, bg_series: pd.Series
+    ) -> Tuple[pd.Series, pd.Series]:
+        """Apply the Hampel filter in-place on a copy of *bg_series*.
+
+        Parameters
+        ----------
+        bg_series : pd.Series
+            Raw BG values (may contain NaN for missing readings).
+
+        Returns
+        -------
+        filtered : pd.Series
+            Spike-cleaned BG series (NaN positions unchanged).
+        outlier_mask : pd.Series[bool]
+            True where a spike was detected and replaced.
+        """
+        vals = bg_series.to_numpy(dtype=float).copy()
+        n = len(vals)
+        outlier = np.zeros(n, dtype=bool)
+
+        for i in range(n):
+            if np.isnan(vals[i]):
+                continue
+            lo = max(0, i - self.window)
+            hi = min(n, i + self.window + 1)
+            win = vals[lo:hi]
+            valid = win[~np.isnan(win)]
+            if len(valid) < 3:  # too few points to estimate MAD reliably
+                continue
+            med = float(np.median(valid))
+            mad = float(np.median(np.abs(valid - med)))
+            if mad == 0.0:
+                continue
+            if abs(vals[i] - med) > self.threshold * self.K_SCALE * mad:
+                outlier[i] = True
+                vals[i] = med  # replace spike with local median
+
+        n_spikes = int(outlier.sum())
+        self._stats['spikes_detected'] += n_spikes
+        self._stats['spikes_replaced'] += n_spikes
+        if n_spikes:
+            logger.debug("BgHampelFilter: replaced %d spike(s)", n_spikes)
+
+        filtered = pd.Series(vals, index=bg_series.index, name=bg_series.name)
+        mask = pd.Series(outlier, index=bg_series.index, name='spike_mask_bg')
+        return filtered, mask
+
+    def get_filter_stats(self) -> Dict[str, Any]:
+        return dict(self._stats)
+
+    def reset_stats(self) -> None:
+        self._stats = {'spikes_detected': 0, 'spikes_replaced': 0}
 
 
 class BgImputer:
@@ -768,8 +898,13 @@ class FeatureEngineer:
 
         bg = aligned_streams.get('bg', pd.Series(dtype=float))
         if bg.notna().any():
-            enhanced_streams['bg_slope_15min'] = derive_bg_slope(bg, window_minutes=15)
-            enhanced_streams['bg_slope_30min'] = derive_bg_slope(bg, window_minutes=30)
+            # Spike-clean with Hampel filter before computing derivatives.
+            # Sensor spikes produce large false slopes/accelerations; the filter
+            # replaces them with the local median without touching NaN gaps (those
+            # are handled by BgImputer separately).
+            bg_clean, _ = BgHampelFilter().filter(bg)
+            enhanced_streams['bg_slope_15min'] = derive_bg_slope(bg_clean, window_minutes=15)
+            enhanced_streams['bg_slope_30min'] = derive_bg_slope(bg_clean, window_minutes=30)
         else:
             enhanced_streams['bg_slope_15min'] = pd.Series(0.0, index=ts_index)
             enhanced_streams['bg_slope_30min'] = pd.Series(0.0, index=ts_index)

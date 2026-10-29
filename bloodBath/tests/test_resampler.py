@@ -301,3 +301,55 @@ class TestCreateUnifiedMasterIndex:
         if len(idx) > 1:
             diffs = pd.Series(idx).diff().dropna()
             assert (diffs == pd.Timedelta("5min")).all()
+
+
+# ── UnifiedResampler — site-change (new_site_lag) alignment ───────────────────
+
+
+class TestSiteChangeAlignment:
+    """Tests for the binary site_change stream alignment.
+
+    Site-change events (LID_CANNULA_FILLED) mark infusion-set changes; the
+    aligned stream must be a 0/1 flag per 5-min interval, never NaN, and must
+    collapse multiple events in the same bin to a single 1.0.
+    """
+
+    def _master_index(self, n: int = 12, start: str = "2024-01-01 10:00") -> pd.DatetimeIndex:
+        return pd.date_range(start=start, periods=n, freq="5min", tz="UTC")
+
+    def test_site_change_binary_per_interval(self):
+        """A single site-change event → 1.0 at its interval, 0.0 elsewhere."""
+        master = self._master_index()
+        ts = master[4]
+        site_change_data = [{"timestamp": ts, "site_change": 1, "event_type": "site_change"}]
+        resampler = UnifiedResampler()
+        streams = resampler.align_streams_to_master_index([], [], [], master, site_change_data)
+        assert float(streams["site_change"].iloc[4]) == pytest.approx(1.0)
+        assert float(streams["site_change"].iloc[0]) == pytest.approx(0.0)
+        assert float(streams["site_change"].iloc[5]) == pytest.approx(0.0)
+        # Never NaN
+        assert streams["site_change"].isna().sum() == 0
+
+    def test_multiple_site_changes_in_bin_clipped_to_1(self):
+        """Two events in the same 5-min bin collapse to 1.0, not 2.0."""
+        master = self._master_index()
+        bin_start = master[3]
+        ts_a = bin_start
+        ts_b = bin_start + pd.Timedelta("30s")  # same 5-min bin, distinct ts
+        site_change_data = [
+            {"timestamp": ts_a, "site_change": 1, "event_type": "site_change"},
+            {"timestamp": ts_b, "site_change": 1, "event_type": "site_change"},
+        ]
+        resampler = UnifiedResampler()
+        streams = resampler.align_streams_to_master_index([], [], [], master, site_change_data)
+        assert float(streams["site_change"].iloc[3]) == pytest.approx(1.0)
+
+    def test_no_site_changes_all_zero(self):
+        """Empty site_change_data → an all-zero stream (backward-compat default)."""
+        master = self._master_index(n=6)
+        resampler = UnifiedResampler()
+        # Omit the arg entirely to also exercise the default-empty path.
+        streams = resampler.align_streams_to_master_index([], [], [], master)
+        assert "site_change" in streams
+        assert streams["site_change"].isna().sum() == 0
+        assert (streams["site_change"] == 0.0).all()

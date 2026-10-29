@@ -268,3 +268,72 @@ class TestDeduplicateEvents:
         result = self.ex.deduplicate_events(events)
         assert len(result) == 2
         assert result[0]["bg"] == 100.0
+
+
+# ── normalize_site_change_events ──────────────────────────────────────────────
+
+
+class LidCannulaFilled:
+    """Stub mirroring the parsed LID_CANNULA_FILLED dataclass.
+
+    normalize_site_change_events matches on the class name
+    (``type(event).__name__ == 'LidCannulaFilled'``), so this class must keep
+    that exact name.
+    """
+
+    NAME = "LID_CANNULA_FILLED"
+
+    def __init__(self, timestamp="2024-01-15T09:00:00"):
+        self.timestamp = timestamp
+
+
+class TestSiteChangeExtraction:
+    """Tests for extracting LID_CANNULA_FILLED (infusion-site change) events."""
+
+    def setup_method(self):
+        self.ex = EventExtractor()
+
+    def test_lid_cannula_filled_extracted(self):
+        """A single LID_CANNULA_FILLED event yields one site_change record."""
+        events = [LidCannulaFilled(timestamp="2024-01-15T09:00:00")]
+        result = self.ex.normalize_site_change_events(events)
+        assert len(result) == 1
+
+    def test_non_site_events_filtered(self):
+        """Mixed cgm/bolus/site events → only the site event is extracted."""
+        events = [
+            _Evt(currentGlucoseDisplayValue=120, timestamp="2024-01-15T08:00:00"),
+            _Evt(deliveredTotal=3500, timestamp="2024-01-15T08:30:00"),
+            LidCannulaFilled(timestamp="2024-01-15T09:00:00"),
+        ]
+        result = self.ex.normalize_site_change_events(events)
+        assert len(result) == 1
+        assert result[0]["event_type"] == "site_change"
+
+    def test_empty_events_returns_empty(self):
+        """Empty input → empty output."""
+        assert self.ex.normalize_site_change_events([]) == []
+
+    def test_site_change_has_required_fields(self):
+        """Returned dict carries timestamp, site_change, and event_type."""
+        events = [LidCannulaFilled(timestamp="2024-01-15T09:00:00")]
+        record = self.ex.normalize_site_change_events(events)[0]
+        assert "timestamp" in record
+        assert record["site_change"] == 1
+        assert record["event_type"] == "site_change"
+
+    def test_event_counts_updated(self):
+        """event_counts['site_change'] is incremented per extracted event."""
+        assert self.ex.event_counts["site_change"] == 0
+        events = [
+            LidCannulaFilled(timestamp="2024-01-15T09:00:00"),
+            LidCannulaFilled(timestamp="2024-01-16T09:00:00"),
+        ]
+        self.ex.normalize_site_change_events(events)
+        assert self.ex.event_counts["site_change"] == 2
+
+    def test_matches_on_name_attribute(self):
+        """An event whose class name differs but exposes NAME is still matched."""
+        other = _Evt(NAME="LID_CANNULA_FILLED", timestamp="2024-01-15T09:00:00")
+        result = self.ex.normalize_site_change_events([other])
+        assert len(result) == 1

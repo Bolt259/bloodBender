@@ -231,14 +231,25 @@ class TandemHistoricalSyncClient:
         Returns:
             DataFrame with LSTM-ready data
         """
+        # extract_events() consumes a generator; materialize once so we can also
+        # scan the raw events for site-change (LID_CANNULA_FILLED) events, which
+        # extract_events does not categorize.
+        if not isinstance(raw_events, list):
+            raw_events = list(raw_events)
+
         # Step 1: Extract and categorize events
         categorized_events = self.extractor.extract_events(raw_events)
-        
+
+        # Site-change events are filtered straight from the raw stream (they are
+        # not one of the cgm/basal/bolus categories).
+        site_change_data = self.extractor.normalize_site_change_events(raw_events)
+
         logger.info(
-            "Categorized counts: cgm=%d basal=%d bolus=%d",
+            "Categorized counts: cgm=%d basal=%d bolus=%d site_change=%d",
             len(categorized_events['cgm_events']),
             len(categorized_events['basal_events']),
             len(categorized_events['bolus_events']),
+            len(site_change_data),
         )
 
 
@@ -246,10 +257,10 @@ class TandemHistoricalSyncClient:
         cgm_data = self.extractor.normalize_cgm_events(categorized_events['cgm_events'])
         basal_data = self.extractor.normalize_basal_events(categorized_events['basal_events'])
         bolus_data = self.extractor.normalize_bolus_events(categorized_events['bolus_events'])
-        
+
         logger.info(
-            "Normalized counts: cgm=%d basal=%d bolus=%d",
-            len(cgm_data), len(basal_data), len(bolus_data)
+            "Normalized counts: cgm=%d basal=%d bolus=%d site_change=%d",
+            len(cgm_data), len(basal_data), len(bolus_data), len(site_change_data)
         )
 
         # # Step 3: Validate data
@@ -261,13 +272,15 @@ class TandemHistoricalSyncClient:
         cgm_data = self.extractor.deduplicate_events(cgm_data)
         basal_data = self.extractor.deduplicate_events(basal_data)
         bolus_data = self.extractor.deduplicate_events(bolus_data)
-        
+        site_change_data = self.extractor.deduplicate_events(site_change_data)
+
         # Step 5: Save typed raw CSV files in bloodBank/raw/{type}/{serial}
         self._save_raw_event_csvs(
             pump_serial=pump_serial,
             cgm_data=cgm_data,
             basal_data=basal_data,
             bolus_data=bolus_data,
+            site_change_data=site_change_data,
             start_date=start_date,
             end_date=end_date
         )
@@ -283,7 +296,8 @@ class TandemHistoricalSyncClient:
                              basal_data: List[Dict[str, Any]],
                              bolus_data: List[Dict[str, Any]],
                              start_date: str,
-                             end_date: str) -> None:
+                             end_date: str,
+                             site_change_data: Optional[List[Dict[str, Any]]] = None) -> None:
         """Persist extracted raw events in typed per-pump directories."""
         timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
         range_tag = f"{start_date}_to_{end_date}".replace(':', '-')
@@ -292,6 +306,7 @@ class TandemHistoricalSyncClient:
             ('cgmreading', cgm_data, DATA_PATHS['raw']['cgm'] / pump_serial),
             ('basal', basal_data, DATA_PATHS['raw']['basal'] / pump_serial),
             ('bolus', bolus_data, DATA_PATHS['raw']['bolus'] / pump_serial),
+            ('site_change', site_change_data or [], DATA_PATHS['raw']['site_change'] / pump_serial),
         ]
 
         for prefix, rows, output_dir in raw_targets:
