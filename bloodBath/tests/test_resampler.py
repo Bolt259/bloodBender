@@ -19,10 +19,121 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from bloodBath.data.resampler import BgImputer, UnifiedResampler
+from bloodBath.data.resampler import BgHampelFilter, BgImputer, UnifiedResampler
 
 
 # ── BgImputer ─────────────────────────────────────────────────────────────────
+
+
+# ── BgHampelFilter ────────────────────────────────────────────────────────────
+
+
+class TestBgHampelFilter:
+    """Tests for the Hampel spike-detection filter."""
+
+    def _make_series(self, vals, start="2024-01-01 08:00"):
+        idx = pd.date_range(start=start, periods=len(vals), freq="5min", tz="UTC")
+        return pd.Series(vals, index=idx, dtype=float, name="bg")
+
+    def _filt(self, **kwargs):
+        return BgHampelFilter(**kwargs)
+
+    def test_clean_series_unchanged(self):
+        """Uniformly varying BG with no spikes → filtered series equals input."""
+        bg = self._make_series(list(range(100, 130)))
+        filtered, mask = self._filt().filter(bg)
+        assert mask.sum() == 0
+        pd.testing.assert_series_equal(filtered, bg, check_names=False)
+
+    def test_single_spike_detected_and_replaced(self):
+        """One large spike in the middle is flagged and replaced."""
+        vals = [120.0] * 20
+        vals[10] = 450.0  # physiologically implausible spike
+        bg = self._make_series(vals)
+        filtered, mask = self._filt(window=2, threshold=2.0).filter(bg)
+        assert mask.iloc[10] is True or mask.iloc[10] == True
+        assert filtered.iloc[10] < 200.0, "spike should be replaced with local median"
+
+    def test_replaced_value_close_to_local_median(self):
+        """Replaced spike equals the window median of the surrounding readings."""
+        vals = [120.0] * 20
+        vals[10] = 500.0
+        bg = self._make_series(vals)
+        filtered, mask = self._filt(window=2, threshold=2.0).filter(bg)
+        assert abs(filtered.iloc[10] - 120.0) < 1.0
+
+    def test_nan_positions_untouched(self):
+        """NaN readings (sensor gap) are not treated as spikes."""
+        vals = [120.0] * 10 + [float("nan")] * 3 + [120.0] * 10
+        bg = self._make_series(vals)
+        filtered, mask = self._filt().filter(bg)
+        assert filtered.isna().sum() == 3
+        assert mask.sum() == 0
+
+    def test_spike_at_series_edge_handled(self):
+        """Spike at position 0 (window shorter than usual) must not crash."""
+        vals = [500.0] + [120.0] * 19
+        bg = self._make_series(vals)
+        filtered, mask = self._filt(window=2, threshold=2.0).filter(bg)
+        # Edge spike may or may not be caught (window too small), but no exception
+        assert len(filtered) == len(bg)
+
+    def test_outlier_mask_true_at_spike(self):
+        """outlier_mask series is True exactly at spike positions."""
+        vals = [120.0] * 20
+        vals[5] = 450.0
+        vals[15] = 10.0   # hypo spike
+        bg = self._make_series(vals)
+        _, mask = self._filt(window=2, threshold=2.0).filter(bg)
+        assert mask.iloc[5] == True
+        assert mask.iloc[15] == True
+        assert mask.sum() == 2
+
+    def test_stats_incremented_on_spike(self):
+        """spikes_detected counter increments when a spike is replaced."""
+        vals = [120.0] * 20
+        vals[10] = 450.0
+        bg = self._make_series(vals)
+        f = self._filt(window=2, threshold=2.0)
+        f.filter(bg)
+        assert f.get_filter_stats()["spikes_detected"] >= 1
+
+    def test_reset_stats(self):
+        """reset_stats zeroes the counters."""
+        vals = [120.0] * 20
+        vals[10] = 450.0
+        bg = self._make_series(vals)
+        f = self._filt(window=2, threshold=2.0)
+        f.filter(bg)
+        f.reset_stats()
+        assert f.get_filter_stats()["spikes_detected"] == 0
+
+    def test_tight_threshold_catches_more(self):
+        """Lower threshold → more detections than a very permissive one."""
+        # Non-uniform baseline so MAD is non-zero: small bumps only visible
+        # to a tight detector, large spike visible to both.
+        rng = np.random.default_rng(0)
+        vals = (100 + rng.standard_normal(30) * 5).tolist()
+        vals[8]  = vals[8] + 12.0   # moderate bump (~2.4 × σ) — tight only
+        vals[20] = 450.0            # clear spike — both catch it
+        bg = self._make_series(vals)
+        _, mask_permissive = self._filt(window=2, threshold=20.0).filter(bg)
+        _, mask_tight      = self._filt(window=2, threshold=1.5).filter(bg)
+        assert mask_tight.sum() >= mask_permissive.sum()
+
+    def test_output_index_matches_input(self):
+        """Filtered series and mask carry the same index as the input."""
+        bg = self._make_series(list(range(100, 120)))
+        filtered, mask = self._filt().filter(bg)
+        assert filtered.index.equals(bg.index)
+        assert mask.index.equals(bg.index)
+
+    def test_uniform_series_not_filtered(self):
+        """All-identical values → MAD is zero → no filtering applied."""
+        vals = [150.0] * 20
+        bg = self._make_series(vals)
+        filtered, mask = self._filt().filter(bg)
+        assert mask.sum() == 0
 
 
 class TestBgImputer:

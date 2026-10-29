@@ -621,9 +621,11 @@ class BgHampelFilter:
                 continue
             med = float(np.median(valid))
             mad = float(np.median(np.abs(valid - med)))
-            if mad == 0.0:
-                continue
-            if abs(vals[i] - med) > self.threshold * self.K_SCALE * mad:
+            # Use a 1 mg/dL floor so a spike embedded in a perfectly flat
+            # baseline (MAD=0) is still detectable — any spike large enough
+            # to matter physiologically will clear this floor easily.
+            sigma_hat = max(self.K_SCALE * mad, 1.0)
+            if abs(vals[i] - med) > self.threshold * sigma_hat:
                 outlier[i] = True
                 vals[i] = med  # replace spike with local median
 

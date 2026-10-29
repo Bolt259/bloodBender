@@ -68,10 +68,11 @@ class UnifiedDataProcessor:
             'features_engineered': 0
         }
     
-    def create_unified_lstm_sequences(self, 
+    def create_unified_lstm_sequences(self,
                                     cgm_data: List[Dict[str, Any]],
                                     basal_data: List[Dict[str, Any]],
-                                    bolus_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                                    bolus_data: List[Dict[str, Any]],
+                                    site_change_data: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """
         Create unified LSTM-ready sequences with proper segmentation and masking.
         
@@ -105,7 +106,8 @@ class UnifiedDataProcessor:
         
         # Step 2: Align all streams to master index
         aligned_streams = self.resampler.align_streams_to_master_index(
-            cgm_data, basal_data, bolus_data, master_index
+            cgm_data, basal_data, bolus_data, master_index,
+            site_change_data=site_change_data,
         )
         
         # Step 3: Detect and repair synthetic 100 values before segmentation
@@ -237,16 +239,17 @@ class UnifiedDataProcessor:
         standard_order = [
             'timestamp',
             'bg',
-            'basal_rate', 
+            'basal_rate',
             'bolus_dose',
             'basal_delta',
             'time_since_last_bolus',
             'bg_slope_15min',
-            'bg_slope_30min', 
+            'bg_slope_30min',
             'sin_time',
             'cos_time',
+            'site_change',
             'mask_bg',
-            'mask_label'
+            'mask_label',
         ]
         
         # Include only columns that exist
@@ -944,16 +947,19 @@ class DataProcessor(UnifiedDataProcessor):
             'bolus_events': 0
         }
     
-    def create_lstm_ready_data(self, 
+    def create_lstm_ready_data(self,
                               cgm_data: List[Dict[str, Any]],
                               basal_data: List[Dict[str, Any]],
-                              bolus_data: List[Dict[str, Any]]) -> pd.DataFrame:
+                              bolus_data: List[Dict[str, Any]],
+                              site_change_data: Optional[List[Dict[str, Any]]] = None) -> pd.DataFrame:
         """
         Create LSTM-ready dataset (legacy interface)
-        
+
         Returns the first sequence as a DataFrame for backward compatibility
         """
-        sequences = self.create_unified_lstm_sequences(cgm_data, basal_data, bolus_data)
+        sequences = self.create_unified_lstm_sequences(
+            cgm_data, basal_data, bolus_data, site_change_data=site_change_data
+        )
         
         if not sequences:
             logger.warning("No sequences created, returning empty DataFrame")
