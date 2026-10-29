@@ -105,10 +105,11 @@ class TandemHistoricalSyncClient:
             True if sync was successful
         """
         logger.info(f"Starting sync for pump {pump_config.serial}")
-        
+        pump_t0 = time.time()
+
         start_date = pump_config.start_date
         end_date = pump_config.end_date
-        
+
         # In update mode, start from last successful sync
         if update_mode and not force_full:
             last_sync = self._get_last_sync_date(pump_config.serial)
@@ -181,8 +182,22 @@ class TandemHistoricalSyncClient:
                 
             # Update sync metadata
             self._update_sync_metadata(pump_config.serial, end_date, len(lstm_df))
-            
-            logger.info(f"Successfully synced pump {pump_config.serial}: {len(lstm_df)} records")
+
+            elapsed = time.time() - pump_t0
+            extr = self.extractor.get_extraction_stats()
+            fetch = self.fetcher.get_fetcher_stats()
+            logger.info(
+                "SYNC COMPLETE pump=%s range=%s→%s rows=%d "
+                "cgm=%d basal=%d bolus=%d "
+                "chunks=%d/%d empty=%d failed=%d retries=%d elapsed=%.1fs",
+                pump_config.serial, start_date, end_date, len(lstm_df),
+                extr['event_counts']['cgm'],
+                extr['event_counts']['basal'],
+                extr['event_counts']['bolus'],
+                fetch['chunks_with_data'], fetch['chunks_total'],
+                fetch['chunks_empty'], fetch['chunks_failed'],
+                fetch['total_retries'], elapsed,
+            )
             return True
             
         except Exception as e:
