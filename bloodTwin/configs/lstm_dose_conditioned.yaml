@@ -1,0 +1,176 @@
+# bloodTwin LSTM Configuration — DOSE-CONDITIONED variant
+# Unified model trained on both pump datasets.
+#
+# This config is identical to lstm.yaml (the MVP baseline) EXCEPT it adds a
+# 14th input feature, `hypothetical_dose`, that conditions the model on a
+# candidate bolus.  See bloodTwin/docs/dose_conditioned_lstm.md for the full
+# rationale.  The MVP config (lstm.yaml) is preserved untouched so existing
+# 13-feature artifacts keep loading.
+#
+# Schema: v1.2 (14 inputs).  Training sets hypothetical_dose == bolus_dose at
+# every timestep; inference overrides ONLY the current (last lookback) step
+# with the candidate dose.
+
+# Model Architecture
+model:
+  name: "bloodTwin_unified_lstm_dose_conditioned"
+  hidden_size: 128
+  num_layers: 2
+  dropout: 0.2
+  bidirectional: false
+
+# Data Configuration
+data:
+  # Use the chronologically split data
+  train_dir: "bloodBath/bloodBank/merged"
+  # All 3 pumps: BG target distribution uniform across devices (mean 138-143,
+  # std 43-44), schema byte-identical. Combined ~450k train rows / ~6.5 yrs.
+  # Coverage varies (94.5/75.5/56.7%) -> loss MUST mask imputed BG.
+  pump_ids:
+    - "1539514"   # Tandem Mobi (current) 2026-02..07
+    - "901161470" # t:slim X2 (mid)       2024-01..2025-12
+    - "881235"    # t:slim X2 (oldest)    2021-01..2024-10
+
+  # Features — schema v1.2 (14 inputs, up from 13)
+  # Must match patient_state.FEATURE_NAMES ordering exactly.
+  # `hypothetical_dose` is appended LAST so existing feature indices are stable
+  # and a 13-feature scaler/artifact differs only by the trailing column.
+  features:
+    - bg
+    - basal_rate
+    - bolus_dose
+    - basal_delta
+    - time_since_last_bolus
+    - bg_slope_15min
+    - bg_slope_30min
+    - sin_time
+    - cos_time
+    - iob
+    - bg_acceleration
+    - mask_bg
+    - mask_label
+    # Dose-conditioning input (schema v1.2). At TRAIN time == bolus_dose (the
+    # actual bolus delivered that step, or 0.0). At INFERENCE time the last
+    # lookback row is overridden with the candidate "what if I take X U now"
+    # dose; all prior rows keep their historical bolus_dose values.
+    - hypothetical_dose
+
+  target: bg # Predicting blood glucose
+
+  # Sequence parameters
+  lookback: 288 # 24 hours @ 5-min intervals (24 * 60 / 5 = 288)
+  horizon: 12 # 60 minutes forecast @ 5-min intervals (60 / 5 = 12)
+  stride: 1 # Slide window by 1 step (dense sampling)
+
+  # Preprocessing
+  scaler_type: "robust" # RobustScaler for outlier resistance
+  save_scaler: true
+
+# Training Configuration
+training:
+  batch_size: 128
+  max_epochs: 50
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-5
+
+  # Optimization
+  optimizer: "adam"
+  scheduler: "reduce_on_plateau"
+  scheduler_params:
+    mode: "min"
+    factor: 0.5
+    patience: 3
+    min_lr: 1.0e-6
+
+  # Gradient clipping
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"
+
+  # Mixed precision training (AMP)
+  precision: "32-true" # Use Tensor Cores on RTX 2070 SUPER
+
+  # Early stopping
+  early_stopping:
+    monitor: "val_mae"
+    patience: 5
+    mode: "min"
+    min_delta: 0.001
+
+  # Checkpointing
+  checkpoint:
+    monitor: "val_mae"
+    mode: "min"
+    save_top_k: 3
+    save_last: true
+    filename: "bloodtwin-{epoch:02d}-{val_mae:.3f}"
+
+# Data Loading
+dataloader:
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+
+# Validation
+validation:
+  check_val_every_n_epoch: 1
+  val_check_interval: 1.0 # Check validation at end of each epoch
+
+# Metrics
+metrics:
+  - mae
+  - rmse
+  - mape
+  - r2
+
+# Horizon-specific metrics (minutes)
+horizon_checkpoints:
+  - 30 # 30 minutes (6 steps)
+  - 60 # 60 minutes (12 steps)
+
+# Logging
+logging:
+  tensorboard: true
+  log_dir: "bloodTwin/analytics/tensorboard_logs"
+  log_every_n_steps: 50
+
+# Artifacts
+artifacts:
+  save_dir: "bloodTwin/artifacts"
+  export_formats:
+    - "checkpoint" # .ckpt (PyTorch Lightning)
+    - "torchscript" # .ts (TorchScript for deployment)
+    - "onnx" # .onnx (ONNX for cross-platform)
+
+  # ONNX export settings
+  onnx:
+    opset_version: 17
+    input_names: ["input"]
+    output_names: ["prediction", "meal_logit"]
+    dynamic_axes:
+      input: { 0: "batch_size" }
+      prediction: { 0: "batch_size" }
+      meal_logit: { 0: "batch_size" }
+
+# Auxiliary meal-rise classification head
+meal_classifier:
+  loss_weight: 0.1      # meal_bce weight relative to bg_mae (keep BG prediction dominant)
+  pos_weight: 3.0       # BCEWithLogitsLoss pos_weight for ~25% positive class prevalence
+  rise_threshold_mgdl: 35.0  # BG rise ≥ this over horizon → positive label
+
+# Compute
+compute:
+  accelerator: "gpu"
+  devices: 1
+  strategy: "auto"
+  deterministic: false # Set true for reproducibility (slower)
+
+# Reproducibility
+seed: 42
+
+# Physiological Constraints
+constraints:
+  bg_min: 20 # mg/dL (from bloodBath spec)
+  bg_max: 600 # mg/dL (from bloodBath spec)
+  basal_max: 10.0 # U/hr (conservative maximum)
+  bolus_max: 25.0 # U (conservative maximum)

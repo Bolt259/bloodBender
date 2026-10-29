@@ -5,6 +5,18 @@ For each candidate dose amount, simulates what the model predicts BG will do
 if that dose is delivered right now, producing a family of conformal-bounded
 BG trajectories the patient can compare.
 
+Two fan modes
+-------------
+* run() — PHYSICS fan (MVP, schema v1.1 / 13-feature model). Runs the dose-blind
+  LSTM once and shifts the baseline by an ISF×IOB physics delta per dose. This
+  is an approximation: the model never saw dose as input. Kept as the fallback.
+* dose_conditioned_fan() — LEARNED fan (schema v1.2 / 14-feature model). Runs the
+  LSTM once PER candidate dose, injecting the candidate into the current step's
+  `hypothetical_dose` feature so the model's own learned dose response shapes
+  each trajectory. See bloodTwin/docs/dose_conditioned_lstm.md for the full
+  design, the training/inference asymmetry, and why only the current lookback
+  step is overridden.
+
 Design decisions
 ----------------
 * Dose spacing: 0.25U steps — fine enough for clinical relevance without
@@ -555,3 +567,179 @@ class ScenarioSimulator:
             failure_top_prob=round(fm_prob, 4),
         )
         return fan
+
+    # ── Dose-conditioned (learned) fan ──────────────────────────────────────
+
+    @property
+    def supports_dose_conditioning(self) -> bool:
+        """True iff the loaded model/scaler expose the `hypothetical_dose`
+        feature (schema v1.2). Used to decide between dose_conditioned_fan()
+        (learned) and run() (physics fallback)."""
+        names = getattr(self._pred, "feature_names", None)
+        return bool(names) and "hypothetical_dose" in names
+
+    def fan(self, df: pd.DataFrame, **kwargs) -> ScenarioFan:
+        """Dispatch to the learned dose-conditioned fan when the loaded model
+        supports it, else fall back to the physics fan (backward-compatible
+        with 13-feature MVP artifacts)."""
+        if self.supports_dose_conditioning:
+            return self.dose_conditioned_fan(df, **kwargs)
+        return self.run(df, **kwargs)
+
+    def dose_conditioned_fan(
+        self,
+        df: pd.DataFrame,
+        pump_serial: str = "",
+        coverage: float = 0.90,
+        failure_mode_probs: dict[str, float] | None = None,
+    ) -> ScenarioFan:
+        """
+        Build the scenario fan by running the LEARNED dose-conditioned LSTM once
+        per candidate dose (schema v1.2 / 14-feature model).
+
+        Approach
+        --------
+        1. Assemble the raw lookback window ONCE (build_raw_window).
+        2. For each candidate dose d, copy the raw window and override ONLY the
+           `hypothetical_dose` value at the CURRENT (last) lookback step to d —
+           all earlier steps keep their actual historical values (which already
+           equal bolus_dose, matching the training distribution). See
+           bloodTwin/docs/dose_conditioned_lstm.md §3 (Option A/C).
+        3. Run the model on each edited window → a genuinely different trajectory
+           per dose, shaped by the patient's learned dose response rather than a
+           physics shift.
+
+        The 0 U scenario is the window with hypothetical_dose[now]=0.0, i.e. the
+        honest "do nothing" forecast from the same conditioned model.
+
+        Requires the model to expose `hypothetical_dose`; callers should prefer
+        fan() (auto-dispatch) or guard on supports_dose_conditioning.
+        """
+        if not self.supports_dose_conditioning:
+            # Defensive: never silently emit physics-only results under the
+            # learned API. Caller should use fan() for auto-fallback.
+            raise RuntimeError(
+                "Loaded model has no 'hypothetical_dose' feature — use run() "
+                "(physics fan) or fan() for automatic fallback."
+            )
+
+        cfg = self._config
+
+        # ── Raw window + feature index of the dose-conditioning column ────
+        raw_arr, window_end_utc = self._pred.build_raw_window(df)
+        feat_names = self._pred.feature_names
+        dose_idx = feat_names.index("hypothetical_dose")
+        current_step = raw_arr.shape[0] - 1  # last lookback row == "now"
+
+        def _predict_for_dose(dose_u: float) -> ConformalPrediction:
+            # Copy so each scenario is independent; override ONLY the current
+            # step's hypothetical_dose (native units — it's a passthrough
+            # feature, no scaler transform needed on the raw value).
+            w = raw_arr.copy()
+            w[current_step, dose_idx] = np.float32(dose_u)
+            return self._pred.run_raw(w, window_end_utc, pump_serial, coverage)
+
+        # ── 0U baseline from the conditioned model ────────────────────────
+        baseline = _predict_for_dose(0.0)
+
+        # Current BG: last OBSERVED (non-NaN, non-imputed) reading in lookback
+        bg_col = df["bg"] if "bg" in df.columns else pd.Series(dtype=float)
+        mask_col = df["mask_bg"].astype(bool) if "mask_bg" in df.columns else pd.Series(False, index=df.index)
+        obs_bg = bg_col[~mask_col].dropna()
+        current_bg = float(obs_bg.iloc[-1]) if not obs_bg.empty else None
+
+        # ── Residual anchor (same tapered anchoring as the physics fan) ───
+        import dataclasses as _dc
+        if current_bg is not None:
+            anchor_offset = float(current_bg - baseline.predicted_bg[0])
+            taper = np.linspace(1.0, 0.0, HORIZON, dtype=np.float32)
+            shift = (anchor_offset * taper).astype(np.float32)
+            baseline = _dc.replace(
+                baseline,
+                predicted_bg=(baseline.predicted_bg + shift),
+                lower=(baseline.lower + shift),
+                upper=(baseline.upper + shift),
+            )
+
+        # ── ECD / dose grid: keep ISF only to CENTER the grid; the trajectory
+        #    itself is the learned model's, not a physics shift ─────────────
+        base_isf = self._derive_isf(df)
+        isf_eff, isf_note = self.effective_isf(base_isf, failure_mode_probs)
+        peak_idx = int(np.argmax(baseline.predicted_bg))
+        peak_bg  = float(baseline.predicted_bg[peak_idx])
+        peak_min = baseline.horizon_minutes[peak_idx]
+        ecd      = max(0.0, (peak_bg - cfg.correction_target) / isf_eff) if isf_eff > 0 else 0.0
+
+        meal_prob  = baseline.meal_probability
+        bg_delta   = peak_bg - (current_bg or peak_bg)
+        traj_trend = float(baseline.predicted_bg[-1]) - float(baseline.predicted_bg[0])
+        if meal_prob >= 0.5 and bg_delta > 15:
+            trigger = f"model detects meal-rise pattern (P={meal_prob:.0%}); BG expected +{bg_delta:.0f} mg/dL"
+        elif meal_prob >= 0.3 and traj_trend > 10:
+            trigger = f"model predicts rising trajectory (meal probability {meal_prob:.0%})"
+        elif current_bg is not None and bg_delta > 20 and meal_prob < 0.25:
+            trigger = "model predicts rise without meal signal — possible dawn/stress/hormonal pattern"
+        elif bg_delta > 5:
+            trigger = f"model projects BG to peak at {peak_bg:.0f} mg/dL @ +{peak_min}min"
+        elif ecd == 0:
+            trigger = "model predicts BG will remain at or below target — no correction indicated"
+        else:
+            trigger = f"model: current BG {current_bg:.0f} → predicted peak {peak_bg:.0f} mg/dL"
+        trigger = "[dose-conditioned] " + trigger
+
+        upper   = min(cfg.max_dose, max(ecd * 1.5, cfg.min_dose_range))
+        n_steps = math.ceil(upper / cfg.dose_step)
+        doses   = [round(i * cfg.dose_step, 2) for i in range(n_steps + 1)]
+
+        base_30 = float(baseline.predicted_bg[5])
+        base_60 = float(baseline.predicted_bg[11])
+
+        scenarios = []
+        for dose in doses:
+            if dose == 0.0:
+                pred = baseline
+            else:
+                pred = _predict_for_dose(dose)
+                # Apply the SAME tapered anchor used on the baseline so every
+                # scenario starts from the real sensor reading (the model's
+                # absolute level drifts; its shape/dose-response is what we trust).
+                if current_bg is not None:
+                    anchor_offset = float(current_bg - pred.predicted_bg[0])
+                    taper = np.linspace(1.0, 0.0, HORIZON, dtype=np.float32)
+                    shift = (anchor_offset * taper).astype(np.float32)
+                    pred = _dc.replace(
+                        pred,
+                        predicted_bg=(pred.predicted_bg + shift),
+                        lower=(pred.lower + shift),
+                        upper=(pred.upper + shift),
+                    )
+
+            d30 = float(pred.predicted_bg[5])  - base_30
+            d60 = float(pred.predicted_bg[11]) - base_60
+            reasoning = (
+                f"vs 0U: {d30:+.1f} @30min, {d60:+.1f} @60min mg/dL (learned response)"
+                if dose > 0 else
+                f"no dose: model predicts peak {peak_bg:.0f} mg/dL @ +{peak_min}min"
+            )
+            scenarios.append(Scenario(dose_u=dose, prediction=pred, delta_reasoning=reasoning))
+
+        fm_top  = max(failure_mode_probs, key=failure_mode_probs.get) if failure_mode_probs else "nominal"
+        fm_prob = float(failure_mode_probs.get(fm_top, 0.0)) if failure_mode_probs else 0.0
+        if isf_note:
+            trigger = trigger + f"  [{isf_note}]"
+
+        return ScenarioFan(
+            window_end_utc=baseline.window_end_utc,
+            pump_serial=pump_serial,
+            horizon_minutes=baseline.horizon_minutes,
+            scenarios=scenarios,
+            isf_used=isf_eff,
+            correction_target=cfg.correction_target,
+            estimated_correction_dose=round(ecd, 2),
+            model_predicted_peak=round(peak_bg, 1),
+            current_bg=round(current_bg, 1) if current_bg is not None else None,
+            model_trigger=trigger,
+            meal_probability=round(meal_prob, 4),
+            failure_top_state=fm_top,
+            failure_top_prob=round(fm_prob, 4),
+        )

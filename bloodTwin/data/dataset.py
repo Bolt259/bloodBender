@@ -20,7 +20,16 @@ logger = logging.getLogger(__name__)
 # Features that must not be shifted or rescaled.
 # sin_time/cos_time: already in [-1,1]; rescaling distorts circadian signal.
 # mask_bg/mask_label: binary flags; subtracting their median inverts meaning.
-_PASSTHROUGH_FEATURES = frozenset(["sin_time", "cos_time", "mask_bg", "mask_label"])
+# hypothetical_dose: physical quantity in U — kept in raw units so the inference
+#   path can inject a human-meaningful candidate dose (e.g. 2.0 U) directly into
+#   the last lookback step without having to re-apply a RobustScaler transform.
+#   bolus_dose is RobustScaled today, but hypothetical_dose is deliberately a
+#   passthrough so dose_conditioned_fan() can set it in native units. Both
+#   describe the same physical thing; only hypothetical_dose is overridden at
+#   inference, so only it needs to stay un-rescaled.
+_PASSTHROUGH_FEATURES = frozenset([
+    "sin_time", "cos_time", "mask_bg", "mask_label", "hypothetical_dose",
+])
 
 
 class BloodGlucoseDataset(Dataset):
@@ -123,6 +132,30 @@ class BloodGlucoseDataset(Dataset):
         combined.sort_values(["subject_id", "timestamp"], inplace=True)
         combined.reset_index(drop=True, inplace=True)
 
+        # ── Dose-conditioning feature (schema v1.2) ───────────────────────────
+        # `hypothetical_dose` is the model's "what if I take X U now" input.
+        #
+        # TRAINING / INFERENCE ASYMMETRY (important):
+        #   * At TRAIN time (here) it is simply a copy of bolus_dose — the ACTUAL
+        #     bolus delivered at that timestep (0.0 when none). The model therefore
+        #     learns the true mapping from (patient state + dose) → future BG from
+        #     the patient's own history, at every point in the day.
+        #   * At INFERENCE time (scenarios.dose_conditioned_fan) the historical
+        #     rows keep their real bolus_dose values, and ONLY the current/last
+        #     lookback step is overridden with a candidate dose. This keeps the
+        #     lookback in the same distribution the model trained on while probing
+        #     the counterfactual "take this dose now".
+        #
+        # Only materialised when the feature is actually requested, so the MVP
+        # 13-feature config loads a frame without this column (no behaviour change).
+        if "hypothetical_dose" in self.features:
+            if "bolus_dose" not in combined.columns:
+                raise ValueError(
+                    "hypothetical_dose feature requires a 'bolus_dose' column in the "
+                    "source CSV to copy actual boluses from (dose-conditioned schema v1.2)."
+                )
+            combined["hypothetical_dose"] = combined["bolus_dose"].fillna(0.0)
+
         return combined, pd.DatetimeIndex(combined["timestamp"])
     
     def _create_sequences(self) -> List[Tuple[int, int]]:
@@ -179,7 +212,17 @@ class BloodGlucoseDataset(Dataset):
         input_sequence = sequence.iloc[:self.lookback]
         target_sequence = sequence.iloc[self.lookback:]
         
-        # Get feature values
+        # Get feature values.
+        #
+        # Dose-conditioning note (schema v1.2): when `hypothetical_dose` is in
+        # self.features it was materialised in _load_data as an exact copy of
+        # bolus_dose, so here it already equals the ACTUAL bolus at each step —
+        # no per-item handling required at train time. The training/inference
+        # asymmetry lives entirely at inference: dose_conditioned_fan() rewrites
+        # only the last lookback step with a candidate dose. Because the column
+        # is a copy, the model sees hypothetical_dose == bolus_dose throughout
+        # every training window, which is exactly the distribution inference
+        # keeps for all steps except the current one.
         input_features = input_sequence[self.features].values.astype(np.float32)
         
         # Fill any remaining NaNs with 0 (after filtering most NaN sequences)

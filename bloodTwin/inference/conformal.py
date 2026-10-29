@@ -354,6 +354,52 @@ class ConformalPredictor:
             ts = pd.Timestamp.utcnow()
         return self._run(arr, ts, pump_serial, coverage)
 
+    @property
+    def feature_names(self) -> list[str]:
+        """Ordered feature columns this model/scaler expects (read-only copy)."""
+        return list(self._feature_names)
+
+    def build_raw_window(self, df: pd.DataFrame) -> tuple[np.ndarray, pd.Timestamp]:
+        """
+        Assemble the raw (unscaled) [LOOKBACK, n_features] array and its end
+        timestamp from a DataFrame — the same preparation predict_from_df does,
+        but WITHOUT running the model.
+
+        Exposed so callers (e.g. the dose-conditioned scenario fan) can edit
+        individual feature columns of the raw window before inference, then run
+        the model repeatedly via run_raw().
+        """
+        import importlib.util as _ilu, sys as _sys
+        _mod_name = "bloodBath.core.patient_state"
+        if _mod_name not in _sys.modules:
+            _ps_path = Path(__file__).parents[2] / "bloodBath" / "core" / "patient_state.py"
+            _spec = _ilu.spec_from_file_location(_mod_name, _ps_path)
+            _mod  = _ilu.module_from_spec(_spec)
+            _sys.modules[_mod_name] = _mod
+            _spec.loader.exec_module(_mod)
+        build_feature_frame = _sys.modules[_mod_name].build_feature_frame  # noqa
+        feature_df = build_feature_frame(df)
+        if len(feature_df) < LOOKBACK:
+            raise ValueError(f"Need ≥{LOOKBACK} rows, got {len(feature_df)}")
+        arr = feature_df[list(self._feature_names)].iloc[-LOOKBACK:].to_numpy(dtype=np.float32)
+        if "timestamp" in df.columns:
+            ts_raw = pd.Timestamp(df["timestamp"].iloc[-1])
+            ts = ts_raw if ts_raw.tzinfo else ts_raw.tz_localize("UTC")
+        else:
+            ts = pd.Timestamp.utcnow()
+        return arr, ts
+
+    def run_raw(
+        self,
+        raw_arr: np.ndarray,
+        window_end_utc: pd.Timestamp,
+        pump_serial: str = "",
+        coverage: float = 0.90,
+    ) -> ConformalPrediction:
+        """Public entry point to run inference on an already-assembled raw
+        [LOOKBACK, n_features] array (feature order == self.feature_names)."""
+        return self._run(raw_arr, window_end_utc, pump_serial, coverage)
+
     # ── internal ──────────────────────────────────────────────────────────────
 
     def _run(
