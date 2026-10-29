@@ -510,8 +510,9 @@ class TandemHistoricalSyncClient:
                     # Add pump_serial column
                     df['pump_serial'] = pump_serial
                     
-                    # Ensure timestamp is properly formatted
-                    df['timestamp'] = pd.to_datetime(df['timestamp'])
+                    # Ensure timestamp is properly formatted (utc=True silences
+                    # the mixed-timezone FutureWarning from pandas >= 2.0)
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
                     
                     combined_data.append(df)
                     logger.info(f"Loaded {len(df)} records from {file_path}")

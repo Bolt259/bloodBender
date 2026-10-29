@@ -318,12 +318,25 @@ class BloodGlucoseDataset(Dataset):
 
     @staticmethod
     def load_scaler(path: Path) -> RobustScaler:
-        """Load a saved scaler, unwrapping the dict format (with backward
-        compatibility for older bare-RobustScaler pickles)."""
+        """Load a saved scaler.
+
+        Prefers reconstructing from the numpy center_/scale_ arrays stored in
+        the dict payload — this is immune to sklearn version skew because it
+        never unpickles the RobustScaler object itself.  Falls back to the
+        pickled sklearn object for legacy bare-scaler files.
+        """
         with open(path, 'rb') as f:
             obj = pickle.load(f)
+        if isinstance(obj, dict) and 'center_' in obj and 'scale_' in obj:
+            scaler = RobustScaler()
+            scaler.center_ = np.array(obj['center_'], dtype=np.float64)
+            scaler.scale_  = np.array(obj['scale_'],  dtype=np.float64)
+            scaler.n_features_in_ = len(scaler.center_)
+            logger.info(f"Loaded scaler from numpy arrays in {path} "
+                        f"({scaler.n_features_in_} features)")
+            return scaler
         scaler = obj['scaler'] if isinstance(obj, dict) else obj
-        logger.info(f"Loaded scaler from {path}")
+        logger.info(f"Loaded scaler (sklearn object) from {path}")
         return scaler
 
 def discover_dataset_subject_dirs(
