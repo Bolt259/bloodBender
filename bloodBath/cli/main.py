@@ -418,15 +418,16 @@ def cmd_sync(args):
     fetch = stats['fetcher_stats']
 
     # ── per-split row counts ──────────────────────────────────────────────────
+    # Files live at merged/pump_{serial}/{split}/lstm_{split}_*.csv so search
+    # from the parent of the split placeholder (i.e. merged/) one level up.
     split_counts: dict = {}
     for split in ('train', 'validate', 'test'):
-        split_dir = DATA_PATHS['merged'][split]
+        split_parent = DATA_PATHS['merged'][split].parent  # bloodBank/merged/
         total_rows = 0
-        for csv_path in split_dir.rglob("*.csv"):
+        for csv_path in split_parent.rglob(f"*/{split}/lstm_{split}_*.csv"):
             try:
-                import pandas as pd
-                df = pd.read_csv(csv_path, comment='#', usecols=[0])
-                total_rows += len(df)
+                with open(csv_path) as _f:
+                    total_rows += sum(1 for _ in _f) - 1  # subtract header
             except Exception:
                 pass
         split_counts[split] = total_rows
