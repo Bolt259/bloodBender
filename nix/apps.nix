@@ -14,6 +14,9 @@
         normal-full-sync = app "normal-full-sync";
         available-data = app "available-data";
         run-inference = app "run-inference";
+        bloodbender-sync = app "bloodbender-sync";
+        bloodbender-inference-cron = app "bloodbender-inference-cron";
+        install-services = app "install-services";
         default = app "sync-data";
       };
     };

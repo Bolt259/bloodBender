@@ -33,6 +33,7 @@
         ./nix/apps.nix
         ./nix/devshells.nix
         ./nix/cuda.nix
+        ./nix/hm-module-export.nix
       ];
 
       perSystem = { pkgs, ... }: {
