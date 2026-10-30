@@ -30,7 +30,7 @@ LATEST_JSON = os.path.join(REPO_ROOT, "bloodBath", "logs", "inference_latest.jso
 HOST = os.environ.get("DASHBOARD_HOST", "127.0.0.1")
 PORT = int(os.environ.get("DASHBOARD_PORT", "8765"))
 
-STALE_SECONDS = 10 * 60  # data older than this triggers the stale warning
+STALE_SECONDS = 90 * 60  # Tandem API upload lag is 15-40 min; alert only if truly stale
 
 
 # ── Rendering helpers ─────────────────────────────────────────────────────────
