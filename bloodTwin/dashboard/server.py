@@ -17,15 +17,18 @@ Or directly inside the inference shell:
 
 from __future__ import annotations
 
+import glob
 import html
 import json
 import os
+import re
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # Repo root = two levels up from this file (bloodTwin/dashboard/server.py).
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LATEST_JSON = os.path.join(REPO_ROOT, "bloodBath", "logs", "inference_latest.json")
+RAW_LSTM_GLOB = os.path.join(REPO_ROOT, "bloodBath", "bloodBank", "raw", "lstm", "pump_1539514_*.csv")
 
 HOST = os.environ.get("DASHBOARD_HOST", "127.0.0.1")
 PORT = int(os.environ.get("DASHBOARD_PORT", "8765"))
@@ -67,6 +70,15 @@ def _load():
         return None, f"Inference output is not valid JSON (mid-write?): {e}"
     except Exception as e:  # pragma: no cover - defensive
         return None, f"Could not read inference output: {e}"
+
+
+def _last_sync_time():
+    """Return the mtime of the newest pump raw CSV as an aware UTC datetime."""
+    files = glob.glob(RAW_LSTM_GLOB)
+    if not files:
+        return None
+    newest = max(files, key=os.path.getmtime)
+    return datetime.fromtimestamp(os.path.getmtime(newest), tz=timezone.utc)
 
 
 def _conformal_cell(ci, horizon):
@@ -148,9 +160,12 @@ def _render_fan_svg(fan):
     parts.append(f'<text x="{ml + pw + 6}" y="{yt_hi + 4:.1f}" fill="#3a7a5a" font-size="10">180</text>')
     parts.append(f'<text x="{ml + pw + 6}" y="{yt_lo + 4:.1f}" fill="#3a7a5a" font-size="10">70</text>')
 
-    # X axis labels (minutes).
-    for i in range(0, nsteps, max(nsteps // 6, 1)):
-        parts.append(f'<text x="{x(i):.1f}" y="{H - mb + 22}" fill="#8a93a6" font-size="12" '
+    # Vertical gridlines + X axis labels (every 10 min).
+    for i in range(0, nsteps, 2):
+        gx = x(i)
+        parts.append(f'<line x1="{gx:.1f}" y1="{mt}" x2="{gx:.1f}" y2="{mt + ph}" '
+                     f'stroke="#1e2530" stroke-width="1"/>')
+        parts.append(f'<text x="{gx:.1f}" y="{H - mb + 22}" fill="#8a93a6" font-size="12" '
                      f'text-anchor="middle">{i * 5}m</text>')
 
     # Nominal scenario index.
@@ -200,6 +215,13 @@ def _render_fan_svg(fan):
 
         parts.append(f'<polyline points="{pts}" fill="none" stroke="{stroke}" '
                      f'stroke-width="{width}" opacity="{opacity}"/>')
+
+        # Visible data point dots.
+        dot_r = "3.5" if is_nominal else "2.5"
+        dot_fill = stroke
+        for j, v in enumerate(preds):
+            parts.append(f'<circle cx="{x(j):.1f}" cy="{y(float(v)):.1f}" r="{dot_r}" '
+                         f'fill="{dot_fill}" opacity="{opacity}" pointer-events="none"/>')
 
         # Invisible hit-target circles at each data point for hover tooltips.
         for j, v in enumerate(preds):
@@ -346,6 +368,17 @@ def render_page():
         f"{now_local.strftime('%H:%M:%S %Z')} "
         f"({now.strftime('%H:%M:%S UTC')})"
     )
+    sync_ts = _last_sync_time()
+    if sync_ts:
+        sync_local = sync_ts.astimezone()
+        sync_age = int((now - sync_ts).total_seconds())
+        if sync_age < 3600:
+            sync_age_disp = f"{sync_age // 60}m ago"
+        else:
+            sync_age_disp = f"{sync_age // 3600}h {(sync_age % 3600) // 60}m ago"
+        sync_disp = f"{sync_local.strftime('%H:%M %Z')} ({sync_age_disp})"
+    else:
+        sync_disp = "unknown"
 
     cards = f"""
     <div class="grid">
@@ -371,9 +404,12 @@ def render_page():
 
     body = f"""
     {stale_banner}
-    <div class="meta">Last inference: <b>{html.escape(ts_disp)}</b> ({age_disp}) &middot;
-      corrected in horizon: {data.get('corrected_in_horizon')} &middot;
-      server: {html.escape(server_time_disp)}</div>
+    <div class="meta">
+      Last inference: <b>{html.escape(ts_disp)}</b> ({age_disp}) &middot;
+      Last synced: <b>{html.escape(sync_disp)}</b> &middot;
+      server: {html.escape(server_time_disp)} &middot;
+      corrected in horizon: {data.get('corrected_in_horizon')}
+    </div>
     {cards}
     <h2>Scenario fan</h2>
     {_render_fan_svg(fan)}
