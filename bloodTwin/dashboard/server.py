@@ -249,6 +249,7 @@ def render_page() -> str:
         top_prob     = _fmt(top_prob, 2) if top_prob is not None else "n/a",
         isf          = _fmt(data.get("isf")),
         ecd          = _fmt(data.get("ecd_u"), 2),
+        iob          = _fmt(data.get("iob", 0.0), 2),
         meal_prob    = _fmt(data.get("meal_probability"), 2),
         meal_prob_disp = _fmt(data.get("meal_probability"), 2),
         model_trigger  = str(data.get("model_trigger", ""))[:60],

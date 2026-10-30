@@ -105,6 +105,7 @@ class InferenceResult:
     failure_modes: list             # top-3 state dicts, descending probability
     isf: float                      # effective ISF used for the correction dose
     ecd_u: float                    # estimated correction dose (units)
+    iob: float                      # insulin on board (U) at current time
     model_trigger: str
     corrected_in_horizon: bool      # does any simulated dose bring BG to target in-horizon?
     conformal_intervals: dict       # {horizon_min: [lower, upper]} for key horizons
@@ -120,6 +121,7 @@ class InferenceResult:
             "failure_modes":        self.failure_modes,
             "isf":                  _to_float(self.isf),
             "ecd_u":                _to_float(self.ecd_u),
+            "iob":                  _to_float(self.iob),
             "model_trigger":        self.model_trigger,
             "corrected_in_horizon": bool(self.corrected_in_horizon),
             "conformal_intervals":  self.conformal_intervals,
@@ -216,6 +218,9 @@ class InferenceService:
                     round(_to_float(baseline.upper[idx]), 1),
                 ]
 
+        # IOB at the current timestep — last row's iob feature from the window.
+        iob = round(_to_float(window.iloc[-1].get("iob", 0.0)), 2)
+
         return InferenceResult(
             timestamp=self._window_end_datetime(window),
             current_bg=round(_to_float(current_bg), 1),
@@ -224,6 +229,7 @@ class InferenceService:
             failure_modes=states,
             isf=round(_to_float(isf_eff), 1),
             ecd_u=round(_to_float(fan.estimated_correction_dose), 2),
+            iob=iob,
             model_trigger=fan.model_trigger,
             corrected_in_horizon=corrected,
             conformal_intervals=intervals,

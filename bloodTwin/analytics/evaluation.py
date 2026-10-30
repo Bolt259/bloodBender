@@ -28,6 +28,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 import onnxruntime as ort
 import pandas as pd
+from bloodTwin._feature_utils import ensure_passthrough_features
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
@@ -144,12 +145,7 @@ def collect_predictions(
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values("timestamp").reset_index(drop=True)
 
-    # Dose-conditioned schema v1.2: CSVs predate the hypothetical_dose feature.
-    # At eval/passive time it equals the actual bolus delivered each step.
-    if "hypothetical_dose" in feat_names and "hypothetical_dose" not in df.columns:
-        df["hypothetical_dose"] = df["bolus_dose"].fillna(0.0) \
-            if "bolus_dose" in df.columns else 0.0
-
+    df = ensure_passthrough_features(df, feat_names)
     feat_arr  = df[feat_names].to_numpy(dtype=np.float32)
     bg_arr    = df["bg"].to_numpy(dtype=np.float32)
     bolus_arr = df["bolus_dose"].fillna(0).to_numpy(dtype=np.float32) \
