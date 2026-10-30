@@ -1,0 +1,192 @@
+# bloodTwin LSTM Configuration — v1.3 (DOSE-CONDITIONED + site_change + dose-masking)
+# Unified model trained on both pump datasets.
+#
+# This config builds on lstm_dose_conditioned.yaml (schema v1.2) with two
+# improvements:
+#   1. `site_change` added as feature 15 (binary flag from LID_CANNULA_FILLED
+#      events, written by processors.py and passed through un-rescaled).
+#   2. Dose-masking during training (data.dose_mask_prob): with probability
+#      dose_mask_prob the CURRENT (last lookback) step's hypothetical_dose is
+#      zeroed at train time so the model learns to actually condition on the
+#      hypothetical_dose rather than treating it as an exact copy of bolus_dose.
+#      In v1.2, hypothetical_dose == bolus_dose everywhere at train time, giving
+#      the model zero gradient to distinguish historical from hypothetical.
+#
+# Schema: v1.3 (15 inputs).  Training sets hypothetical_dose == bolus_dose at
+# every timestep EXCEPT the masked current step; inference overrides ONLY the
+# current (last lookback) step with the candidate dose.
+
+# Model Architecture
+model:
+  name: "bloodTwin_unified_lstm_v1_3"
+  hidden_size: 128
+  num_layers: 2
+  dropout: 0.2
+  bidirectional: false
+
+# Data Configuration
+data:
+  # Use the chronologically split data
+  train_dir: "bloodBath/bloodBank/merged"
+  # All 3 pumps: BG target distribution uniform across devices (mean 138-143,
+  # std 43-44), schema byte-identical. Combined ~450k train rows / ~6.5 yrs.
+  # Coverage varies (94.5/75.5/56.7%) -> loss MUST mask imputed BG.
+  pump_ids:
+    - "1539514"   # Tandem Mobi (current) 2026-02..07
+    - "901161470" # t:slim X2 (mid)       2024-01..2025-12
+    - "881235"    # t:slim X2 (oldest)    2021-01..2024-10
+
+  # Dose-masking probability (schema v1.3). With this probability, the current
+  # (last lookback) step's hypothetical_dose is zeroed at TRAIN time only, so the
+  # model learns the current-step dose can differ from the historical bolus.
+  dose_mask_prob: 0.30   # 30% of windows get dose masked at current step
+
+  # Features — schema v1.3 (15 inputs, up from 14)
+  # Must match patient_state.FEATURE_NAMES ordering exactly.
+  # `hypothetical_dose` then `site_change` are appended LAST so existing feature
+  # indices are stable and a 13/14-feature scaler/artifact differs only by the
+  # trailing columns.
+  features:
+    - bg
+    - basal_rate
+    - bolus_dose
+    - basal_delta
+    - time_since_last_bolus
+    - bg_slope_15min
+    - bg_slope_30min
+    - sin_time
+    - cos_time
+    - iob
+    - bg_acceleration
+    - mask_bg
+    - mask_label
+    # Dose-conditioning input (schema v1.2). At TRAIN time == bolus_dose (the
+    # actual bolus delivered that step, or 0.0), EXCEPT when dose-masked at the
+    # current step (schema v1.3). At INFERENCE time the last lookback row is
+    # overridden with the candidate "what if I take X U now" dose; all prior
+    # rows keep their historical bolus_dose values.
+    - hypothetical_dose
+    # Site-change flag (schema v1.3). Binary: 1.0 on steps where a new infusion
+    # site/cannula was filled (LID_CANNULA_FILLED), else 0.0. Passed through
+    # un-rescaled (see _PASSTHROUGH_FEATURES in dataset.py).
+    - site_change
+
+  target: bg # Predicting blood glucose
+
+  # Sequence parameters
+  lookback: 288 # 24 hours @ 5-min intervals (24 * 60 / 5 = 288)
+  horizon: 12 # 60 minutes forecast @ 5-min intervals (60 / 5 = 12)
+  stride: 1 # Slide window by 1 step (dense sampling)
+
+  # Preprocessing
+  scaler_type: "robust" # RobustScaler for outlier resistance
+  save_scaler: true
+
+# Training Configuration
+training:
+  batch_size: 128
+  max_epochs: 50
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-5
+
+  # Optimization
+  optimizer: "adam"
+  scheduler: "reduce_on_plateau"
+  scheduler_params:
+    mode: "min"
+    factor: 0.5
+    patience: 3
+    min_lr: 1.0e-6
+
+  # Gradient clipping
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"
+
+  # Mixed precision training (AMP)
+  precision: "32-true" # Use Tensor Cores on RTX 2070 SUPER
+
+  # Early stopping
+  early_stopping:
+    monitor: "val_mae"
+    patience: 5
+    mode: "min"
+    min_delta: 0.001
+
+  # Checkpointing
+  checkpoint:
+    monitor: "val_mae"
+    mode: "min"
+    save_top_k: 3
+    save_last: true
+    filename: "bloodtwin-{epoch:02d}-{val_mae:.3f}"
+
+# Data Loading
+dataloader:
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+
+# Validation
+validation:
+  check_val_every_n_epoch: 1
+  val_check_interval: 1.0 # Check validation at end of each epoch
+
+# Metrics
+metrics:
+  - mae
+  - rmse
+  - mape
+  - r2
+
+# Horizon-specific metrics (minutes)
+horizon_checkpoints:
+  - 30 # 30 minutes (6 steps)
+  - 60 # 60 minutes (12 steps)
+
+# Logging
+logging:
+  tensorboard: true
+  log_dir: "bloodTwin/analytics/tensorboard_logs"
+  log_every_n_steps: 50
+
+# Artifacts
+artifacts:
+  save_dir: "bloodTwin/artifacts"
+  export_formats:
+    - "checkpoint" # .ckpt (PyTorch Lightning)
+    - "torchscript" # .ts (TorchScript for deployment)
+    - "onnx" # .onnx (ONNX for cross-platform)
+
+  # ONNX export settings
+  onnx:
+    opset_version: 17
+    input_names: ["input"]
+    output_names: ["prediction", "meal_logit"]
+    dynamic_axes:
+      input: { 0: "batch_size" }
+      prediction: { 0: "batch_size" }
+      meal_logit: { 0: "batch_size" }
+
+# Auxiliary meal-rise classification head
+meal_classifier:
+  loss_weight: 0.1      # meal_bce weight relative to bg_mae (keep BG prediction dominant)
+  pos_weight: 3.0       # BCEWithLogitsLoss pos_weight for ~25% positive class prevalence
+  rise_threshold_mgdl: 35.0  # BG rise ≥ this over horizon → positive label
+
+# Compute
+compute:
+  accelerator: "gpu"
+  devices: 1
+  strategy: "auto"
+  deterministic: false # Set true for reproducibility (slower)
+
+# Reproducibility
+seed: 42
+
+# Physiological Constraints
+constraints:
+  bg_min: 20 # mg/dL (from bloodBath spec)
+  bg_max: 600 # mg/dL (from bloodBath spec)
+  basal_max: 10.0 # U/hr (conservative maximum)
+  bolus_max: 25.0 # U (conservative maximum)

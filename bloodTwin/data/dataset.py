@@ -52,7 +52,8 @@ class BloodGlucoseDataset(Dataset):
         horizon: int,
         stride: int = 1,
         scaler: Optional[RobustScaler] = None,
-        fit_scaler: bool = False
+        fit_scaler: bool = False,
+        dose_mask_prob: float = 0.0,
     ):
         """
         Args:
@@ -66,6 +67,9 @@ class BloodGlucoseDataset(Dataset):
             stride: Step size for sliding window
             scaler: Pre-fitted scaler (for val/test)
             fit_scaler: If True, fit new scaler on this data (train only)
+            dose_mask_prob: Probability (TRAIN only) of zeroing the current
+                (last lookback) step's hypothetical_dose so the model learns the
+                current-step dose can differ from the historical bolus (v1.3).
         """
         self.data_dir = Path(data_dir)
         self.subject_dirs = subject_dirs
@@ -76,6 +80,14 @@ class BloodGlucoseDataset(Dataset):
         self.horizon = horizon
         self.stride = stride
         self.scaler = scaler
+        self.dose_mask_prob = float(dose_mask_prob)
+
+        # Precompute the hypothetical_dose column index for dose-masking (v1.3).
+        self._hypo_idx = (
+            self.features.index("hypothetical_dose")
+            if "hypothetical_dose" in self.features
+            else None
+        )
         
         # Load and concatenate data from all pumps
         self.data, self.timestamps = self._load_data()
@@ -157,6 +169,17 @@ class BloodGlucoseDataset(Dataset):
                 )
             combined["hypothetical_dose"] = combined["bolus_dose"].fillna(0.0)
 
+        # ── Site-change feature (schema v1.3) ─────────────────────────────────
+        # Binary flag written by processors.py from LID_CANNULA_FILLED events.
+        # Should be present in the merged CSVs; fall back to 0.0 if an older
+        # export lacks the column so training still proceeds.
+        if "site_change" in self.features and "site_change" not in combined.columns:
+            logger.warning(
+                "site_change feature requested but column missing from source CSVs; "
+                "defaulting to 0.0 (schema v1.3 fallback)."
+            )
+            combined["site_change"] = 0.0
+
         return combined, pd.DatetimeIndex(combined["timestamp"])
     
     def _create_sequences(self) -> List[Tuple[int, int]]:
@@ -232,7 +255,25 @@ class BloodGlucoseDataset(Dataset):
         # Scale features
         if self.scaler is not None:
             input_features = self.scaler.transform(input_features)
-        
+
+        # ── Dose-masking (schema v1.3) ────────────────────────────────────────
+        # With probability dose_mask_prob during TRAINING only, zero out the
+        # CURRENT (last lookback) step's hypothetical_dose. In v1.2 this column
+        # equalled bolus_dose at every step, so the model had no gradient to tell
+        # a hypothetical current dose apart from the historical bolus. Masking the
+        # current step teaches it that hypothetical_dose at the current step can
+        # differ from what was actually delivered — exactly the counterfactual
+        # inference probes ("what if I take X U now"). hypothetical_dose is a
+        # passthrough feature (center=0, scale=1), so zeroing after scaling is
+        # equivalent to zeroing the raw dose.
+        if (
+            self.subset == "train"
+            and self._hypo_idx is not None
+            and self.dose_mask_prob > 0.0
+            and np.random.random() < self.dose_mask_prob
+        ):
+            input_features[-1, self._hypo_idx] = 0.0
+
         # Target BG for the horizon (no NaNs remain after _create_sequences filtering)
         target_values = target_sequence[self.target].values.astype(np.float32)
 
@@ -386,7 +427,8 @@ def create_dataloaders(
     num_workers: int = 4,
     pin_memory: bool = True,
     persistent_workers: bool = True,
-    scaler_path: Optional[Path] = None
+    scaler_path: Optional[Path] = None,
+    dose_mask_prob: float = 0.0,
 ) -> Tuple[DataLoader, DataLoader, DataLoader, RobustScaler]:
     """
     Create train, validation, and test dataloaders.
@@ -429,7 +471,8 @@ def create_dataloaders(
         lookback=lookback,
         horizon=horizon,
         stride=stride,
-        fit_scaler=True
+        fit_scaler=True,
+        dose_mask_prob=dose_mask_prob,
     )
     
     scaler = train_dataset.scaler

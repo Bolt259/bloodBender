@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 PROJECT_ROOT  = Path(__file__).resolve().parents[2]
 ARTIFACTS_DIR = PROJECT_ROOT / os.environ.get(
     "BLOODTWIN_ARTIFACTS",
-    "bloodTwin/artifacts/bloodTwin_unified_lstm_dose_conditioned",
+    "bloodTwin/artifacts/bloodTwin_unified_lstm_v1_3",
 )
 DATA_DIR      = PROJECT_ROOT / "bloodBath/bloodBank/merged"
 

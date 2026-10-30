@@ -80,7 +80,8 @@ def train(config_path: Path, file_name: str):
         num_workers=config['dataloader']['num_workers'],
         pin_memory=config['dataloader']['pin_memory'],
         persistent_workers=config['dataloader']['persistent_workers'],
-        scaler_path=scaler_path
+        scaler_path=scaler_path,
+        dose_mask_prob=config['data'].get('dose_mask_prob', 0.0),
     )
     
     logger.info(f"Train batches: {len(train_loader)}")
