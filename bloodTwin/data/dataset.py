@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 #   inference, so only it needs to stay un-rescaled.
 _PASSTHROUGH_FEATURES = frozenset([
     "sin_time", "cos_time", "mask_bg", "mask_label", "hypothetical_dose",
+    "site_change",  # binary event flag — shifting/scaling inverts or distorts meaning
 ])
 
 

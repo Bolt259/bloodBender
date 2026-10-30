@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,7 +45,10 @@ from .scenarios import ScenarioSimulator, ScenarioFan, PatientConfig
 log = logging.getLogger(__name__)
 
 PROJECT_ROOT  = Path(__file__).resolve().parents[2]
-ARTIFACTS_DIR = PROJECT_ROOT / "bloodTwin/artifacts/bloodTwin_unified_lstm"
+ARTIFACTS_DIR = PROJECT_ROOT / os.environ.get(
+    "BLOODTWIN_ARTIFACTS",
+    "bloodTwin/artifacts/bloodTwin_unified_lstm_dose_conditioned",
+)
 DATA_DIR      = PROJECT_ROOT / "bloodBath/bloodBank/merged"
 
 WINDOW_ROWS: int = 300   # rows handed to the simulator (≥ LOOKBACK=288)

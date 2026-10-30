@@ -97,13 +97,13 @@ def _render_fan_svg(fan):
     """Render the scenario fan as a self-contained SVG line chart.
 
     One line per dose scenario (nominal highlighted), x = 5-min steps (0..60min),
-    y = predicted BG. No external deps.
+    y = predicted BG. Dose labels are placed at the right end of each line.
     """
     if not fan:
         return "<p>No scenarios.</p>"
 
-    W, H = 820, 360
-    ml, mr, mt, mb = 55, 20, 20, 40
+    W, H = 960, 520
+    ml, mr, mt, mb = 58, 80, 24, 44   # mr enlarged for dose labels
     pw, ph = W - ml - mr, H - mt - mb
 
     all_vals = []
@@ -115,8 +115,8 @@ def _render_fan_svg(fan):
         return "<p>No prediction values.</p>"
 
     ymin, ymax = min(all_vals), max(all_vals)
-    ymin = min(ymin, 70.0)   # always show hypo line
-    ymax = max(ymax, 180.0)  # always show hyper line
+    ymin = min(ymin, 70.0)
+    ymax = max(ymax, 180.0)
     pad = (ymax - ymin) * 0.05 or 1.0
     ymin -= pad
     ymax += pad
@@ -135,19 +135,22 @@ def _render_fan_svg(fan):
     # Horizontal gridlines + y labels.
     for gv in _axis_ticks(ymin, ymax):
         gy = y(gv)
-        parts.append(f'<line x1="{ml}" y1="{gy:.1f}" x2="{W - mr}" y2="{gy:.1f}" '
+        parts.append(f'<line x1="{ml}" y1="{gy:.1f}" x2="{ml + pw}" y2="{gy:.1f}" '
                      f'stroke="#222833" stroke-width="1"/>')
-        parts.append(f'<text x="{ml - 8}" y="{gy + 4:.1f}" fill="#8a93a6" font-size="11" '
+        parts.append(f'<text x="{ml - 8}" y="{gy + 4:.1f}" fill="#8a93a6" font-size="12" '
                      f'text-anchor="end">{gv:.0f}</text>')
 
     # Target band 70–180 mg/dL.
     yt_hi, yt_lo = y(180.0), y(70.0)
     parts.append(f'<rect x="{ml}" y="{yt_hi:.1f}" width="{pw}" height="{yt_lo - yt_hi:.1f}" '
                  f'fill="#1b3a2a" opacity="0.35"/>')
+    # Target band edge labels
+    parts.append(f'<text x="{ml + pw + 6}" y="{yt_hi + 4:.1f}" fill="#3a7a5a" font-size="10">180</text>')
+    parts.append(f'<text x="{ml + pw + 6}" y="{yt_lo + 4:.1f}" fill="#3a7a5a" font-size="10">70</text>')
 
     # X axis labels (minutes).
     for i in range(0, nsteps, max(nsteps // 6, 1)):
-        parts.append(f'<text x="{x(i):.1f}" y="{H - mb + 20}" fill="#8a93a6" font-size="11" '
+        parts.append(f'<text x="{x(i):.1f}" y="{H - mb + 22}" fill="#8a93a6" font-size="12" '
                      f'text-anchor="middle">{i * 5}m</text>')
 
     # Nominal scenario index.
@@ -157,17 +160,52 @@ def _render_fan_svg(fan):
             nominal_idx = i
             break
 
-    for i, s in enumerate(fan):
+    # Sort scenarios by final BG so labels stack predictably (highest dose → lowest BG).
+    def _final_bg(s):
+        p = s.get("predicted_bg") or []
+        return float(p[-1]) if p else 0.0
+
+    sorted_fan = sorted(fan, key=_final_bg, reverse=True)
+
+    # Deduplicate label y-positions to avoid overlap (min 13px apart).
+    label_ys: list[float] = []
+
+    def _nudge_y(raw_y):
+        MIN_GAP = 13
+        candidate = raw_y
+        for prev in sorted(label_ys):
+            if abs(candidate - prev) < MIN_GAP:
+                candidate = prev + MIN_GAP
+        label_ys.append(candidate)
+        return candidate
+
+    for s in sorted_fan:
         preds = s.get("predicted_bg") or []
         if not preds:
             continue
+        dose = float(s.get("dose_u", 0.0))
+        is_nominal = abs(dose) < 1e-9
         pts = " ".join(f"{x(j):.1f},{y(v):.1f}" for j, v in enumerate(preds))
-        if i == nominal_idx:
-            parts.append(f'<polyline points="{pts}" fill="none" stroke="#5ea0ff" '
-                         f'stroke-width="2.5"/>')
+
+        if is_nominal:
+            stroke, width, opacity = "#5ea0ff", "2.5", "1"
+            label_col = "#5ea0ff"
+            dose_lbl = "0 U"
         else:
-            parts.append(f'<polyline points="{pts}" fill="none" stroke="#5a6472" '
-                         f'stroke-width="1" opacity="0.55"/>')
+            stroke, width, opacity = "#5a8494", "1.2", "0.7"
+            label_col = "#8ab4c4"
+            dose_lbl = f"{dose:.2g} U"
+
+        parts.append(f'<polyline points="{pts}" fill="none" stroke="{stroke}" '
+                     f'stroke-width="{width}" opacity="{opacity}"/>')
+
+        # Label at right end of line.
+        lx = x(len(preds) - 1) + 7
+        raw_ly = y(float(preds[-1])) + 4
+        ly = _nudge_y(raw_ly)
+        parts.append(f'<text x="{lx:.1f}" y="{ly:.1f}" fill="{label_col}" '
+                     f'font-size="11" font-weight="{"600" if is_nominal else "400"}">'
+                     f'{html.escape(dose_lbl)}</text>')
 
     parts.append('</svg>')
     return "".join(parts)
