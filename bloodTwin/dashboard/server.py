@@ -281,6 +281,11 @@ def render_page():
 
     ts_disp = ts.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z") if ts else "unknown"
     age_disp = f"{int(age_sec)}s ago" if age_sec is not None else "unknown"
+    now_local = now.astimezone()
+    server_time_disp = (
+        f"{now_local.strftime('%H:%M:%S %Z')} "
+        f"({now.strftime('%H:%M:%S UTC')})"
+    )
 
     cards = f"""
     <div class="grid">
@@ -307,7 +312,8 @@ def render_page():
     body = f"""
     {stale_banner}
     <div class="meta">Last inference: <b>{html.escape(ts_disp)}</b> ({age_disp}) &middot;
-      corrected in horizon: {data.get('corrected_in_horizon')}</div>
+      corrected in horizon: {data.get('corrected_in_horizon')} &middot;
+      server: {html.escape(server_time_disp)}</div>
     {cards}
     <h2>Scenario fan</h2>
     {_render_fan_svg(fan)}

@@ -346,6 +346,11 @@ class ConformalPredictor:
         feature_df = build_feature_frame(df)
         if len(feature_df) < LOOKBACK:
             raise ValueError(f"Need ≥{LOOKBACK} rows, got {len(feature_df)}")
+        # hypothetical_dose is a v1.2 train-time synthetic (== bolus_dose).
+        # patient_state.build_feature_frame never emits it; synthesize here so
+        # the dose-conditioned model's scaler can select it.
+        if "hypothetical_dose" in self._feature_names and "hypothetical_dose" not in feature_df.columns:
+            feature_df["hypothetical_dose"] = feature_df["bolus_dose"].fillna(0.0) if "bolus_dose" in feature_df.columns else 0.0
         arr = feature_df[list(self._feature_names)].iloc[-LOOKBACK:].to_numpy(dtype=np.float32)
         if "timestamp" in df.columns:
             ts_raw = pd.Timestamp(df["timestamp"].iloc[-1])
@@ -381,6 +386,8 @@ class ConformalPredictor:
         feature_df = build_feature_frame(df)
         if len(feature_df) < LOOKBACK:
             raise ValueError(f"Need ≥{LOOKBACK} rows, got {len(feature_df)}")
+        if "hypothetical_dose" in self._feature_names and "hypothetical_dose" not in feature_df.columns:
+            feature_df["hypothetical_dose"] = feature_df["bolus_dose"].fillna(0.0) if "bolus_dose" in feature_df.columns else 0.0
         arr = feature_df[list(self._feature_names)].iloc[-LOOKBACK:].to_numpy(dtype=np.float32)
         if "timestamp" in df.columns:
             ts_raw = pd.Timestamp(df["timestamp"].iloc[-1])
