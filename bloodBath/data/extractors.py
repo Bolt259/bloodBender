@@ -22,6 +22,7 @@ class EventExtractor:
             'cgm': 0,
             'basal': 0,
             'bolus': 0,
+            'site_change': 0,
             'unknown': 0
         }
     
@@ -76,6 +77,7 @@ class EventExtractor:
         return (any(keyword in event_type for keyword in ['Cgm', 'cgm', 'Gx']) or
                 hasattr(event, 'sgv') or
                 hasattr(event, 'bg') or
+                hasattr(event, 'currentGlucoseDisplayValue') or
                 hasattr(event, 'currentglucosedisplayvalue') or
                 hasattr(event, 'glucoseValue'))
     
@@ -191,12 +193,67 @@ class EventExtractor:
         logger.info(f"Normalized {len(normalized)} bolus events from {len(bolus_events)} raw events")
         return normalized
     
+    def _is_site_change_event(self, event: Any) -> bool:
+        """Check if event is a cannula-fill (infusion-site change) event.
+
+        LID_CANNULA_FILLED (event class 61) fires when the patient primes the
+        new cannula after inserting a new infusion set. The parsed dataclass is
+        ``LidCannulaFilled`` and carries ``NAME = "LID_CANNULA_FILLED"``; match
+        on either so both parsed objects and raw-ish variants are caught.
+        """
+        event_type = type(event).__name__
+        if event_type == 'LidCannulaFilled':
+            return True
+        name = getattr(event, 'NAME', None)
+        return name == 'LID_CANNULA_FILLED'
+
+    def normalize_site_change_events(self, raw_events: List[Any]) -> List[Dict[str, Any]]:
+        """
+        Filter raw events for LID_CANNULA_FILLED and normalize to standard format.
+
+        When the patient changes their infusion set, insulin absorption is
+        unreliable for ~2 hours ("new site lag"). LID_CANNULA_FILLED is the
+        definitive signal that a new site was primed.
+
+        Args:
+            raw_events: List of raw pump events (any types)
+
+        Returns:
+            List of normalized site-change data:
+            [{'timestamp': ..., 'site_change': 1, 'event_type': 'site_change'}]
+        """
+        normalized = []
+
+        for event in raw_events:
+            if not self._is_site_change_event(event):
+                continue
+            try:
+                timestamp = extract_timestamp_from_event(event)
+                if timestamp is not None:
+                    normalized.append({
+                        'timestamp': timestamp,
+                        'site_change': 1,
+                        'event_type': 'site_change'
+                    })
+                    self.event_counts['site_change'] += 1
+            except Exception as e:
+                logger.debug(f"Error processing site-change event: {e}")
+                continue
+
+        logger.info(f"Normalized {len(normalized)} site-change events")
+        return normalized
+
     def _extract_bg_value(self, event: Any) -> Optional[float]:
         """Extract BG value from CGM event"""
         bg_value = None
-        
-        # Check for currentglucosedisplayvalue (used by LidCgmDataG7)
-        if hasattr(event, 'currentglucosedisplayvalue'):
+
+        # Primary CGM reading is LidCgmDataGxb (id 256): the glucose value lives
+        # in `currentGlucoseDisplayValue` (camelCase, mg/dL). The prior lowercase
+        # lookup never matched the parsed attribute, so ~93% of readings were
+        # silently dropped. Keep a lowercase fallback for any variant.
+        if hasattr(event, 'currentGlucoseDisplayValue'):
+            bg_value = event.currentGlucoseDisplayValue
+        elif hasattr(event, 'currentglucosedisplayvalue'):
             bg_value = event.currentglucosedisplayvalue
         elif hasattr(event, 'sgv'):
             bg_value = event.sgv
@@ -208,7 +265,13 @@ class EventExtractor:
             bg_value = event.glucoseValue
         else:
             logger.debug(f"No BG value found in CGM event type: {type(event).__name__}, attributes: {dir(event)}")
-        
+
+        # glucoseValueStatus 1=HIGH / 2=LOW zero out currentGlucoseDisplayValue;
+        # map those to the Dexcom display rails rather than discarding them.
+        status = getattr(event, 'glucoseValueStatusRaw', None)
+        if status in (1, 2) and (bg_value is None or bg_value == 0):
+            bg_value = 400 if status == 1 else 40
+
         if bg_value is not None:
             logger.debug(f"Extracted BG value: {bg_value} from event type: {type(event).__name__}")
         
@@ -296,5 +359,6 @@ class EventExtractor:
             'cgm': 0,
             'basal': 0,
             'bolus': 0,
+            'site_change': 0,
             'unknown': 0
         }

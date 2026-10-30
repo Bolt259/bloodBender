@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="60">
+<title>bloodBender</title>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --border:    #21262d;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --dim:       #6e7681;
+    --blue:      #58a6ff;
+    --green:     #3fb950;
+    --amber:     #d29922;
+    --orange:    #f0883e;
+    --red:       #f85149;
+    --radius:    10px;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--text);
+    margin: 0; padding: 20px 24px; font-size: 14px;
+  }
+  h1 { font-size: 17px; font-weight: 600; margin: 0 0 2px; letter-spacing: -.3px; }
+  h2 { font-size: 13px; font-weight: 600; color: var(--muted);
+       text-transform: uppercase; letter-spacing: .05em;
+       margin: 28px 0 10px; }
+  a { color: var(--blue); text-decoration: none; }
+
+  .topbar { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  .topbar .badge {
+    font-size: 11px; font-weight: 500; padding: 2px 8px;
+    border-radius: 20px; background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .meta {
+    color: var(--dim); font-size: 12px; margin: 0 0 20px;
+    display: flex; flex-wrap: wrap; gap: 6px 16px;
+  }
+  .meta b { color: var(--muted); font-weight: 500; }
+  .meta .sep { color: var(--border); }
+
+  .warn {
+    background: #2d1b1b; border: 1px solid #5a2020; color: #ff7b72;
+    padding: 10px 14px; border-radius: var(--radius);
+    font-weight: 500; font-size: 13px; margin-bottom: 16px;
+  }
+
+  /* ── Cards ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .card.accent { border-color: #1f4074; background: #0d1e36; }
+  .card .label { font-size: 11px; font-weight: 500; color: var(--dim);
+                  text-transform: uppercase; letter-spacing: .05em; }
+  .card .val { font-size: 28px; font-weight: 700; margin: 6px 0 2px; line-height: 1; }
+  .card .unit { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .card .sub  { font-size: 12px; color: var(--dim); margin-top: 3px; }
+  .card .ci   { font-size: 11px; color: #4a6fa5; margin-top: 2px; }
+
+  /* BG value coloring */
+  .bg-low  { color: #f85149; }
+  .bg-high { color: #d29922; }
+  .bg-ok   { color: #58a6ff; }
+  .bg-tgt  { color: #3fb950; }
+
+  /* ── Fan chart ── */
+  .chart-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 4px; margin-bottom: 8px;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex; gap: 18px; font-size: 12px; color: var(--muted);
+    margin: 6px 0 0; flex-wrap: wrap;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; }
+  .sw-nom   { background: #58a6ff; }
+  .sw-alt   { background: #4a8596; }
+  .sw-tgt   { background: #22c55e; height: 10px !important; border-radius: 2px; }   /* personal target — green */
+  .sw-clin  { background: #a855f7; height: 10px !important; border-radius: 2px; }   /* clinical range  — purple */
+  .sw-imp   { background: #4a6fa5; border: 1px dashed #4a6fa5; }
+  .sw-bolus { background: #d97706; }
+
+  /* ── Fan table ── */
+  .fan-table-wrap { overflow-x: auto; }
+  table.fan {
+    border-collapse: collapse; font-size: 12px; width: 100%; max-width: 680px;
+    margin-top: 10px;
+  }
+  table.fan th, table.fan td {
+    border: 1px solid var(--border); padding: 6px 10px; text-align: center;
+  }
+  table.fan th { background: var(--surface); color: var(--muted); font-weight: 500; }
+  table.fan tr.nominal { background: #0d1e36; }
+  table.fan .ci { color: var(--dim); font-size: 10px; display: block; margin-top: 2px; }
+
+  /* ── History chart ── */
+  .history-wrap {
+    overflow-x: auto; overflow-y: hidden;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 4px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .history-wrap::-webkit-scrollbar { height: 6px; }
+  .history-wrap::-webkit-scrollbar-track { background: transparent; }
+  .history-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Footer ── */
+  .footer { margin-top: 28px; font-size: 11px; color: var(--dim); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>bloodBender</h1>
+  <span class="badge">single-patient T1D</span>
+  {% if stale %}<span class="badge" style="border-color:#5a2020;color:#ff7b72">STALE</span>{% endif %}
+</div>
+
+{% if stale %}
+<div class="warn">
+  Data {{ age_disp }} old — last sync {{ sync_disp }}. Cron may be stopped.
+</div>
+{% endif %}
+
+<div class="meta">
+  <span>Last inference <b>{{ ts_disp }}</b> ({{ age_disp }})</span>
+  <span class="sep">·</span>
+  <span>Last synced <b>{{ sync_disp }}</b></span>
+  <span class="sep">·</span>
+  <span>Server <b>{{ server_time }}</b></span>
+  <span class="sep">·</span>
+  <span>Correction in horizon: <b>{{ corrected }}</b></span>
+</div>
+
+<!-- ── Stat cards ─────────────────────────────────────────────────── -->
+<div class="cards">
+  <div class="card accent">
+    <div class="label">Current BG</div>
+    <div class="val {{ bg_class }}">{{ current_bg }} <span class="unit">mg/dL</span></div>
+    <div class="sub">{{ meal_prob_disp }}</div>
+  </div>
+  <div class="card">
+    <div class="label">30 min</div>
+    <div class="val {{ p30_class }}">{{ p30 }} <span class="unit">mg/dL</span></div>
+    <div class="ci">90% CI {{ ci30 }}</div>
+  </div>
+  <div class="card">
+    <div class="label">60 min</div>
+    <div class="val {{ p60_class }}">{{ p60 }} <span class="unit">mg/dL</span></div>
+    <div class="ci">90% CI {{ ci60 }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Top state</div>
+    <div class="val" style="font-size:18px">{{ top_state }}</div>
+    <div class="sub">p = {{ top_prob }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Effective ISF</div>
+    <div class="val" style="font-size:22px">{{ isf }} <span class="unit">mg/dL/U</span></div>
+    <div class="sub">correction {{ ecd }} U</div>
+  </div>
+  <div class="card">
+    <div class="label">Meal prob</div>
+    <div class="val" style="font-size:22px">{{ meal_prob }}</div>
+    <div class="sub">{{ model_trigger }}</div>
+  </div>
+</div>
+
+<!-- ── 24h BG history ──────────────────────────────────────────────── -->
+<h2>24h history</h2>
+<div class="history-wrap" id="hist-wrap">{{ history_svg | safe }}</div>
+<div class="legend" style="margin-bottom:0">
+  <span><span class="sw sw-nom"></span> observed BG</span>
+  <span><span class="sw sw-imp"></span> imputed / gap</span>
+  <span><span class="sw sw-bolus" style="height:10px;width:4px"></span> bolus</span>
+  <span><span class="sw sw-tgt"></span> personal target 75–130</span>
+  <span><span class="sw sw-clin"></span> clinical range 70–180</span>
+</div>
+
+<!-- ── Scenario fan ────────────────────────────────────────────────── -->
+<h2>60-min scenario fan</h2>
+<div class="chart-wrap">{{ fan_svg | safe }}</div>
+<div class="legend">
+  <span><span class="sw sw-nom"></span> nominal (0 U)</span>
+  <span><span class="sw sw-alt"></span> dose scenarios</span>
+  <span><span class="sw sw-tgt"></span> personal target 75–130</span>
+  <span><span class="sw sw-clin"></span> clinical range 70–180</span>
+</div>
+
+<!-- ── Fan table ──────────────────────────────────────────────────── -->
+<div class="fan-table-wrap">
+<table class="fan">
+  <thead><tr><th>Dose (U)</th><th>+5 min</th><th>+30 min</th><th>+60 min</th></tr></thead>
+  <tbody>
+  {% for row in fan_rows %}
+  <tr{% if row.nominal %} class="nominal"{% endif %}>
+    <td>{{ row.dose }}</td>
+    <td>{{ row.p5 }}<span class="ci">{{ row.ci5 }}</span></td>
+    <td>{{ row.p30 }}<span class="ci">{{ row.ci30 }}</span></td>
+    <td>{{ row.p60 }}<span class="ci">{{ row.ci60 }}</span></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- ── Diagnostic: past predictions ────────────────────────────────── -->
+<h2>model accuracy — past predictions vs actual</h2>
+<div class="history-wrap" id="diag-wrap">{{ diag_svg | safe }}</div>
+<div class="legend" style="margin-bottom:0">
+  <span><span class="sw sw-nom"></span> actual BG</span>
+  <span><span class="sw sw-alt" style="opacity:0.4"></span> past 60-min predictions ({{ archive_count }} shown)</span>
+  <span><span class="sw sw-tgt"></span> personal 75–130</span>
+  <span><span class="sw sw-clin"></span> clinical 70–180</span>
+</div>
+
+<div class="footer">
+  Auto-refresh 60s &middot;
+  <span style="font-family:monospace">{{ json_path }}</span>
+</div>
+
+<script>
+(function() {
+  // ── Scroll history + diagnostic charts to "now" (right edge) ──────────
+  ["hist-wrap", "diag-wrap"].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.scrollLeft = el.scrollWidth;
+  });
+
+  // ── Fan chart: cursor + scenario highlight + tooltip ──────────────────
+  var fanSvg = document.getElementById("bb-fan");
+  if (fanSvg) {
+    var fanCursor = document.getElementById("bb-fan-cursor");
+    var fanTip    = document.getElementById("bb-fan-tip");
+    var fanTipBg  = document.getElementById("bb-fan-tip-bg");
+    var fanT1     = document.getElementById("bb-fan-t1");
+    var fanT2     = document.getElementById("bb-fan-t2");
+    var fanT3     = document.getElementById("bb-fan-t3");
+    var fanSteps  = JSON.parse(fanSvg.getAttribute("data-steps"));
+    var fanMt     = parseFloat(fanSvg.getAttribute("data-mt"));
+    var fanPh     = parseFloat(fanSvg.getAttribute("data-ph"));
+
+    function fanSvgX(e) {
+      var pt = fanSvg.createSVGPoint();
+      pt.x = e.clientX; pt.y = e.clientY;
+      return pt.matrixTransform(fanSvg.getScreenCTM().inverse()).x;
+    }
+    function nearestStep(sx) {
+      var best = 0, bd = 1e9;
+      fanSteps.forEach(function(cx, i) {
+        var d = Math.abs(cx - sx);
+        if (d < bd) { bd = d; best = i; }
+      });
+      return best;
+    }
+    function highlightScenario(dose) {
+      document.querySelectorAll(".bb-scenario").forEach(function(g) {
+        var match = (dose === null || g.getAttribute("data-scenario") === dose);
+        var nom   = g.getAttribute("data-nom") === "1";
+        g.querySelectorAll(".bb-line").forEach(function(l) {
+          l.setAttribute("opacity", match ? "1" : "0.15");
+          l.setAttribute("stroke-width", match ? (nom ? "3" : "2.2") : (nom ? "2.5" : "1.3"));
+        });
+      });
+    }
+    function resetHighlight() {
+      document.querySelectorAll(".bb-scenario").forEach(function(g) {
+        var nom = g.getAttribute("data-nom") === "1";
+        g.querySelectorAll(".bb-line").forEach(function(l) {
+          l.setAttribute("opacity", nom ? "1" : "0.7");
+          l.setAttribute("stroke-width", nom ? "2.5" : "1.3");
+        });
+      });
+    }
+
+    fanSvg.addEventListener("mousemove", function(e) {
+      var sx = fanSvgX(e);
+      var cx = fanSteps[nearestStep(sx)];
+      fanCursor.setAttribute("x1", cx); fanCursor.setAttribute("x2", cx);
+      fanCursor.setAttribute("visibility", "visible");
+    });
+    fanSvg.addEventListener("mouseleave", function() {
+      fanCursor.setAttribute("visibility", "hidden");
+      fanTip.setAttribute("visibility", "hidden");
+      resetHighlight();
+    });
+
+    document.querySelectorAll(".bb-pt").forEach(function(el) {
+      el.addEventListener("mouseover", function(e) {
+        var dose = e.target.getAttribute("data-dose");
+        var mins = e.target.getAttribute("data-mins");
+        var bg   = e.target.getAttribute("data-bg");
+        var ci   = e.target.getAttribute("data-ci");
+        var sx   = parseFloat(e.target.getAttribute("data-sx"));
+        var sy   = parseFloat(e.target.getAttribute("data-sy"));
+        highlightScenario(dose);
+        fanCursor.setAttribute("x1", sx); fanCursor.setAttribute("x2", sx);
+        fanCursor.setAttribute("visibility", "visible");
+        var W = 160, H = ci ? 54 : 38, p = 7;
+        var tx = sx + 14, ty = sy - H - 6;
+        if (tx + W > 870) { tx = sx - W - 8; }
+        if (ty < 10)      { ty = sy + 10; }
+        fanTipBg.setAttribute("x", tx - p); fanTipBg.setAttribute("y", ty - 16);
+        fanTipBg.setAttribute("width", W);  fanTipBg.setAttribute("height", H + 8);
+        fanT1.setAttribute("x", tx); fanT1.setAttribute("y", ty);
+        fanT1.textContent = dose;
+        fanT2.setAttribute("x", tx); fanT2.setAttribute("y", ty + 16);
+        fanT2.textContent = "+" + mins + "m → " + bg + " mg/dL";
+        fanT3.setAttribute("x", tx); fanT3.setAttribute("y", ty + 30);
+        fanT3.textContent = ci ? "90% CI [" + ci + "]" : "";
+        fanTip.setAttribute("visibility", "visible");
+      });
+      el.addEventListener("mouseout", function() {
+        resetHighlight();
+        fanTip.setAttribute("visibility", "hidden");
+      });
+    });
+  }
+
+  // ── History chart: cursor + tooltip ──────────────────────────────────
+  var histSvg = document.getElementById("bb-hist");
+  if (histSvg) {
+    var histOverlay = document.getElementById("bb-hist-overlay");
+    var histCursor  = document.getElementById("bb-hist-cursor");
+    var histTip     = document.getElementById("bb-hist-tip");
+    var histTipBg   = document.getElementById("bb-hist-tip-bg");
+    var histT1      = document.getElementById("bb-hist-t1");
+    var histT2      = document.getElementById("bb-hist-t2");
+    var histXs      = JSON.parse(histSvg.getAttribute("data-xs"));
+    var histBgs     = JSON.parse(histSvg.getAttribute("data-bgs"));
+    var histTs      = JSON.parse(histSvg.getAttribute("data-ts"));
+    var histW       = parseFloat(histSvg.getAttribute("data-W"));
+
+    function nearestHistIdx(ex) {
+      var best = 0, bd = 1e9;
+      histXs.forEach(function(cx, i) {
+        var d = Math.abs(cx - ex); if (d < bd) { bd = d; best = i; }
+      });
+      return best;
+    }
+    histOverlay.addEventListener("mousemove", function(e) {
+      var ex  = e.offsetX;
+      var idx = nearestHistIdx(ex);
+      var cx  = histXs[idx];
+      histCursor.setAttribute("x1", cx); histCursor.setAttribute("x2", cx);
+      histCursor.setAttribute("visibility", "visible");
+      var tx = cx + 8, ty = parseFloat(histSvg.getAttribute("data-mt")) + 20;
+      if (tx + 120 > histW - 10) { tx = cx - 128; }
+      histTipBg.setAttribute("x", tx - 4); histTipBg.setAttribute("y", ty - 14);
+      histTipBg.setAttribute("width", 120); histTipBg.setAttribute("height", 34);
+      histT1.setAttribute("x", tx); histT1.setAttribute("y", ty);
+      histT1.textContent = histTs[idx];
+      histT2.setAttribute("x", tx); histT2.setAttribute("y", ty + 14);
+      histT2.textContent = histBgs[idx].toFixed(1) + " mg/dL";
+      histTip.setAttribute("visibility", "visible");
+    });
+    histOverlay.addEventListener("mouseleave", function() {
+      histCursor.setAttribute("visibility", "hidden");
+      histTip.setAttribute("visibility", "hidden");
+    });
+  }
+})();
+</script>
+</body>
+</html>

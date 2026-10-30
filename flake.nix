@@ -1,165 +1,43 @@
 {
-  description = "bloodBender reproducible environment and run targets";
+  description = "bloodBender - Tandem insulin pump data processing & ML glucose prediction";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
-  outputs = { self, nixpkgs }:
-    let
-      systems = [
-        "x86_64-linux"
-        "aarch64-linux"
+  # The cuda devShell can pull prebuilt CUDA/torch from this cache instead of
+  # compiling from source -- but the Nix daemon only honors it for trusted
+  # users. If `trusted-users = root` (the default), run as root once:
+  #   echo "trusted-users = root $USER" >> /etc/nix/nix.conf && systemctl restart nix-daemon
+  # Otherwise the cuda env builds torch from source (~hours). CPU shells are
+  # unaffected: they hit the default cache.nixos.org.
+  nixConfig = {
+    extra-substituters = [ "https://cuda-maintainers.cachix.org" ];
+    extra-trusted-public-keys = [
+      "cuda-maintainers.cachix.org-1:0dq3bujKpuEPMCX6U4WylrUDZ9JyUG0VpVZa7CNfq5E="
+    ];
+  };
+
+  # Dendritic-lite: flake-parts with an explicit per-concern module tree under
+  # nix/. CPU is the default everywhere (reliable binary cache); GPU lives in
+  # its own nix/cuda.nix module for local accelerated training (e.g. RTX 2070).
+  outputs = inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [ "x86_64-linux" "aarch64-linux" ];
+
+      imports = [
+        ./nix/pkgs.nix
+        ./nix/python.nix
+        ./nix/packages.nix
+        ./nix/apps.nix
+        ./nix/devshells.nix
+        ./nix/cuda.nix
+        ./nix/hm-module-export.nix
       ];
-      forAllSystems = f:
-        nixpkgs.lib.genAttrs systems (system:
-          f {
-            pkgs = import nixpkgs {
-              inherit system;
-              config.allowUnfree = true;
-            };
-          });
-    in
-    {
-      packages = forAllSystems ({ pkgs }:
-        let
-          syncPython = pkgs.python311.override {
-            packageOverrides = self: super: {
-              fsspec = super.fsspec.overridePythonAttrs (_: {
-                doCheck = false;
-              });
-            };
-          };
-          pythonSyncEnv = syncPython.withPackages (ps: with ps; [
-            arrow
-            cryptography
-            numpy
-            pandas
-            pyjwt
-            python-dotenv
-            pyyaml
-            requests
-            scikit-learn
-            scipy
-          ]);
-          # Uses the stock interpreter (not syncPython) so torch/numpy/etc. match
-          # nixpkgs' prebuilt binary cache instead of rebuilding from source.
-          pythonInferenceEnv = pkgs.python311.withPackages (ps: with ps; [
-            numpy
-            pandas
-            scikit-learn
-            scipy
-            torch
-          ]);
-        in
-        {
-          default = pythonSyncEnv;
-          bloodbender-env = pythonSyncEnv;
-          bloodbender-inference-env = pythonInferenceEnv;
 
-          sync-data = pkgs.writeShellApplication {
-            name = "sync-data";
-            runtimeInputs = [ pythonSyncEnv ];
-            text = ''
-              if [[ ! -d "$PWD/bloodBath" ]]; then
-                echo "ERR: Run from the bloodBender repository root (missing ./bloodBath)." >&2
-                exit 1
-              fi
-              export PYTHONPATH="$PWD''${PYTHONPATH:+:$PYTHONPATH}"
-              exec python -m bloodBath.cli.main sync "$@"
-            '';
-          };
-
-          normal-full-sync = pkgs.writeShellApplication {
-            name = "normal-full-sync";
-            runtimeInputs = [ pythonSyncEnv ];
-            text = ''
-              if [[ ! -d "$PWD/bloodBath" ]]; then
-                echo "ERR: Run from the bloodBender repository root (missing ./bloodBath)." >&2
-                exit 1
-              fi
-              export PYTHONPATH="$PWD''${PYTHONPATH:+:$PYTHONPATH}"
-              exec python -m bloodBath.cli.main sync --full-sync --chunk-days "''${SYNC_CHUNK_DAYS:-15}" "$@"
-            '';
-          };
-
-          available-data = pkgs.writeShellApplication {
-            name = "available-data";
-            runtimeInputs = [ pythonSyncEnv ];
-            text = ''
-              if [[ ! -d "$PWD/bloodBath" ]]; then
-                echo "ERR: Run from the bloodBender repository root (missing ./bloodBath)." >&2
-                exit 1
-              fi
-              export PYTHONPATH="$PWD''${PYTHONPATH:+:$PYTHONPATH}"
-              exec python -m bloodBath.cli.main available-data "$@"
-            '';
-          };
-
-          run-inference = pkgs.writeShellApplication {
-            name = "run-inference";
-            runtimeInputs = [ pythonInferenceEnv pkgs.bash pkgs.coreutils pkgs.findutils pkgs.gnugrep pkgs.gnused ];
-            text = ''
-              if [[ ! -f "$PWD/run_lstm_inference.sh" ]]; then
-                echo "ERR: Run from the bloodBender repository root (missing ./run_lstm_inference.sh)." >&2
-                exit 1
-              fi
-              export NO_VENV=1
-              export BLOODBENDER_ROOT="$PWD"
-              export PYTHONPATH="$PWD''${PYTHONPATH:+:$PYTHONPATH}"
-              exec bash "$PWD/run_lstm_inference.sh" "$@"
-            '';
-          };
-        });
-
-      apps = forAllSystems ({ pkgs }:
-        {
-          sync-data = {
-            type = "app";
-            program = "${self.packages.${pkgs.system}.sync-data}/bin/sync-data";
-          };
-
-          normal-full-sync = {
-            type = "app";
-            program = "${self.packages.${pkgs.system}.normal-full-sync}/bin/normal-full-sync";
-          };
-
-          run-inference = {
-            type = "app";
-            program = "${self.packages.${pkgs.system}.run-inference}/bin/run-inference";
-          };
-
-          available-data = {
-            type = "app";
-            program = "${self.packages.${pkgs.system}.available-data}/bin/available-data";
-          };
-
-          default = self.apps.${pkgs.system}.sync-data;
-        });
-
-      devShells = forAllSystems ({ pkgs }:
-        {
-          default = pkgs.mkShell {
-            packages = [
-              self.packages.${pkgs.system}.bloodbender-env
-            ];
-
-            shellHook = ''
-              export PYTHONPATH="$PWD''${PYTHONPATH:+:$PYTHONPATH}"
-              echo "bloodBender nix shell active"
-            '';
-          };
-
-          inference = pkgs.mkShell {
-            packages = [
-              self.packages.${pkgs.system}.bloodbender-inference-env
-            ];
-
-            shellHook = ''
-              export PYTHONPATH="$PWD''${PYTHONPATH:+:$PYTHONPATH}"
-              echo "bloodBender inference nix shell active"
-            '';
-          };
-        });
+      perSystem = { pkgs, ... }: {
+        formatter = pkgs.nixpkgs-fmt;
+      };
     };
 }

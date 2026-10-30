@@ -17,6 +17,7 @@ DATA_PATHS = {
         'cgm': BLOODBANK_ROOT / "raw" / "cgm",
         'basal': BLOODBANK_ROOT / "raw" / "basal",
         'bolus': BLOODBANK_ROOT / "raw" / "bolus",
+        'site_change': BLOODBANK_ROOT / "raw" / "site_change",
         'lstm': BLOODBANK_ROOT / "raw" / "lstm",
         'metadata': BLOODBANK_ROOT / "raw" / "metadata"
     },

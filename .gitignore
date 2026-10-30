@@ -27,6 +27,8 @@
 
 # Include shell run file
 !run_lstm_inference.sh
+!cleanup_deprecated.sh
+!monitor_sync.sh
 
 # Include Nix flake files
 !flake.nix
@@ -35,12 +37,34 @@
 # Include README and documentation
 !README.md
 !CODEBASE_CONTEXT.md
+!docs/
+!docs/**
+!NIX*.md
+!CLEANUP_SUMMARY.md
 
-# Exclude Python virtual environments
+# Exclude Python virtual environments (legacy - use Nix now!)
 bloodBath-env/
+bloodBath-env.bak/
 .venv/
 env/
 venv/
+
+# Nix development environment (managed by flake)
+.direnv/
+.envrc.cache
+result
+result-*
+
+# Include Nix configuration files
+!flake.nix
+!flake.lock
+!.envrc
+!nix/
+!nix/**/*.nix
+!pyproject.toml
+!uv.lock
+!NIX*.md
+!CLEANUP_SUMMARY.md
 
 # Include this gitignore file
 !.gitignore
@@ -101,8 +125,15 @@ bloodBath/bloodBank/lstm_pump_data/**/*.csv
 bloodTwin/artifacts/**/*.csv
 bloodTwin/analytics/tensorboard_logs/**/*.csv
 
-# Keep model files and configs
-!bloodTwin/artifacts/**/*.ckpt
+# Training checkpoints, tensorboard logs, and run logs are regenerable — exclude
+# them AFTER the !bloodTwin/**/* / !bloodBath/**/* whitelist above so the
+# explicit excludes take effect (last matching rule wins in .gitignore).
+bloodTwin/artifacts/**/checkpoints/
+bloodTwin/analytics/tensorboard_logs/
+bloodBath/logs/
+bloodBath/bloodBank/archives/logs/
+
+# Keep deployable model files and configs
 !bloodTwin/artifacts/**/*.ts
 !bloodTwin/artifacts/**/*.onnx
 !bloodTwin/artifacts/**/*.pkl

@@ -13,12 +13,16 @@ model:
 data:
   # Use the chronologically split data
   train_dir: "bloodBath/bloodBank/merged"
+  # All 3 pumps: BG target distribution uniform across devices (mean 138-143,
+  # std 43-44), schema byte-identical. Combined ~450k train rows / ~6.5 yrs.
+  # Coverage varies (94.5/75.5/56.7%) -> loss MUST mask imputed BG.
   pump_ids:
-    - "931227"
-    - "943052"
-    - "90922560"
+    - "1539514"   # Tandem Mobi (current) 2026-02..07
+    - "901161470" # t:slim X2 (mid)       2024-01..2025-12
+    - "881235"    # t:slim X2 (oldest)    2021-01..2024-10
 
-  # Features (must match CSV column order after timestamp)
+  # Features — schema v1.1 (13 inputs, up from 11)
+  # Must match patient_state.FEATURE_NAMES ordering exactly.
   features:
     - bg
     - basal_rate
@@ -29,6 +33,8 @@ data:
     - bg_slope_30min
     - sin_time
     - cos_time
+    - iob
+    - bg_acceleration
     - mask_bg
     - mask_label
 
@@ -123,10 +129,17 @@ artifacts:
   onnx:
     opset_version: 17
     input_names: ["input"]
-    output_names: ["prediction"]
+    output_names: ["prediction", "meal_logit"]
     dynamic_axes:
       input: { 0: "batch_size" }
       prediction: { 0: "batch_size" }
+      meal_logit: { 0: "batch_size" }
+
+# Auxiliary meal-rise classification head
+meal_classifier:
+  loss_weight: 0.1      # meal_bce weight relative to bg_mae (keep BG prediction dominant)
+  pos_weight: 3.0       # BCEWithLogitsLoss pos_weight for ~25% positive class prevalence
+  rise_threshold_mgdl: 35.0  # BG rise ≥ this over horizon → positive label
 
 # Compute
 compute:

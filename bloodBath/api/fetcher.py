@@ -30,14 +30,14 @@ class TandemDataFetcher:
     MAX_RETRIES = 5
     RETRY_DELAY_BASE = 2  # seconds
     
-    def __init__(self, 
+    def __init__(self,
                  connector: TandemConnector,
                  chunk_days: int = DEFAULT_CHUNK_DAYS,
                  max_retries: int = MAX_RETRIES,
                  rate_limit_delay: int = 1):
         """
         Initialize the data fetcher
-        
+
         Args:
             connector: TandemConnector instance
             chunk_days: Size of date chunks in days
@@ -48,6 +48,15 @@ class TandemDataFetcher:
         self.chunk_days = chunk_days
         self.max_retries = max_retries
         self.rate_limit_delay = rate_limit_delay
+        self._stats: Dict[str, Any] = {
+            'chunks_total': 0,
+            'chunks_with_data': 0,
+            'chunks_empty': 0,
+            'chunks_failed': 0,
+            'total_events': 0,
+            'total_retries': 0,
+            'elapsed_s': 0.0,
+        }
     
     def fetch_pump_data_range(self, 
                              pump_config: PumpConfig,
@@ -67,28 +76,45 @@ class TandemDataFetcher:
         # Generate date chunks
         chunks = generate_date_chunks(start_date, end_date, self.chunk_days)
         self._validate_chunks_contiguous(chunks)
-        logger.info(f"Fetching data for pump {pump_config.serial} in {len(chunks)} chunks")
-        
+        n_chunks = len(chunks)
+        logger.info(f"Fetching data for pump {pump_config.serial} in {n_chunks} chunks "
+                    f"({start_date} → {end_date})")
+
+        self._stats['chunks_total'] += n_chunks
         all_events = []
-        
+        t0 = time.time()
+
         for i, (chunk_start, chunk_end) in enumerate(chunks):
-            logger.info(f"Fetching chunk {i+1}/{len(chunks)}: {chunk_start} to {chunk_end}")
-            
+            logger.info(f"Fetching chunk {i+1}/{n_chunks}: {chunk_start} to {chunk_end}")
+
             try:
                 events = self._fetch_pump_data_chunk(
                     pump_config, chunk_start, chunk_end
                 )
                 all_events.extend(events)
-                
+
+                if events:
+                    self._stats['chunks_with_data'] += 1
+                    self._stats['total_events'] += len(events)
+                else:
+                    self._stats['chunks_empty'] += 1
+
                 # Small delay between chunks
                 time.sleep(self.rate_limit_delay)
-                
+
             except Exception as e:
                 logger.error(f"Failed to fetch chunk {chunk_start} to {chunk_end}: {e}")
-                # Continue with other chunks instead of failing completely
+                self._stats['chunks_failed'] += 1
                 continue
-        
-        logger.info(f"Total events fetched for pump {pump_config.serial}: {len(all_events)}")
+
+        elapsed = time.time() - t0
+        self._stats['elapsed_s'] += elapsed
+        logger.info(
+            f"Pump {pump_config.serial} fetch complete: {len(all_events)} events "
+            f"from {self._stats['chunks_with_data']}/{n_chunks} chunks "
+            f"({self._stats['chunks_empty']} empty, {self._stats['chunks_failed']} failed) "
+            f"in {elapsed:.1f}s"
+        )
         return all_events
 
     def _validate_chunks_contiguous(self, chunks: List[Tuple[str, str]]) -> None:
@@ -195,6 +221,7 @@ class TandemDataFetcher:
                 elif e.response.status_code == 429:  # Too Many Requests
                     retry_delay = self.RETRY_DELAY_BASE ** retry_count
                     logger.warning(f"Rate limited, waiting {retry_delay} seconds before retry {retry_count}")
+                    self._stats['total_retries'] += 1
                     time.sleep(retry_delay)
                     continue
                 
@@ -289,15 +316,10 @@ class TandemDataFetcher:
         return events
     
     def get_fetcher_stats(self) -> Dict[str, Any]:
-        """
-        Get fetcher statistics
-        
-        Returns:
-            Dictionary with fetcher configuration and stats
-        """
         return {
             'chunk_days': self.chunk_days,
             'max_retries': self.max_retries,
             'rate_limit_delay': self.rate_limit_delay,
-            'connector_info': self.connector.get_connection_info()
+            'connector_info': self.connector.get_connection_info(),
+            **self._stats,
         }

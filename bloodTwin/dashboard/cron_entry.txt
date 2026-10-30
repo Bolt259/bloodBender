@@ -1,0 +1,17 @@
+# bloodBender inference — runs every 5 minutes and refreshes the dashboard JSON.
+#
+# Install with:  crontab -e   (then paste the line below)
+# Verify with:   crontab -l
+#
+# Notes:
+#   * The runner wraps the Nix shell itself (startup ~3-4s is fine within 5m).
+#   * It writes JSON atomically to bloodBath/logs/inference_latest.json and
+#     stderr to bloodBath/logs/inference_latest.err. A failed run keeps the
+#     previous good JSON.
+#   * PATH must include the `nix` binary. This machine is NixOS, where nix lives
+#     at /run/current-system/sw/bin (verified with `which nix`). Adjust if yours
+#     differs.
+
+PATH=/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin
+
+*/5 * * * * /home/lkshply/dev/bloodBender-data-sync/bloodTwin/dashboard/run_inference_cron.sh >/dev/null 2>&1

@@ -399,6 +399,8 @@ def cmd_sync(args):
         except Exception as e:
             logger.warning(f"Could not analyze pump activity: {e}")
     
+    sync_t0 = datetime.now()
+
     # Sync pumps
     results = client.sync_multiple_pumps(
         configs,
@@ -406,38 +408,75 @@ def cmd_sync(args):
         force_full=args.force_full,
         parallel=args.parallel
     )
-    
-    # Report results
-    successful = sum(1 for success in results.values() if success)
+
+    sync_elapsed = (datetime.now() - sync_t0).total_seconds()
+    successful = sum(1 for s in results.values() if s)
     failed = len(results) - successful
-    
-    print(f"\nSync completed:")
-    print(f"  Successful: {successful}")
-    print(f"  Failed: {failed}")
-    
-    if failed > 0:
-        print(f"\nFailed pumps:")
-        for serial, success in results.items():
-            if not success:
-                print(f"  - {serial}")
-    
-    # Show final stats
+
     stats = client.get_client_stats()
-    print(f"\nStatistics:")
-    print(f"  Total events processed: {stats['extraction_stats']['total_processed']}")
-    print(f"  CGM events: {stats['extraction_stats']['event_counts']['cgm']}")
-    print(f"  Basal events: {stats['extraction_stats']['event_counts']['basal']}")
-    print(f"  Bolus events: {stats['extraction_stats']['event_counts']['bolus']}")
-    
-    print(f"\nData organized in bloodBank structure:")
-    print(f"  Raw CGM directory: {DATA_PATHS['raw']['cgm']}")
-    print(f"  Raw Basal directory: {DATA_PATHS['raw']['basal']}")
-    print(f"  Raw Bolus directory: {DATA_PATHS['raw']['bolus']}")
-    print(f"  Raw LSTM directory: {DATA_PATHS['raw']['lstm']}")
-    print(f"  Training directory: {DATA_PATHS['merged']['train']}")
-    print(f"  Validation directory: {DATA_PATHS['merged']['validate']}")
-    print(f"  Test directory: {DATA_PATHS['merged']['test']}")
-    
+    extr  = stats['extraction_stats']
+    fetch = stats['fetcher_stats']
+
+    # ── per-split row counts ──────────────────────────────────────────────────
+    # Files live at merged/pump_{serial}/{split}/lstm_{split}_*.csv so search
+    # from the parent of the split placeholder (i.e. merged/) one level up.
+    split_counts: dict = {}
+    for split in ('train', 'validate', 'test'):
+        split_parent = DATA_PATHS['merged'][split].parent  # bloodBank/merged/
+        total_rows = 0
+        for csv_path in split_parent.rglob(f"*/{split}/lstm_{split}_*.csv"):
+            try:
+                with open(csv_path) as _f:
+                    total_rows += sum(1 for _ in _f) - 1  # subtract header
+            except Exception:
+                pass
+        split_counts[split] = total_rows
+
+    # ── print summary ─────────────────────────────────────────────────────────
+    sep = "=" * 60
+    print(f"\n{sep}")
+    print(f"SYNC SUMMARY  {sync_t0.strftime('%Y-%m-%d %H:%M:%S')}  elapsed={sync_elapsed:.1f}s")
+    print(sep)
+    print(f"  Pumps:       {successful} ok / {failed} failed")
+    print(f"  Date range:  {configs[0].start_date} → {configs[-1].end_date}")
+    print(f"  Events:      cgm={extr['event_counts']['cgm']:,}  "
+          f"basal={extr['event_counts']['basal']:,}  "
+          f"bolus={extr['event_counts']['bolus']:,}  "
+          f"total={extr['total_processed']:,}")
+    print(f"  Chunks:      {fetch.get('chunks_with_data','-')}/{fetch.get('chunks_total','-')} with data  "
+          f"{fetch.get('chunks_empty','-')} empty  "
+          f"{fetch.get('chunks_failed',0)} failed  "
+          f"{fetch.get('total_retries',0)} retries")
+    print(f"  Split rows:  train={split_counts['train']:,}  "
+          f"validate={split_counts['validate']:,}  "
+          f"test={split_counts['test']:,}")
+    if failed > 0:
+        print(f"  FAILED pumps: {[s for s,ok in results.items() if not ok]}")
+    print(sep)
+
+    # ── write JSON summary ────────────────────────────────────────────────────
+    log_dir = Path(__file__).parent.parent / 'logs'
+    log_dir.mkdir(exist_ok=True)
+    summary_path = log_dir / f"sync_summary_{sync_t0.strftime('%Y%m%d_%H%M%S')}.json"
+    summary = {
+        'timestamp': sync_t0.isoformat(),
+        'elapsed_s': round(sync_elapsed, 1),
+        'pumps': {s: ('ok' if ok else 'failed') for s, ok in results.items()},
+        'date_range': {'start': configs[0].start_date, 'end': configs[-1].end_date},
+        'events': extr['event_counts'],
+        'chunks': {
+            'total':     fetch.get('chunks_total', 0),
+            'with_data': fetch.get('chunks_with_data', 0),
+            'empty':     fetch.get('chunks_empty', 0),
+            'failed':    fetch.get('chunks_failed', 0),
+            'retries':   fetch.get('total_retries', 0),
+        },
+        'split_rows': split_counts,
+    }
+    with open(summary_path, 'w') as f:
+        json.dump(summary, f, indent=2)
+    print(f"  Summary JSON: {summary_path}")
+
     client.disconnect()
 
 

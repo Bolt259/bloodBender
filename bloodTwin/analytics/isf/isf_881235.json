@@ -1,0 +1,25 @@
+{
+  "pump_id": "881235",
+  "status": "ok",
+  "n_events": 526,
+  "date_range": [
+    "2021-10-23",
+    "2024-10-06"
+  ],
+  "isf_overall_median": 17.0,
+  "isf_overall_p25_p75": [
+    9.8,
+    30.0
+  ],
+  "isf_recent_90d": 20.4,
+  "isf_latest_rolling": 20.0,
+  "rolling_window_days": 30,
+  "method": "correction_bolus_nadir",
+  "params": {
+    "min_bolus_u": 0.5,
+    "max_bolus_u": 10.0,
+    "min_bg_at_bolus": 140.0,
+    "nadir_window_min": 90,
+    "meal_exclusion_min": 90
+  }
+}

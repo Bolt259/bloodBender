@@ -7,6 +7,7 @@ Designed for multi-horizon forecasting with physiological constraints.
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import pytorch_lightning as pl
 from typing import Dict, List, Optional, Tuple
 import torchmetrics
@@ -39,7 +40,9 @@ class BloodTwinLSTM(pl.LightningModule):
         weight_decay: float = 1e-5,
         scheduler_params: Optional[Dict] = None,
         bg_min: float = 20.0,
-        bg_max: float = 600.0
+        bg_max: float = 600.0,
+        meal_loss_weight: float = 0.1,
+        meal_pos_weight: float = 3.0,
     ):
         """
         Args:
@@ -66,7 +69,8 @@ class BloodTwinLSTM(pl.LightningModule):
         self.scheduler_params = scheduler_params or {}
         self.bg_min = bg_min
         self.bg_max = bg_max
-        
+        self.meal_loss_weight = meal_loss_weight
+
         # LSTM encoder
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -79,14 +83,28 @@ class BloodTwinLSTM(pl.LightningModule):
         # Dropout layer
         self.dropout = nn.Dropout(dropout)
         
-        # Output decoder: map final hidden state to horizon predictions
+        # BG prediction decoder: final hidden → horizon BG values
         self.decoder = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size, horizon)
         )
-        
+
+        # Auxiliary meal-rise classification head: shared hidden → P(significant BG rise)
+        # Trained with indirect supervision: label=1 when BG rises ≥threshold over horizon.
+        # Small head to regularise rather than dominate; meal_loss_weight keeps it secondary.
+        self.meal_head = nn.Sequential(
+            nn.Linear(hidden_size, 32),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(32, 1),
+        )
+        # BCEWithLogitsLoss with pos_weight to counter class imbalance (~20-30% positive)
+        self.meal_loss_fn = nn.BCEWithLogitsLoss(
+            pos_weight=torch.tensor(meal_pos_weight)
+        )
+
         # Loss function
         self.loss_fn = nn.L1Loss()  # MAE loss (more robust to outliers)
         
@@ -102,123 +120,108 @@ class BloodTwinLSTM(pl.LightningModule):
         # Horizon-specific metrics (e.g., 30min, 60min)
         self.horizon_checkpoints = [6, 12]  # 30min and 60min @ 5-min intervals
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def _encode(self, x: torch.Tensor) -> torch.Tensor:
+        """Run the shared LSTM encoder and return the final hidden state."""
+        _, (hidden, _) = self.lstm(x)
+        return self.dropout(hidden[-1])  # (batch, hidden_size)
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Forward pass.
-        
+        Forward pass returning both BG predictions and meal-rise probability.
+
         Args:
             x: (batch_size, lookback, input_size)
-            
+
         Returns:
-            predictions: (batch_size, horizon)
+            bg_predictions : (batch_size, horizon)  — scaled BG forecast
+            meal_logit     : (batch_size,)           — raw logit for meal-rise event
+                             Apply sigmoid for P(meal_rise).
         """
-        # LSTM forward pass
-        lstm_out, (hidden, cell) = self.lstm(x)
-        
-        # Use final hidden state
-        final_hidden = hidden[-1]  # (batch_size, hidden_size)
-        
-        # Apply dropout
-        final_hidden = self.dropout(final_hidden)
-        
-        # Decode to horizon predictions
-        predictions = self.decoder(final_hidden)  # (batch_size, horizon)
-        
-        # Apply physiological constraints (soft clipping during training)
+        h = self._encode(x)
+        bg_preds = self.decoder(h)
         if not self.training:
-            predictions = torch.clamp(predictions, self.bg_min, self.bg_max)
-        
-        return predictions
+            bg_preds = torch.clamp(bg_preds, self.bg_min, self.bg_max)
+        meal_logit = self.meal_head(h).squeeze(-1)  # (batch,)
+        return bg_preds, meal_logit
     
+    @staticmethod
+    def _masked_mean(values: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """Mean of `values` over positions where mask==1 (safe when no positions are set)."""
+        return (values * mask).sum() / mask.sum().clamp_min(1.0)
+
     def _compute_loss(
-        self, 
-        predictions: torch.Tensor, 
-        targets: torch.Tensor
+        self,
+        predictions: torch.Tensor,
+        targets: torch.Tensor,
+        mask: torch.Tensor,
     ) -> torch.Tensor:
-        """Compute loss with optional horizon weighting."""
-        return self.loss_fn(predictions, targets)
+        """Masked MAE: reduce absolute error over observed BG steps only (mask==1)."""
+        return self._masked_mean(torch.abs(predictions - targets), mask)
     
+    def _shared_step(self, batch: Dict[str, torch.Tensor], stage: str) -> torch.Tensor:
+        """Forward + masked multi-task loss/metrics. `stage` in {train,val,test}.
+
+        BG loss: masked MAE over observed horizon steps only.
+        Meal loss: BCEWithLogitsLoss on the auxiliary rise-event head.
+        total = bg_loss + meal_loss_weight * meal_loss
+        """
+        bg_preds, meal_logit = self(batch['input'])
+        targets = batch['target']
+        # target_mask = observed AND pre-correction (used for loss gradient)
+        # target_mask_obs_only = observed only (used for MAE/RMSE metrics)
+        mask      = batch['target_mask']
+        mask_obs  = batch.get('target_mask_obs_only', mask)  # fallback for old batches
+
+        bg_loss   = self._compute_loss(bg_preds, targets, mask)
+        meal_loss = torch.tensor(0.0, device=bg_loss.device)
+
+        if 'meal_label' in batch:
+            ml = batch['meal_label'].float()
+            # Only compute meal loss on windows that have at least one observed target
+            has_obs = (mask.sum(dim=-1) > 0)
+            if has_obs.any():
+                meal_loss = self.meal_loss_fn(meal_logit[has_obs], ml[has_obs])
+
+        loss = bg_loss + self.meal_loss_weight * meal_loss
+
+        mae, rmse = getattr(self, f'{stage}_mae'), getattr(self, f'{stage}_rmse')
+        # Metrics use observed-only mask (not the correction-masked version)
+        # so MAE/RMSE are comparable before and after applying correction masking.
+        observed = mask_obs > 0.5
+        if observed.any():
+            mae(bg_preds[observed], targets[observed])
+            rmse(bg_preds[observed], targets[observed])
+
+        if stage != 'train':
+            for k in self.horizon_checkpoints:
+                if k <= self.horizon:
+                    mae_k = self._masked_mean(
+                        torch.abs(bg_preds[:, :k] - targets[:, :k]), mask_obs[:, :k]
+                    )
+                    self.log(f'{stage}_mae_{k*5}min', mae_k)
+
+        prog = stage != 'test'
+        self.log(f'{stage}_loss',      loss,      on_step=(stage == 'train'), on_epoch=True, prog_bar=prog)
+        self.log(f'{stage}_bg_loss',   bg_loss,   on_step=False, on_epoch=True)
+        self.log(f'{stage}_meal_loss', meal_loss, on_step=False, on_epoch=True)
+        self.log(f'{stage}_mae',  mae,  on_step=False, on_epoch=True, prog_bar=prog)
+        self.log(f'{stage}_rmse', rmse, on_step=False, on_epoch=True, prog_bar=(stage == 'val'))
+
+        # Log meal-event accuracy on val/test
+        if stage != 'train' and 'meal_label' in batch:
+            meal_acc = ((meal_logit > 0).float() == batch['meal_label'].float()).float().mean()
+            self.log(f'{stage}_meal_acc', meal_acc, on_step=False, on_epoch=True)
+
+        return loss
+
     def training_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Training step."""
-        inputs = batch['input']
-        targets = batch['target']
-        
-        # Forward pass
-        predictions = self(inputs)
-        
-        # Compute loss
-        loss = self._compute_loss(predictions, targets)
-        
-        # Update metrics
-        self.train_mae(predictions, targets)
-        self.train_rmse(predictions, targets)
-        
-        # Log
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
-        self.log('train_mae', self.train_mae, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('train_rmse', self.train_rmse, on_step=False, on_epoch=True)
-        
-        return loss
-    
+        return self._shared_step(batch, 'train')
+
     def validation_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Validation step."""
-        inputs = batch['input']
-        targets = batch['target']
-        
-        # Forward pass
-        predictions = self(inputs)
-        
-        # Compute loss
-        loss = self._compute_loss(predictions, targets)
-        
-        # Update metrics
-        self.val_mae(predictions, targets)
-        self.val_rmse(predictions, targets)
-        
-        # Horizon-specific metrics
-        for checkpoint in self.horizon_checkpoints:
-            if checkpoint <= self.horizon:
-                checkpoint_mae = torch.mean(torch.abs(
-                    predictions[:, :checkpoint] - targets[:, :checkpoint]
-                ))
-                self.log(f'val_mae_{checkpoint*5}min', checkpoint_mae)
-        
-        # Log
-        self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('val_mae', self.val_mae, on_step=False, on_epoch=True, prog_bar=True)
-        self.log('val_rmse', self.val_rmse, on_step=False, on_epoch=True, prog_bar=True)
-        
-        return loss
-    
+        return self._shared_step(batch, 'val')
+
     def test_step(self, batch: Dict[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Test step."""
-        inputs = batch['input']
-        targets = batch['target']
-        
-        # Forward pass
-        predictions = self(inputs)
-        
-        # Compute loss
-        loss = self._compute_loss(predictions, targets)
-        
-        # Update metrics
-        self.test_mae(predictions, targets)
-        self.test_rmse(predictions, targets)
-        
-        # Horizon-specific metrics
-        for checkpoint in self.horizon_checkpoints:
-            if checkpoint <= self.horizon:
-                checkpoint_mae = torch.mean(torch.abs(
-                    predictions[:, :checkpoint] - targets[:, :checkpoint]
-                ))
-                self.log(f'test_mae_{checkpoint*5}min', checkpoint_mae)
-        
-        # Log
-        self.log('test_loss', loss, on_step=False, on_epoch=True)
-        self.log('test_mae', self.test_mae, on_step=False, on_epoch=True)
-        self.log('test_rmse', self.test_rmse, on_step=False, on_epoch=True)
-        
-        return loss
+        return self._shared_step(batch, 'test')
     
     def predict_step(
         self, 
@@ -227,11 +230,11 @@ class BloodTwinLSTM(pl.LightningModule):
     ) -> Dict[str, torch.Tensor]:
         """Prediction step."""
         inputs = batch['input']
-        predictions = self(inputs)
-        
+        bg_preds, meal_logit = self(inputs)
         return {
-            'predictions': predictions,
-            'timestamps': batch.get('timestamp', None)
+            'predictions':   bg_preds,
+            'meal_prob':     torch.sigmoid(meal_logit),
+            'timestamps':    batch.get('timestamp', None),
         }
     
     def configure_optimizers(self):
