@@ -181,6 +181,8 @@ def _render_fan_svg(fan):
 
     for s in sorted_fan:
         preds = s.get("predicted_bg") or []
+        lo    = s.get("lower") or []
+        up    = s.get("upper") or []
         if not preds:
             continue
         dose = float(s.get("dose_u", 0.0))
@@ -199,6 +201,19 @@ def _render_fan_svg(fan):
         parts.append(f'<polyline points="{pts}" fill="none" stroke="{stroke}" '
                      f'stroke-width="{width}" opacity="{opacity}"/>')
 
+        # Invisible hit-target circles at each data point for hover tooltips.
+        for j, v in enumerate(preds):
+            lo_v = float(lo[j]) if j < len(lo) else None
+            up_v = float(up[j]) if j < len(up) else None
+            ci = f"{lo_v:.0f}–{up_v:.0f}" if lo_v is not None else ""
+            cx, cy = x(j), y(float(v))
+            tip = f"{dose_lbl}|+{j*5}m|{float(v):.0f}|{ci}"
+            parts.append(
+                f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="9" fill="transparent" '
+                f'class="bb-pt" cursor="crosshair" '
+                f'data-tip="{html.escape(tip)}" data-sx="{cx:.1f}" data-sy="{cy:.1f}"/>'
+            )
+
         # Label at right end of line.
         lx = x(len(preds) - 1) + 7
         raw_ly = y(float(preds[-1])) + 4
@@ -206,6 +221,51 @@ def _render_fan_svg(fan):
         parts.append(f'<text x="{lx:.1f}" y="{ly:.1f}" fill="{label_col}" '
                      f'font-size="11" font-weight="{"600" if is_nominal else "400"}">'
                      f'{html.escape(dose_lbl)}</text>')
+
+    # Tooltip overlay (hidden until hover).
+    parts.append(
+        '<g id="bb-tip" style="display:none" pointer-events="none">'
+        '<rect id="bb-tip-bg" rx="4" ry="4" fill="#1a2030" stroke="#3a4a60" stroke-width="1"/>'
+        '<text id="bb-t1" fill="#e6e9ef" font-size="12" font-weight="600"/>'
+        '<text id="bb-t2" fill="#aab2c4" font-size="11"/>'
+        '<text id="bb-t3" fill="#6a8a9a" font-size="10"/>'
+        '</g>'
+    )
+
+    # Inline JS: show/hide tooltip on circle hover, positioned in SVG space.
+    parts.append('''<script type="text/javascript">
+(function(){
+  var tip=document.getElementById("bb-tip"),
+      bg=document.getElementById("bb-tip-bg"),
+      t1=document.getElementById("bb-t1"),
+      t2=document.getElementById("bb-t2"),
+      t3=document.getElementById("bb-t3");
+  function show(e){
+    var d=e.target.getAttribute("data-tip").split("|"),
+        sx=parseFloat(e.target.getAttribute("data-sx")),
+        sy=parseFloat(e.target.getAttribute("data-sy")),
+        dose=d[0], mins=d[1], bg_v=d[2], ci=d[3],
+        W=152, H=ci?50:36, pad=6,
+        tx=sx+14, ty=sy-H-4;
+    if(tx+W>880){tx=sx-W-6;}
+    if(ty<10){ty=sy+10;}
+    bg.setAttribute("x",tx-pad); bg.setAttribute("y",ty-14);
+    bg.setAttribute("width",W); bg.setAttribute("height",H);
+    t1.setAttribute("x",tx); t1.setAttribute("y",ty);
+    t1.textContent=dose;
+    t2.setAttribute("x",tx); t2.setAttribute("y",ty+15);
+    t2.textContent=mins+" → "+bg_v+" mg/dL";
+    t3.setAttribute("x",tx); t3.setAttribute("y",ty+28);
+    t3.textContent=ci?"90% CI: ["+ci+"]":"";
+    tip.style.display="";
+  }
+  function hide(){tip.style.display="none";}
+  document.querySelectorAll(".bb-pt").forEach(function(el){
+    el.addEventListener("mouseover",show);
+    el.addEventListener("mouseout",hide);
+  });
+})();
+</script>''')
 
     parts.append('</svg>')
     return "".join(parts)
