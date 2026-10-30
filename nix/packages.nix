@@ -108,6 +108,39 @@
         '';
       };
 
+      # ── Monthly conformal recalibration (#9) ──
+      # Re-fits conformal_cal.pkl on the latest merged data so prediction
+      # intervals track the patient's shifting distribution over months.
+      bloodbender-calibrate = pkgs.writeShellApplication {
+        name = "bloodbender-calibrate";
+        runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
+        text = ''
+          REPO="''${BLOODBENDER_ROOT:-$PWD}"
+          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/bloodTwin_unified_lstm_v1_3}"
+          cd "$REPO"
+          PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
+            python bloodTwin/pipelines/calibrate_conformal.py \
+            --artifacts "$ARTIFACTS" --coverage 0.90 --stride 6
+        '';
+      };
+
+      # ── Weekly ISF re-estimation (#11) ──
+      # Re-fits the ISFModel so it tracks the patient's current insulin
+      # sensitivity rather than the value frozen at training time.
+      bloodbender-fit-isf = pkgs.writeShellApplication {
+        name = "bloodbender-fit-isf";
+        runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
+        text = ''
+          REPO="''${BLOODBENDER_ROOT:-$PWD}"
+          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/bloodTwin_unified_lstm_v1_3}"
+          PUMP="''${PUMP:-1539514}"
+          cd "$REPO"
+          PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
+            python bloodTwin/pipelines/fit_isf_model.py \
+            --pump "$PUMP" --artifacts "$ARTIFACTS"
+        '';
+      };
+
       # `nix run .#install-services` — write + enable systemd user units that
       # point at the Nix store paths above.  Idempotent; safe to re-run after
       # a flake update (units are rewritten with the new store paths).
@@ -118,6 +151,8 @@
           let
             syncBin = "${config.packages.bloodbender-sync}/bin/bloodbender-sync";
             infBin  = "${config.packages.bloodbender-inference-cron}/bin/bloodbender-inference-cron";
+            calBin  = "${config.packages.bloodbender-calibrate}/bin/bloodbender-calibrate";
+            isfBin  = "${config.packages.bloodbender-fit-isf}/bin/bloodbender-fit-isf";
           in ''
             REPO="''${BLOODBENDER_ROOT:-$PWD}"
             UNIT="$HOME/.config/systemd/user"
@@ -175,10 +210,60 @@
             WantedBy=timers.target
             EOF
 
+            cat >"$UNIT/bloodbender-calibrate.service" <<EOF
+            [Unit]
+            Description=bloodBender monthly conformal recalibration
+
+            [Service]
+            Type=oneshot
+            Environment=BLOODBENDER_ROOT=$REPO
+            ExecStart=${calBin}
+            StandardOutput=journal
+            StandardError=journal
+            EOF
+
+            cat >"$UNIT/bloodbender-calibrate.timer" <<EOF
+            [Unit]
+            Description=bloodBender conformal recalibration (monthly)
+
+            [Timer]
+            OnCalendar=monthly
+            Persistent=true
+            AccuracySec=1h
+
+            [Install]
+            WantedBy=timers.target
+            EOF
+
+            cat >"$UNIT/bloodbender-fit-isf.service" <<EOF
+            [Unit]
+            Description=bloodBender weekly ISF re-estimation
+
+            [Service]
+            Type=oneshot
+            Environment=BLOODBENDER_ROOT=$REPO
+            ExecStart=${isfBin}
+            StandardOutput=journal
+            StandardError=journal
+            EOF
+
+            cat >"$UNIT/bloodbender-fit-isf.timer" <<EOF
+            [Unit]
+            Description=bloodBender ISF re-estimation (weekly)
+
+            [Timer]
+            OnCalendar=weekly
+            Persistent=true
+            AccuracySec=1h
+
+            [Install]
+            WantedBy=timers.target
+            EOF
+
             systemctl --user daemon-reload
-            systemctl --user enable --now bloodbender-sync.timer bloodbender-inference.timer
+            systemctl --user enable --now bloodbender-sync.timer bloodbender-inference.timer bloodbender-calibrate.timer bloodbender-fit-isf.timer
             echo "Services installed and enabled."
-            systemctl --user list-timers bloodbender-sync.timer bloodbender-inference.timer --no-pager
+            systemctl --user list-timers bloodbender-sync.timer bloodbender-inference.timer bloodbender-calibrate.timer bloodbender-fit-isf.timer --no-pager
           '';
       };
 
