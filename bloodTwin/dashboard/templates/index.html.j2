@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="60">
+<title>bloodBender</title>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --border:    #21262d;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --dim:       #6e7681;
+    --blue:      #58a6ff;
+    --green:     #3fb950;
+    --amber:     #d29922;
+    --orange:    #f0883e;
+    --red:       #f85149;
+    --radius:    10px;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--text);
+    margin: 0; padding: 20px 24px; font-size: 14px;
+  }
+  h1 { font-size: 17px; font-weight: 600; margin: 0 0 2px; letter-spacing: -.3px; }
+  h2 { font-size: 13px; font-weight: 600; color: var(--muted);
+       text-transform: uppercase; letter-spacing: .05em;
+       margin: 28px 0 10px; }
+  a { color: var(--blue); text-decoration: none; }
+
+  .topbar { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  .topbar .badge {
+    font-size: 11px; font-weight: 500; padding: 2px 8px;
+    border-radius: 20px; background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .meta {
+    color: var(--dim); font-size: 12px; margin: 0 0 20px;
+    display: flex; flex-wrap: wrap; gap: 6px 16px;
+  }
+  .meta b { color: var(--muted); font-weight: 500; }
+  .meta .sep { color: var(--border); }
+
+  .warn {
+    background: #2d1b1b; border: 1px solid #5a2020; color: #ff7b72;
+    padding: 10px 14px; border-radius: var(--radius);
+    font-weight: 500; font-size: 13px; margin-bottom: 16px;
+  }
+
+  /* ── Cards ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .card.accent { border-color: #1f4074; background: #0d1e36; }
+  .card .label { font-size: 11px; font-weight: 500; color: var(--dim);
+                  text-transform: uppercase; letter-spacing: .05em; }
+  .card .val { font-size: 28px; font-weight: 700; margin: 6px 0 2px; line-height: 1; }
+  .card .unit { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .card .sub  { font-size: 12px; color: var(--dim); margin-top: 3px; }
+  .card .ci   { font-size: 11px; color: #4a6fa5; margin-top: 2px; }
+
+  /* BG value coloring */
+  .bg-low  { color: #f85149; }
+  .bg-high { color: #d29922; }
+  .bg-ok   { color: #58a6ff; }
+  .bg-tgt  { color: #3fb950; }
+
+  /* ── Fan chart ── */
+  .chart-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 4px; margin-bottom: 8px;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex; gap: 18px; font-size: 12px; color: var(--muted);
+    margin: 6px 0 0; flex-wrap: wrap;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; }
+  .sw-nom  { background: #58a6ff; }
+  .sw-alt  { background: #4a8596; }
+  .sw-band-g { background: #3a8a5a; height: 10px !important; border-radius: 2px; }
+  .sw-band-a { background: #d97706; height: 10px !important; border-radius: 2px; }
+  .sw-imp  { background: #4a6fa5; border: 1px dashed #4a6fa5; }
+  .sw-bolus { background: #d97706; }
+
+  /* ── Fan table ── */
+  .fan-table-wrap { overflow-x: auto; }
+  table.fan {
+    border-collapse: collapse; font-size: 12px; width: 100%; max-width: 680px;
+    margin-top: 10px;
+  }
+  table.fan th, table.fan td {
+    border: 1px solid var(--border); padding: 6px 10px; text-align: center;
+  }
+  table.fan th { background: var(--surface); color: var(--muted); font-weight: 500; }
+  table.fan tr.nominal { background: #0d1e36; }
+  table.fan .ci { color: var(--dim); font-size: 10px; display: block; margin-top: 2px; }
+
+  /* ── History chart ── */
+  .history-wrap {
+    overflow-x: auto; overflow-y: hidden;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 4px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .history-wrap::-webkit-scrollbar { height: 6px; }
+  .history-wrap::-webkit-scrollbar-track { background: transparent; }
+  .history-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Footer ── */
+  .footer { margin-top: 28px; font-size: 11px; color: var(--dim); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>bloodBender</h1>
+  <span class="badge">single-patient T1D</span>
+  {% if stale %}<span class="badge" style="border-color:#5a2020;color:#ff7b72">STALE</span>{% endif %}
+</div>
+
+{% if stale %}
+<div class="warn">
+  Data {{ age_disp }} old — last sync {{ sync_disp }}. Cron may be stopped.
+</div>
+{% endif %}
+
+<div class="meta">
+  <span>Last inference <b>{{ ts_disp }}</b> ({{ age_disp }})</span>
+  <span class="sep">·</span>
+  <span>Last synced <b>{{ sync_disp }}</b></span>
+  <span class="sep">·</span>
+  <span>Server <b>{{ server_time }}</b></span>
+  <span class="sep">·</span>
+  <span>Correction in horizon: <b>{{ corrected }}</b></span>
+</div>
+
+<!-- ── Stat cards ─────────────────────────────────────────────────── -->
+<div class="cards">
+  <div class="card accent">
+    <div class="label">Current BG</div>
+    <div class="val {{ bg_class }}">{{ current_bg }} <span class="unit">mg/dL</span></div>
+    <div class="sub">{{ meal_prob_disp }}</div>
+  </div>
+  <div class="card">
+    <div class="label">30 min</div>
+    <div class="val {{ p30_class }}">{{ p30 }} <span class="unit">mg/dL</span></div>
+    <div class="ci">90% CI {{ ci30 }}</div>
+  </div>
+  <div class="card">
+    <div class="label">60 min</div>
+    <div class="val {{ p60_class }}">{{ p60 }} <span class="unit">mg/dL</span></div>
+    <div class="ci">90% CI {{ ci60 }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Top state</div>
+    <div class="val" style="font-size:18px">{{ top_state }}</div>
+    <div class="sub">p = {{ top_prob }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Effective ISF</div>
+    <div class="val" style="font-size:22px">{{ isf }} <span class="unit">mg/dL/U</span></div>
+    <div class="sub">correction {{ ecd }} U</div>
+  </div>
+  <div class="card">
+    <div class="label">Meal prob</div>
+    <div class="val" style="font-size:22px">{{ meal_prob }}</div>
+    <div class="sub">{{ model_trigger }}</div>
+  </div>
+</div>
+
+<!-- ── 24h BG history ──────────────────────────────────────────────── -->
+<h2>24h history</h2>
+<div class="history-wrap" id="hist-wrap">{{ history_svg | safe }}</div>
+<div class="legend" style="margin-bottom:0">
+  <span><span class="sw sw-nom"></span> observed BG</span>
+  <span><span class="sw sw-imp"></span> imputed / gap</span>
+  <span><span class="sw sw-bolus" style="height:10px;width:4px"></span> bolus</span>
+  <span><span class="sw sw-band-g"></span> clinical 70–180</span>
+  <span><span class="sw sw-band-a"></span> personal 75–130</span>
+</div>
+
+<!-- ── Scenario fan ────────────────────────────────────────────────── -->
+<h2>60-min scenario fan</h2>
+<div class="chart-wrap">{{ fan_svg | safe }}</div>
+<div class="legend">
+  <span><span class="sw sw-nom"></span> nominal (0 U)</span>
+  <span><span class="sw sw-alt"></span> dose scenarios</span>
+  <span><span class="sw sw-band-g"></span> clinical 70–180</span>
+  <span><span class="sw sw-band-a"></span> personal 75–130</span>
+</div>
+
+<!-- ── Fan table ──────────────────────────────────────────────────── -->
+<div class="fan-table-wrap">
+<table class="fan">
+  <thead><tr><th>Dose (U)</th><th>+5 min</th><th>+30 min</th><th>+60 min</th></tr></thead>
+  <tbody>
+  {% for row in fan_rows %}
+  <tr{% if row.nominal %} class="nominal"{% endif %}>
+    <td>{{ row.dose }}</td>
+    <td>{{ row.p5 }}<span class="ci">{{ row.ci5 }}</span></td>
+    <td>{{ row.p30 }}<span class="ci">{{ row.ci30 }}</span></td>
+    <td>{{ row.p60 }}<span class="ci">{{ row.ci60 }}</span></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="footer">
+  Auto-refresh 60s &middot;
+  <span style="font-family:monospace">{{ json_path }}</span>
+</div>
+
+<script>
+// Scroll history chart to the right (most recent) on load.
+var hw = document.getElementById("hist-wrap");
+if (hw) hw.scrollLeft = hw.scrollWidth;
+</script>
+</body>
+</html>

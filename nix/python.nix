@@ -40,6 +40,7 @@
         scipy
         onnxruntime
         matplotlib
+        jinja2
       ]);
     in
     {
