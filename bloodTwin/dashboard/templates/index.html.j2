@@ -85,11 +85,11 @@
   }
   .legend span { display: inline-flex; align-items: center; gap: 5px; }
   .sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; }
-  .sw-nom  { background: #58a6ff; }
-  .sw-alt  { background: #4a8596; }
-  .sw-band-g { background: #3a8a5a; height: 10px !important; border-radius: 2px; }
-  .sw-band-a { background: #d97706; height: 10px !important; border-radius: 2px; }
-  .sw-imp  { background: #4a6fa5; border: 1px dashed #4a6fa5; }
+  .sw-nom   { background: #58a6ff; }
+  .sw-alt   { background: #4a8596; }
+  .sw-tgt   { background: #22c55e; height: 10px !important; border-radius: 2px; }   /* personal target — green */
+  .sw-clin  { background: #a855f7; height: 10px !important; border-radius: 2px; }   /* clinical range  — purple */
+  .sw-imp   { background: #4a6fa5; border: 1px dashed #4a6fa5; }
   .sw-bolus { background: #d97706; }
 
   /* ── Fan table ── */
@@ -185,8 +185,8 @@
   <span><span class="sw sw-nom"></span> observed BG</span>
   <span><span class="sw sw-imp"></span> imputed / gap</span>
   <span><span class="sw sw-bolus" style="height:10px;width:4px"></span> bolus</span>
-  <span><span class="sw sw-band-g"></span> clinical 70–180</span>
-  <span><span class="sw sw-band-a"></span> personal 75–130</span>
+  <span><span class="sw sw-tgt"></span> personal target 75–130</span>
+  <span><span class="sw sw-clin"></span> clinical range 70–180</span>
 </div>
 
 <!-- ── Scenario fan ────────────────────────────────────────────────── -->
@@ -195,8 +195,8 @@
 <div class="legend">
   <span><span class="sw sw-nom"></span> nominal (0 U)</span>
   <span><span class="sw sw-alt"></span> dose scenarios</span>
-  <span><span class="sw sw-band-g"></span> clinical 70–180</span>
-  <span><span class="sw sw-band-a"></span> personal 75–130</span>
+  <span><span class="sw sw-tgt"></span> personal target 75–130</span>
+  <span><span class="sw sw-clin"></span> clinical range 70–180</span>
 </div>
 
 <!-- ── Fan table ──────────────────────────────────────────────────── -->
