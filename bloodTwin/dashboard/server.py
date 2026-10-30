@@ -19,14 +19,16 @@ from pathlib import Path
 import jinja2
 import pandas as pd
 
-from bloodTwin.dashboard.charts import render_fan_svg, render_history_svg
+from bloodTwin.dashboard.charts import render_fan_svg, render_history_svg, render_diagnostic_svg
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-REPO_ROOT    = Path(__file__).resolve().parents[2]
-LATEST_JSON  = REPO_ROOT / "bloodBath" / "logs" / "inference_latest.json"
-MERGED_DIR   = REPO_ROOT / "bloodBath" / "bloodBank" / "merged"
-RAW_LSTM_DIR = REPO_ROOT / "bloodBath" / "bloodBank" / "raw" / "lstm"
-TEMPLATES    = Path(__file__).parent / "templates"
+REPO_ROOT     = Path(__file__).resolve().parents[2]
+LATEST_JSON   = REPO_ROOT / "bloodBath" / "logs" / "inference_latest.json"
+ARCHIVE_DIR   = REPO_ROOT / "bloodBath" / "logs" / "inference_archive"
+MERGED_DIR    = REPO_ROOT / "bloodBath" / "bloodBank" / "merged"
+RAW_LSTM_DIR  = REPO_ROOT / "bloodBath" / "bloodBank" / "raw" / "lstm"
+TEMPLATES     = Path(__file__).parent / "templates"
+ARCHIVE_MAX   = 96   # keep 8h @ 5-min intervals
 
 HOST  = os.environ.get("DASHBOARD_HOST", "127.0.0.1")
 PORT  = int(os.environ.get("DASHBOARD_PORT", "8765"))
@@ -42,6 +44,37 @@ _env = jinja2.Environment(
 
 
 # ── Data loading ──────────────────────────────────────────────────────────────
+
+def _maybe_archive(data: dict) -> None:
+    """Save a timestamped copy of the current inference JSON for diagnostics."""
+    ts = data.get("timestamp", "")
+    if not ts:
+        return
+    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    safe = ts.replace(":", "").replace("+", "").replace("-", "")[:15]
+    dest = ARCHIVE_DIR / f"inference_{safe}.json"
+    if not dest.exists():
+        try:
+            dest.write_text(json.dumps(data))
+            # Prune oldest beyond ARCHIVE_MAX
+            files = sorted(ARCHIVE_DIR.glob("inference_*.json"))
+            for old in files[:-ARCHIVE_MAX]:
+                old.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _load_archive() -> list[dict]:
+    if not ARCHIVE_DIR.exists():
+        return []
+    entries = []
+    for f in sorted(ARCHIVE_DIR.glob("inference_*.json"))[-ARCHIVE_MAX:]:
+        try:
+            entries.append(json.loads(f.read_text()))
+        except Exception:
+            pass
+    return entries
+
 
 def _load_inference() -> tuple[dict, str | None]:
     try:
@@ -187,10 +220,14 @@ def render_page() -> str:
     p30        = _point_at(fan, 5)
     p60        = _point_at(fan, 11)
 
-    # ── Charts ──────────────────────────────────────────────────────────────
+    # ── Archive + Charts ────────────────────────────────────────────────────
+    if data:
+        _maybe_archive(data)
+    archive     = _load_archive()
     history_df  = _load_history_df()
     fan_svg     = render_fan_svg(fan)
     history_svg = render_history_svg(history_df)
+    diag_svg    = render_diagnostic_svg(history_df, archive)
 
     tmpl = _env.get_template("index.html.j2")
     return tmpl.render(
@@ -218,6 +255,8 @@ def render_page() -> str:
         fan_rows     = _fan_rows(fan),
         fan_svg      = fan_svg,
         history_svg  = history_svg,
+        diag_svg     = diag_svg,
+        archive_count = len(archive),
         json_path    = str(LATEST_JSON),
     )
 

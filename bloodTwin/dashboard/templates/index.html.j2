@@ -216,15 +216,162 @@
 </table>
 </div>
 
+<!-- ── Diagnostic: past predictions ────────────────────────────────── -->
+<h2>model accuracy — past predictions vs actual</h2>
+<div class="history-wrap" id="diag-wrap">{{ diag_svg | safe }}</div>
+<div class="legend" style="margin-bottom:0">
+  <span><span class="sw sw-nom"></span> actual BG</span>
+  <span><span class="sw sw-alt" style="opacity:0.4"></span> past 60-min predictions ({{ archive_count }} shown)</span>
+  <span><span class="sw sw-tgt"></span> personal 75–130</span>
+  <span><span class="sw sw-clin"></span> clinical 70–180</span>
+</div>
+
 <div class="footer">
   Auto-refresh 60s &middot;
   <span style="font-family:monospace">{{ json_path }}</span>
 </div>
 
 <script>
-// Scroll history chart to the right (most recent) on load.
-var hw = document.getElementById("hist-wrap");
-if (hw) hw.scrollLeft = hw.scrollWidth;
+(function() {
+  // ── Scroll history + diagnostic charts to "now" (right edge) ──────────
+  ["hist-wrap", "diag-wrap"].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.scrollLeft = el.scrollWidth;
+  });
+
+  // ── Fan chart: cursor + scenario highlight + tooltip ──────────────────
+  var fanSvg = document.getElementById("bb-fan");
+  if (fanSvg) {
+    var fanCursor = document.getElementById("bb-fan-cursor");
+    var fanTip    = document.getElementById("bb-fan-tip");
+    var fanTipBg  = document.getElementById("bb-fan-tip-bg");
+    var fanT1     = document.getElementById("bb-fan-t1");
+    var fanT2     = document.getElementById("bb-fan-t2");
+    var fanT3     = document.getElementById("bb-fan-t3");
+    var fanSteps  = JSON.parse(fanSvg.getAttribute("data-steps"));
+    var fanMt     = parseFloat(fanSvg.getAttribute("data-mt"));
+    var fanPh     = parseFloat(fanSvg.getAttribute("data-ph"));
+
+    function fanSvgX(e) {
+      var pt = fanSvg.createSVGPoint();
+      pt.x = e.clientX; pt.y = e.clientY;
+      return pt.matrixTransform(fanSvg.getScreenCTM().inverse()).x;
+    }
+    function nearestStep(sx) {
+      var best = 0, bd = 1e9;
+      fanSteps.forEach(function(cx, i) {
+        var d = Math.abs(cx - sx);
+        if (d < bd) { bd = d; best = i; }
+      });
+      return best;
+    }
+    function highlightScenario(dose) {
+      document.querySelectorAll(".bb-scenario").forEach(function(g) {
+        var match = (dose === null || g.getAttribute("data-scenario") === dose);
+        var nom   = g.getAttribute("data-nom") === "1";
+        g.querySelectorAll(".bb-line").forEach(function(l) {
+          l.setAttribute("opacity", match ? "1" : "0.15");
+          l.setAttribute("stroke-width", match ? (nom ? "3" : "2.2") : (nom ? "2.5" : "1.3"));
+        });
+      });
+    }
+    function resetHighlight() {
+      document.querySelectorAll(".bb-scenario").forEach(function(g) {
+        var nom = g.getAttribute("data-nom") === "1";
+        g.querySelectorAll(".bb-line").forEach(function(l) {
+          l.setAttribute("opacity", nom ? "1" : "0.7");
+          l.setAttribute("stroke-width", nom ? "2.5" : "1.3");
+        });
+      });
+    }
+
+    fanSvg.addEventListener("mousemove", function(e) {
+      var sx = fanSvgX(e);
+      var cx = fanSteps[nearestStep(sx)];
+      fanCursor.setAttribute("x1", cx); fanCursor.setAttribute("x2", cx);
+      fanCursor.setAttribute("visibility", "visible");
+    });
+    fanSvg.addEventListener("mouseleave", function() {
+      fanCursor.setAttribute("visibility", "hidden");
+      fanTip.setAttribute("visibility", "hidden");
+      resetHighlight();
+    });
+
+    document.querySelectorAll(".bb-pt").forEach(function(el) {
+      el.addEventListener("mouseover", function(e) {
+        var dose = e.target.getAttribute("data-dose");
+        var mins = e.target.getAttribute("data-mins");
+        var bg   = e.target.getAttribute("data-bg");
+        var ci   = e.target.getAttribute("data-ci");
+        var sx   = parseFloat(e.target.getAttribute("data-sx"));
+        var sy   = parseFloat(e.target.getAttribute("data-sy"));
+        highlightScenario(dose);
+        fanCursor.setAttribute("x1", sx); fanCursor.setAttribute("x2", sx);
+        fanCursor.setAttribute("visibility", "visible");
+        var W = 160, H = ci ? 54 : 38, p = 7;
+        var tx = sx + 14, ty = sy - H - 6;
+        if (tx + W > 870) { tx = sx - W - 8; }
+        if (ty < 10)      { ty = sy + 10; }
+        fanTipBg.setAttribute("x", tx - p); fanTipBg.setAttribute("y", ty - 16);
+        fanTipBg.setAttribute("width", W);  fanTipBg.setAttribute("height", H + 8);
+        fanT1.setAttribute("x", tx); fanT1.setAttribute("y", ty);
+        fanT1.textContent = dose;
+        fanT2.setAttribute("x", tx); fanT2.setAttribute("y", ty + 16);
+        fanT2.textContent = "+" + mins + "m → " + bg + " mg/dL";
+        fanT3.setAttribute("x", tx); fanT3.setAttribute("y", ty + 30);
+        fanT3.textContent = ci ? "90% CI [" + ci + "]" : "";
+        fanTip.setAttribute("visibility", "visible");
+      });
+      el.addEventListener("mouseout", function() {
+        resetHighlight();
+        fanTip.setAttribute("visibility", "hidden");
+      });
+    });
+  }
+
+  // ── History chart: cursor + tooltip ──────────────────────────────────
+  var histSvg = document.getElementById("bb-hist");
+  if (histSvg) {
+    var histOverlay = document.getElementById("bb-hist-overlay");
+    var histCursor  = document.getElementById("bb-hist-cursor");
+    var histTip     = document.getElementById("bb-hist-tip");
+    var histTipBg   = document.getElementById("bb-hist-tip-bg");
+    var histT1      = document.getElementById("bb-hist-t1");
+    var histT2      = document.getElementById("bb-hist-t2");
+    var histXs      = JSON.parse(histSvg.getAttribute("data-xs"));
+    var histBgs     = JSON.parse(histSvg.getAttribute("data-bgs"));
+    var histTs      = JSON.parse(histSvg.getAttribute("data-ts"));
+    var histW       = parseFloat(histSvg.getAttribute("data-W"));
+
+    function nearestHistIdx(ex) {
+      var best = 0, bd = 1e9;
+      histXs.forEach(function(cx, i) {
+        var d = Math.abs(cx - ex); if (d < bd) { bd = d; best = i; }
+      });
+      return best;
+    }
+    histOverlay.addEventListener("mousemove", function(e) {
+      var ex  = e.offsetX;
+      var idx = nearestHistIdx(ex);
+      var cx  = histXs[idx];
+      histCursor.setAttribute("x1", cx); histCursor.setAttribute("x2", cx);
+      histCursor.setAttribute("visibility", "visible");
+      var tx = cx + 8, ty = parseFloat(histSvg.getAttribute("data-mt")) + 20;
+      if (tx + 120 > histW - 10) { tx = cx - 128; }
+      histTipBg.setAttribute("x", tx - 4); histTipBg.setAttribute("y", ty - 14);
+      histTipBg.setAttribute("width", 120); histTipBg.setAttribute("height", 34);
+      histT1.setAttribute("x", tx); histT1.setAttribute("y", ty);
+      histT1.textContent = histTs[idx];
+      histT2.setAttribute("x", tx); histT2.setAttribute("y", ty + 14);
+      histT2.textContent = histBgs[idx].toFixed(1) + " mg/dL";
+      histTip.setAttribute("visibility", "visible");
+    });
+    histOverlay.addEventListener("mouseleave", function() {
+      histCursor.setAttribute("visibility", "hidden");
+      histTip.setAttribute("visibility", "hidden");
+    });
+  }
+})();
 </script>
 </body>
 </html>
