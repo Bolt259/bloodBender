@@ -92,3 +92,39 @@ class TestEnsurePassthroughFeatures:
         df = _df(bolus=[1.0] * 5)
         out = _ensure_passthrough_features(df, FEAT_V12)
         assert isinstance(out, pd.DataFrame)
+
+
+FEAT_V13 = ["bg", "bolus_dose", "hypothetical_dose", "site_change"]
+
+
+class TestSiteChangeSynthesis:
+
+    def test_site_change_copied_from_raw_df(self):
+        feature_df = _df(bolus=[0.0] * 5)
+        raw_df = pd.DataFrame({"bg": [100.0]*5, "bolus_dose": [0.0]*5,
+                                "site_change": [0.0, 0.0, 1.0, 0.0, 0.0]})
+        out = _ensure_passthrough_features(feature_df, FEAT_V13, raw_df=raw_df)
+        assert list(out["site_change"]) == [0.0, 0.0, 1.0, 0.0, 0.0]
+
+    def test_site_change_defaults_to_zero_without_raw_df(self):
+        feature_df = _df(bolus=[0.0] * 5)
+        out = _ensure_passthrough_features(feature_df, FEAT_V13)
+        assert "site_change" in out.columns
+        assert (out["site_change"] == 0.0).all()
+
+    def test_site_change_not_overwritten_if_present(self):
+        feature_df = pd.DataFrame({"bg": [100.0]*5, "bolus_dose": [0.0]*5,
+                                    "site_change": [1.0, 0.0, 0.0, 0.0, 0.0]})
+        out = _ensure_passthrough_features(feature_df, FEAT_V13)
+        assert list(out["site_change"]) == [1.0, 0.0, 0.0, 0.0, 0.0]
+
+    def test_site_change_zeros_when_absent_from_raw_df(self):
+        feature_df = _df(bolus=[0.0] * 5)
+        raw_df = pd.DataFrame({"bg": [100.0]*5})  # no site_change column
+        out = _ensure_passthrough_features(feature_df, FEAT_V13, raw_df=raw_df)
+        assert (out["site_change"] == 0.0).all()
+
+    def test_v12_model_unaffected_by_site_change(self):
+        feature_df = _df(bolus=[1.0] * 5)
+        out = _ensure_passthrough_features(feature_df, FEAT_V12)
+        assert "site_change" not in out.columns

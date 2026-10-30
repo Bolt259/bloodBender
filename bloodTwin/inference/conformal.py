@@ -349,7 +349,7 @@ class ConformalPredictor:
         feature_df = build_feature_frame(df)
         if len(feature_df) < LOOKBACK:
             raise ValueError(f"Need ≥{LOOKBACK} rows, got {len(feature_df)}")
-        feature_df = ensure_passthrough_features(feature_df, self._feature_names)
+        feature_df = ensure_passthrough_features(feature_df, self._feature_names, raw_df=df)
         arr = feature_df[list(self._feature_names)].iloc[-LOOKBACK:].to_numpy(dtype=np.float32)
         if "timestamp" in df.columns:
             ts_raw = pd.Timestamp(df["timestamp"].iloc[-1])
@@ -385,7 +385,7 @@ class ConformalPredictor:
         feature_df = build_feature_frame(df)
         if len(feature_df) < LOOKBACK:
             raise ValueError(f"Need ≥{LOOKBACK} rows, got {len(feature_df)}")
-        feature_df = ensure_passthrough_features(feature_df, self._feature_names)
+        feature_df = ensure_passthrough_features(feature_df, self._feature_names, raw_df=df)
         arr = feature_df[list(self._feature_names)].iloc[-LOOKBACK:].to_numpy(dtype=np.float32)
         if "timestamp" in df.columns:
             ts_raw = pd.Timestamp(df["timestamp"].iloc[-1])
