@@ -8,6 +8,24 @@ Priority: P0 (blocking) → P1 (high) → P2 (normal) → P3 (low/someday)
 
 ---
 
+## Epics
+
+Three cross-cutting initiatives. Tickets can belong to more than one.
+
+### E1 — Data Integrity
+*Make sure what goes into the model is correct and complete.*
+BB-01, BB-02, BB-03, BT-02
+
+### E2 — Model Quality
+*Make the model better: accuracy, calibration, dose-response.*
+BT-06, BT-07, and future retrain tickets. Also depends on E1 (garbage in → garbage out).
+
+### E3 — Clinical UX
+*Show predictions usefully; alert on risk before it happens.*
+BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
+
+---
+
 ## P0 — Blocking / Critical
 
 | ID    | Sub     | Status | Title                                         | Deps   |
