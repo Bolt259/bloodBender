@@ -581,11 +581,10 @@ class ScenarioSimulator:
         return bool(names) and "hypothetical_dose" in names
 
     def fan(self, df: pd.DataFrame, **kwargs) -> ScenarioFan:
-        """Dispatch to the learned dose-conditioned fan when the loaded model
-        supports it, else fall back to the physics fan (backward-compatible
-        with 13-feature MVP artifacts)."""
-        if self.supports_dose_conditioning:
-            return self.dose_conditioned_fan(df, **kwargs)
+        """Dispatch to physics fan (run()). The dose-conditioned fan
+        (dose_conditioned_fan()) is available but requires a different training
+        regime to produce correct dose-response direction; see TICKETS.md BT-06.
+        Physics fan is correct and clinically valid as the default."""
         return self.run(df, **kwargs)
 
     def dose_conditioned_fan(

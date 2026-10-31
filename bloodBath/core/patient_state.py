@@ -460,7 +460,9 @@ def build_feature_frame(
     )
     out["bg_slope_15min"] = derive_bg_slope(out["bg"], window_minutes=15)
     out["bg_slope_30min"] = derive_bg_slope(out["bg"], window_minutes=30)
-    out["sin_time"], out["cos_time"] = derive_time_of_day(ts_index)
+    _sin, _cos = derive_time_of_day(ts_index)
+    out["sin_time"] = _sin.values  # strip DatetimeIndex — out has integer index
+    out["cos_time"] = _cos.values
     out["iob"]             = derive_iob(out["bolus_dose"], insulin_type=insulin_type)
     out["bg_acceleration"] = derive_bg_acceleration(out["bg_slope_15min"])
 

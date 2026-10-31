@@ -41,6 +41,9 @@
 !docs/**
 !NIX*.md
 !CLEANUP_SUMMARY.md
+!TICKETS.md
+!scripts/
+!scripts/**/*
 
 # Exclude Python virtual environments (legacy - use Nix now!)
 bloodBath-env/
