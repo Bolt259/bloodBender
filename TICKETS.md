@@ -59,7 +59,7 @@ BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
 | ID    | Sub     | Status   | Title                                              | Deps   |
 |-------|---------|----------|----------------------------------------------------|--------|
 | BT-02 | twin    | open     | 41-day gap audit (pump 1539514 inactive period)    | —      |
-| BT-03 | twin    | open     | CLAUDE.md — project context for AI sessions        | BB-01  |
+| BT-03 | twin    | done     | ~~CLAUDE.md — project context for AI sessions~~    | BB-01  |
 | BB-02 | bath    | open     | Tandem API systematic field audit                  | —      |
 | IN-01 | infra   | open     | Phone notification on hypoglycemia risk            | —      |
 
@@ -70,10 +70,10 @@ Also check: does the IOB physiological cap (`b205c913`) interact correctly with 
 **Action:** `grep -n "mask_label" bloodBath/data/resampler.py` around lines 563-580, run
 `nix develop .#default -- python -c "import ...dataset; check window counts per pump"`.
 
-### BT-03: CLAUDE.md
-Create `/home/lkshply/dev/bloodBender/CLAUDE.md` so future AI sessions (and Claude Code)
-auto-load project context without needing to mine transcripts. Should cover: branch strategy,
-nix shell commands, `.env` location, pump serials, artifact directories, active service URLs.
+### BT-03: CLAUDE.md ✅ RESOLVED 2026-10-31
+Created and pushed. Covers: nix shells + apps, pump serials, artifact paths, feature schema
+v1.3, known gotchas (pandas index alignment, dose-conditioning direction), branch strategy,
+systemd timers, open work pointers. Commit `ed0ca247`.
 
 ### BB-02: Tandem API field audit
 Architecture redesign plan calls for systematic verification of every extractor field against
