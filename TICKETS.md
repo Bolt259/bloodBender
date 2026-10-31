@@ -30,12 +30,12 @@ BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
 
 | ID    | Sub     | Status | Title                                         | Deps   |
 |-------|---------|--------|-----------------------------------------------|--------|
-| BB-01 | infra   | open   | Push main to origin (82 commits unprotected)  | —      |
+| BB-01 | infra   | done   | ~~Push main to origin (84 commits pushed)~~   | —      |
 | BT-01 | twin    | done   | ~~Validate dose-conditioned fan vs physics fan~~ | —   |
 
-### BB-01: Push main to origin
-82 local commits never pushed. Single point of failure — NVMe failure = all bb3 work lost.
-Requires reviewing what to push (`.env` must stay local, model artifacts OK, glucose CSVs gitignored).
+### BB-01: Push main to origin ✅ RESOLVED 2026-10-31
+84 commits pushed to `git@github.com:Bolt259/bloodBender.git`. `.env` confirmed not tracked;
+`.env.example` has only placeholder credentials; `.envrc` has no secrets. All clear.
 
 ### BT-01: Validate dose-conditioning ✅ RESOLVED 2026-10-31
 **Findings:**

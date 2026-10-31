@@ -42,6 +42,7 @@
 !NIX*.md
 !CLEANUP_SUMMARY.md
 !TICKETS.md
+!CLAUDE.md
 !scripts/
 !scripts/**/*
 
