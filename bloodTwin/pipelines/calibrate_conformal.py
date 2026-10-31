@@ -24,6 +24,7 @@ import onnxruntime as ort
 import pandas as pd
 
 from bloodTwin.inference.conformal import ConformalCalibrator, LOOKBACK, HORIZON
+from bloodTwin._feature_utils import ensure_passthrough_features
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
@@ -49,11 +50,6 @@ def load_val_csv(pump_id: str) -> pd.DataFrame:
         raise FileNotFoundError(f"No validate CSVs in {split_dir}")
     df = pd.read_csv(csvs[-1], comment="#")
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    # Dose-conditioned schema v1.2: CSVs predate hypothetical_dose; it equals
-    # the actual bolus delivered each step for calibration windows.
-    if "hypothetical_dose" not in df.columns:
-        df["hypothetical_dose"] = df["bolus_dose"].fillna(0.0) \
-            if "bolus_dose" in df.columns else 0.0
     return df.sort_values("timestamp").reset_index(drop=True)
 
 
@@ -75,6 +71,7 @@ def collect_residuals(
     residuals  : [n_valid, HORIZON]  absolute errors (NaN where BG not observed)
     bg_stds    : [n_valid]  BG std of lookback window (for volatility scaling)
     """
+    df = ensure_passthrough_features(df, feat_names)
     feat_arr = df[feat_names].to_numpy(dtype=np.float32)
     bg_arr   = df["bg"].to_numpy(dtype=np.float32)
     mask_label = df["mask_label"].to_numpy(dtype=bool) if "mask_label" in df.columns \

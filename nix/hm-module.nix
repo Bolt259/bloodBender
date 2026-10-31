@@ -22,6 +22,8 @@ let
   sys = pkgs.system;
   syncPkg = self.packages.${sys}.bloodbender-sync;
   infPkg  = self.packages.${sys}.bloodbender-inference-cron;
+  calPkg  = self.packages.${sys}.bloodbender-calibrate;
+  isfPkg  = self.packages.${sys}.bloodbender-fit-isf;
 in
 {
   options.services.bloodbender = {
@@ -49,9 +51,22 @@ in
       default = "5min";
       description = "OnUnitActiveSec for the inference timer.";
     };
+
+    enableCalibrationTimer = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable the monthly conformal recalibration timer (#9).";
+    };
+
+    enableIsfTimer = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable the weekly ISF re-estimation timer (#11).";
+    };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.enable (lib.mkMerge [
+   {
     systemd.user.services.bloodbender-sync = {
       Unit = {
         Description = "bloodBender incremental pump sync";
@@ -102,5 +117,55 @@ in
       };
       Install.WantedBy = [ "timers.target" ];
     };
-  };
+   }
+
+   (lib.mkIf cfg.enableCalibrationTimer {
+     systemd.user.services.bloodbender-calibrate = {
+       Unit.Description = "bloodBender monthly conformal recalibration";
+       Service = {
+         Type = "oneshot";
+         Environment = [ "BLOODBENDER_ROOT=${cfg.repoPath}" ];
+         ExecStart = "${calPkg}/bin/bloodbender-calibrate";
+         StandardOutput = "journal";
+         StandardError = "journal";
+       };
+     };
+
+     systemd.user.timers.bloodbender-calibrate = {
+       Unit.Description = "bloodBender conformal recalibration (monthly)";
+       Timer = {
+         OnCalendar = "monthly";
+         Persistent = true;
+         AccuracySec = "1h";
+       };
+       Install.WantedBy = [ "timers.target" ];
+     };
+   })
+
+   (lib.mkIf cfg.enableIsfTimer {
+     systemd.user.services.bloodbender-fit-isf = {
+       Unit.Description = "bloodBender weekly ISF re-estimation";
+       Service = {
+         Type = "oneshot";
+         Environment = [
+           "BLOODBENDER_ROOT=${cfg.repoPath}"
+           "PUMP=${cfg.pumpSerial}"
+         ];
+         ExecStart = "${isfPkg}/bin/bloodbender-fit-isf";
+         StandardOutput = "journal";
+         StandardError = "journal";
+       };
+     };
+
+     systemd.user.timers.bloodbender-fit-isf = {
+       Unit.Description = "bloodBender ISF re-estimation (weekly)";
+       Timer = {
+         OnCalendar = "weekly";
+         Persistent = true;
+         AccuracySec = "1h";
+       };
+       Install.WantedBy = [ "timers.target" ];
+     };
+   })
+  ]);
 }

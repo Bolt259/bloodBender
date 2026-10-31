@@ -55,6 +55,7 @@ import numpy as np
 import onnxruntime as ort
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
+from bloodTwin._feature_utils import ensure_passthrough_features
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import label_binarize
 
@@ -267,12 +268,7 @@ def collect_features_and_labels(
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values("timestamp").reset_index(drop=True)
 
-    # Dose-conditioned schema v1.2: synthesize hypothetical_dose from the actual
-    # bolus when the CSV predates the feature (train/eval: == bolus_dose).
-    if "hypothetical_dose" in feat_names and "hypothetical_dose" not in df.columns:
-        df["hypothetical_dose"] = df["bolus_dose"].fillna(0.0) \
-            if "bolus_dose" in df.columns else 0.0
-
+    df = ensure_passthrough_features(df, feat_names)
     feat_arr = df[feat_names].to_numpy(dtype=np.float32)
     bg_arr   = df["bg"].to_numpy(dtype=np.float32)
     scale_s  = np.where(scale == 0, 1.0, scale)

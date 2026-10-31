@@ -162,10 +162,12 @@ class PatientConfig:
     All can be set from the derived ISF analysis or patient-supplied values.
     """
     isf: float = 24.0             # mg/dL per unit insulin (derived from pump history)
-    correction_target: float = 100.0  # aim for this BG (mg/dL)
+    correction_target: float = 110.0  # aim for this BG — midpoint of personal 75–130 range
+    target_lo: float = 75.0       # personal target lower bound (display + out-of-range logic)
+    target_hi: float = 130.0      # personal target upper bound
     max_dose: float = 6.0         # hard ceiling on simulated dose (U)
     dose_step: float = 0.25       # granularity (U)
-    min_dose_range: float = 1.0   # always show at least this range even if ECD≈0
+    min_dose_range: float = 2.0   # always show 0–2U even if ECD is small
 
     # Insulin PK — shapes the dose→BG offset in the scenario fan.  Defaults to
     # Fiasp (this patient's insulin: t_peak=55 min, DIA=300 min).

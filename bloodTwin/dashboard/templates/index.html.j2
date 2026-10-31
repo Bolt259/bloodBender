@@ -172,6 +172,11 @@
     <div class="sub">correction {{ ecd }} U</div>
   </div>
   <div class="card">
+    <div class="label">IOB</div>
+    <div class="val" style="font-size:22px">{{ iob }} <span class="unit">U</span></div>
+    <div class="sub">active insulin on board</div>
+  </div>
+  <div class="card">
     <div class="label">Meal prob</div>
     <div class="val" style="font-size:22px">{{ meal_prob }}</div>
     <div class="sub">{{ model_trigger }}</div>
@@ -193,7 +198,7 @@
 <h2>60-min scenario fan</h2>
 <div class="chart-wrap">{{ fan_svg | safe }}</div>
 <div class="legend">
-  <span><span class="sw sw-nom"></span> nominal (0 U)</span>
+  <span><span class="sw sw-nom"></span> no dose (0 U)</span>
   <span><span class="sw sw-alt"></span> dose scenarios</span>
   <span><span class="sw sw-tgt"></span> personal target 75–130</span>
   <span><span class="sw sw-clin"></span> clinical range 70–180</span>

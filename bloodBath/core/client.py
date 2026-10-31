@@ -4,7 +4,7 @@ Main TandemHistoricalSyncClient for orchestrating pump data synchronization
 
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -110,12 +110,21 @@ class TandemHistoricalSyncClient:
         start_date = pump_config.start_date
         end_date = pump_config.end_date
 
-        # In update mode, start from last successful sync
+        # In update mode, start from last successful sync minus a 3-hour
+        # retroactive window so Dexcom retroactive calibration corrections
+        # (which can revise past readings by 30-50 mg/dL) are captured on
+        # the next sync cycle rather than being permanently missed.
         if update_mode and not force_full:
             last_sync = self._get_last_sync_date(pump_config.serial)
             if last_sync:
-                start_date = last_sync
-                logger.info(f"Update mode: starting from {start_date}")
+                try:
+                    meta = self.metadata.get(pump_config.serial)
+                    anchor = (meta.last_updated if meta and meta.last_updated else last_sync)
+                    anchor_dt = datetime.fromisoformat(str(anchor).split(".")[0].rstrip("Z"))
+                    start_date = (anchor_dt - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S")
+                except Exception:
+                    start_date = last_sync
+                logger.info(f"Update mode: starting from {start_date} (3h retroactive window)")
         
         try:
             # Fetch raw events
