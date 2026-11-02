@@ -2,6 +2,21 @@
 
 Auto-loaded by Claude Code. Read this before anything else.
 
+## Two-Directory Architecture
+
+The project lives in **two separate directories**:
+
+| Path | Role |
+|------|------|
+| `/home/lkshply/dev/bloodBender` | Source repo (this repo). Code changes go here. |
+| `/home/lkshply/dev/bloodBender-data-sync` | Runtime data directory. Systemd services run from here, with `BLOODBENDER_ROOT=/home/lkshply/dev/bloodBender-data-sync`. Raw sync data and merged LSTM CSVs live here. |
+
+The `bloodBender-data-sync` dir is a separate git repo (older snapshot of the code). The running nix services (`bloodbender-sync`, `bloodbender-inference-cron`) use `PYTHONPATH=/home/lkshply/dev/bloodBender-data-sync`, so they execute source code from data-sync, not from this repo. To push a source change into production: patch `bloodBender-data-sync` manually and restart services via `nix run .#install-services`.
+
+**Important shell hygiene**: The devshell hook sets `PYTHONPATH=$PWD`. Always run nix shell commands from `/home/lkshply/dev/bloodBender` (never from data-sync), or tests and imports will load data-sync source instead of this repo.
+
+`bloodBender/bloodBath/bloodBank/merged` is a symlink → `bloodBender-data-sync/bloodBath/bloodBank/merged`. This lets training scripts find LSTM CSVs at their expected relative path.
+
 ## What This Project Is
 
 Personal diabetes management system. Single patient (lkshply). **No dosing commands — display and alert only.**
