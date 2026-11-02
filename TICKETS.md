@@ -58,9 +58,10 @@ BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
 
 | ID    | Sub     | Status   | Title                                              | Deps   |
 |-------|---------|----------|----------------------------------------------------|--------|
+| BB-06 | bath    | open     | **Retrain v1.4** after basal/bolus extractor fixes | BB-02  |
 | BT-02 | twin    | done     | ~~41-day gap audit (pump 1539514 inactive period)~~ | —     |
 | BT-03 | twin    | done     | ~~CLAUDE.md — project context for AI sessions~~    | BB-01  |
-| BB-02 | bath    | open     | Tandem API systematic field audit                  | —      |
+| BB-02 | bath    | done     | ~~Tandem API systematic field audit~~              | —      |
 | IN-01 | infra   | done     | ~~Phone notification on hypoglycemia risk~~        | —      |
 
 ### BT-02: 41-day gap audit ✅ RESOLVED 2026-10-31
@@ -88,10 +89,53 @@ Created and pushed. Covers: nix shells + apps, pump serials, artifact paths, fea
 v1.3, known gotchas (pandas index alignment, dose-conditioning direction), branch strategy,
 systemd timers, open work pointers. Commit `ed0ca247`.
 
-### BB-02: Tandem API field audit
-Architecture redesign plan calls for systematic verification of every extractor field against
-real BFF JSON. `casing bug` caught in 2026 silently dropped 93% of BG. Follow-up: audit
-all fields in `bloodBath/data/extractors.py` against a captured BFF response sample.
+### BB-02: Tandem API field audit ✅ RESOLVED 2026-11-01
+
+Full audit of `extractors.py` attribute probes against `eventparser/events.py` dataclasses.
+Event flow: raw BFF JSON → `generic.py Event()` → typed dataclass → `EventExtractor`.
+
+**Bugs found and fixed (commit with BB-02 closure):**
+
+1. **Basal rate 10× inflation** — `LidBasalDelivery.commandedRate` is milliunits/hr;
+   extractor divided by 100 instead of 1000. Every basal reading was 10× too high.
+2. **Basal rate = 0 for LidBasalRateChange/LidNewDay** — real field is `commandedBasalRate`
+   (camelCase, U/hr directly); extractor probed dead lowercase `commandedbasalrate`. These
+   events produced `basal_rate = 0` rather than being excluded.
+3. **LidBolusCompleted/LidBolexCompleted silently dropped** — real field is `insulinDelivered`
+   (units). Extractor only probed `deliveredTotal` (LidBolusDelivery). The implicit `None`
+   return caused `bolus_dose > 0` to throw TypeError, swallowed by except. Added
+   `insulinDelivered` as fallback probe.
+4. **LidBgReadingTaken (fingerstick) classified as CGM** — `hasattr(event, 'bg')` matches
+   both fingerstick events and is extracted via the `bg` branch. Low severity; fingerstick
+   BG is physiologically valid data. Left as-is, noted for awareness.
+
+**Dead probes (harmless):** `currentglucosedisplayvalue`, `sgv`, `value`, `glucoseValue`,
+`commandedbasalrate`, `bolusAmount`, `insulin` — none match any real dataclass field.
+
+**⚠ DEPLOYMENT WARNING:** Bugs 1–3 change the values produced by the extractor.
+The current v1.3 artifacts (scaler.pkl, model.onnx, conformal_summary.json) were trained and
+calibrated on the pre-fix values. DO NOT restart bloodbender-sync or bloodbender-inference-cron
+with this fix active until a full retrain + recalibration is complete — see BB-06.
+
+**Bolus double-counting note:** LidBolusDelivery (mid-delivery) and LidBolusCompleted
+(end-of-bolus) may fire for the same physical bolus with different timestamps; they both
+now extract a dose. The resampler's bolus aggregation (max per 5-min bin) limits the impact
+but the exact behavior is unverified — investigate during BB-06 retrain data prep.
+
+### BB-06: Retrain required after extractor fixes
+The `_extract_basal_rate` and `_extract_bolus_dose` fixes (BB-02) change the feature values
+the extractor produces. The current v1.3 artifacts were trained and calibrated on the pre-fix
+distribution. Deploying the fixes to the running sync/inference services without retraining
+will push basal_rate values far out of the scaler's learned range, breaking inference.
+
+**Required steps before deploying the extractor fix to production:**
+1. Stop `bloodbender-sync` and `bloodbender-inference-cron` systemd timers
+2. Regenerate merged LSTM CSVs: run the full sync with the fixed extractor
+3. Retrain v1.4: `nix develop .#cuda`, run training pipeline on the new data
+4. Export ONNX, refit scaler, run conformal calibration (`nix run .#bloodbender-calibrate`)
+5. Update `BLOODTWIN_ARTIFACTS` to point to the new artifact dir (or rename)
+6. Restart services
+7. Monitor `bloodBath/logs/inference_latest.json` for sanity (basal_rate ~0.5-2.0, not ~5-20)
 
 ### IN-01: Phone notification on hypoglycemia risk ✅ RESOLVED 2026-11-01
 `bloodTwin/inference/notify.py` — stdlib-only, no extra deps. Two triggers:
@@ -146,6 +190,7 @@ bloodBath/bloodTwin/bareMetalBender, Rust planning for embedded port.
 | BM-01 | metal   | open     | bareMetalBender Rust/Tokio design doc                   | BT-01     |
 | BB-05 | bath    | deferred | Dexcom Clarity API cross-check for retroactive corr.    | —         |
 | BT-06 | twin    | open     | Dose-conditioned LSTM: proper training regime (Option C first) | —  |
+| BT-08 | twin    | open     | Baseline (0 U) prediction mean-reversion bias audit         | —         |
 | IN-03 | infra   | deferred | Re-login churn fix in real_tandemsource                 | —         |
 | BT-07 | twin    | deferred | sklearn version skew — pin or store as numpy arrays     | done?     |
 
@@ -157,6 +202,39 @@ Far future — Python MVP must be validated first.
 ### BB-05: Dexcom Clarity API
 Secondary cross-check for retroactive CGM corrections. Requires separate Dexcom credentials.
 Current mitigation: 3h re-pull window (`12472575`) + Hampel filter. Low priority.
+
+### BT-08: Baseline (0 U) prediction mean-reversion bias audit
+**Hypothesis:** The 0 U scenario may show BG trending toward the patient's typical range
+even when there is no physiological mechanism to explain it. The LSTM was trained on
+observational data where the patient was actively managing BG — so every time BG drifted
+high or low, a correction followed shortly after. The model may have learned a spurious
+`(high BG) → BG comes down` pattern that conflates the patient's future correction bolus
+with the natural trajectory, making the baseline prediction optimistically self-correcting.
+
+**Why it matters:** If 0 U baseline silently predicts mean-reversion, the physics fan
+scenarios all show dose effects as deltas relative to an already-optimistic baseline.
+The fan looks smaller than reality — underdosing becomes the "safe" apparent choice.
+
+**How to check:**
+1. Pull windows where current BG is ≥ 180 mg/dL (clearly elevated, no recent bolus in
+   last 60 min). Run baseline (0 U) prediction. If LSTM predicts BG declining toward
+   ~140 over the horizon without any insulin input, the bias is present.
+2. Compare predicted 60-min BG vs actual 60-min BG for these windows across the test set.
+   A systematic over-prediction of descent = mean-reversion artifact.
+3. Repeat for low BG windows (≤ 80) — if model predicts BG rising without food/glucagon
+   input, same artifact in the other direction.
+
+**Possible root causes:**
+- Observational data confounding: patient always corrected high BG → model learned "high
+  BG precedes a bolus → BG falls" without isolating the insulin effect.
+- `mask_label=False` windows excluded but correction windows are over-represented in
+  the training distribution (patient is active → fewer genuinely uncorrected highs).
+- Related to BT-06: dose conditioning is broken, so the model may be smuggling the
+  dose effect into the baseline via the BG trajectory signal.
+
+**Action:** Write `scripts/audit_baseline_meanreversion.py` — load test CSVs, filter
+elevated/low windows with no recent bolus, run ConformalPredictor on each, compare
+predicted vs actual 60-min BG. Plot predicted_bg_60min vs actual_bg_60min scatter.
 
 ### BT-07: sklearn version skew
 Scaler now loads as numpy arrays (`1aa372ed`) — may already be done. Verify and close.

@@ -95,10 +95,10 @@ class TestExtractBasalRate:
     def setup_method(self):
         self.ex = EventExtractor()
 
-    def test_commanded_rate_division(self, basal_event_commanded):
-        """commandedRate=125 → 1.25 U/hr (divide by 100)."""
+    def test_commanded_rate_milliunits(self, basal_event_commanded):
+        """commandedRate=1200 mU/hr → 1.2 U/hr (LidBasalDelivery, divide by 1000)."""
         result = self.ex._extract_basal_rate(basal_event_commanded)
-        assert result == pytest.approx(1.25)
+        assert result == pytest.approx(1.2)
 
     def test_commanded_rate_zero(self):
         """commandedRate=0 → 0.0 U/hr."""
@@ -106,29 +106,22 @@ class TestExtractBasalRate:
         result = self.ex._extract_basal_rate(evt)
         assert result == pytest.approx(0.0)
 
-    def test_fallback_commandedbasalrate(self):
-        """commandedbasalrate (lowercase) should be returned as-is."""
-        evt = _Evt(commandedbasalrate=0.85)
-        result = self.ex._extract_basal_rate(evt)
+    def test_commanded_basal_rate_direct(self, basal_event_commanded_basal_rate):
+        """commandedBasalRate=0.85 U/hr (LidBasalRateChange) → 0.85, no conversion."""
+        result = self.ex._extract_basal_rate(basal_event_commanded_basal_rate)
         assert result == pytest.approx(0.85)
+
+    def test_commanded_basal_rate_takes_priority(self):
+        """commandedBasalRate is probed before commandedRate."""
+        evt = _Evt(commandedBasalRate=1.2, commandedRate=9999)
+        result = self.ex._extract_basal_rate(evt)
+        assert result == pytest.approx(1.2)
 
     def test_no_attribute_returns_zero(self):
         """Event with no recognised basal attribute should return 0.0."""
         evt = _Evt(someField=1)
         result = self.ex._extract_basal_rate(evt)
         assert result == pytest.approx(0.0)
-
-    def test_value_attribute_large_heuristic(self):
-        """value > 10 treated as hundredths → divided by 100."""
-        evt = _Evt(value=150)
-        result = self.ex._extract_basal_rate(evt)
-        assert result == pytest.approx(1.5)
-
-    def test_value_attribute_small_passthrough(self):
-        """value ≤ 10 treated as already in U/hr → pass through."""
-        evt = _Evt(value=0.8)
-        result = self.ex._extract_basal_rate(evt)
-        assert result == pytest.approx(0.8)
 
 
 # ── _extract_bolus_dose ───────────────────────────────────────────────────────
@@ -138,40 +131,45 @@ class TestExtractBolusDose:
     def setup_method(self):
         self.ex = EventExtractor()
 
-    def test_delivered_total_large_divided_by_1000(self, bolus_event_delivered):
-        """deliveredTotal=3500 (>10) → 3.5 U (divide by 1000)."""
+    def test_delivered_total_milliunits(self, bolus_event_delivered):
+        """deliveredTotal=3500 mU → 3.5 U (LidBolusDelivery, divide by 1000)."""
         result = self.ex._extract_bolus_dose(bolus_event_delivered)
         assert result == pytest.approx(3.5)
 
-    def test_delivered_total_small_passthrough(self, bolus_event_small):
-        """deliveredTotal=4 (≤10) → 4.0 U (no division)."""
+    def test_delivered_total_small_milliunits(self, bolus_event_small):
+        """deliveredTotal=4 mU → 0.004 U (still milliunits, always /1000)."""
         result = self.ex._extract_bolus_dose(bolus_event_small)
-        assert result == pytest.approx(4.0)
+        assert result == pytest.approx(0.004)
 
-    def test_delivered_total_none_falls_through(self):
-        """
-        deliveredTotal=None: the condition `event.deliveredTotal is not None` is False,
-        so the function falls through and returns None (same as missing attribute).
-        The caller guards against None with `bolus_dose > 0`.
-        """
-        evt = _Evt(deliveredTotal=None)
+    def test_insulin_delivered_units_direct(self):
+        """insulinDelivered=2.5 U (LidBolusCompleted) → 2.5, no conversion."""
+        evt = _Evt(insulinDelivered=2.5)
         result = self.ex._extract_bolus_dose(evt)
-        assert result is None
+        assert result == pytest.approx(2.5)
 
-    def test_missing_attribute_returns_none(self):
-        """
-        Event with no deliveredTotal attribute → _extract_bolus_dose returns None
-        (implicit fall-through — no attribute matched).
+    def test_insulin_delivered_large_dose(self):
+        """insulinDelivered=12.0 U (large correction) → 12.0, no conversion."""
+        evt = _Evt(insulinDelivered=12.0)
+        result = self.ex._extract_bolus_dose(evt)
+        assert result == pytest.approx(12.0)
 
-        This is a known behaviour of the current implementation: the function body
-        only has one active branch (deliveredTotal).  If the event lacks it, the
-        function implicitly returns None.  The caller (normalize_bolus_events) guards
-        against this with `bolus_dose > 0` so None will not propagate to output.
-        We document this here rather than changing the production code.
-        """
+    def test_delivered_total_takes_priority_over_insulin_delivered(self):
+        """deliveredTotal is probed before insulinDelivered."""
+        evt = _Evt(deliveredTotal=3500, insulinDelivered=9.9)
+        result = self.ex._extract_bolus_dose(evt)
+        assert result == pytest.approx(3.5)
+
+    def test_delivered_total_none_falls_through_to_insulin_delivered(self):
+        """deliveredTotal=None → falls through to insulinDelivered."""
+        evt = _Evt(deliveredTotal=None, insulinDelivered=1.5)
+        result = self.ex._extract_bolus_dose(evt)
+        assert result == pytest.approx(1.5)
+
+    def test_missing_attribute_returns_zero(self):
+        """Event with no recognised bolus attribute returns 0.0."""
         evt = _Evt(someOtherField=5)
         result = self.ex._extract_bolus_dose(evt)
-        assert result is None  # implicit None — documented behaviour
+        assert result == pytest.approx(0.0)
 
     def test_delivered_total_zero(self):
         """deliveredTotal=0 → 0.0 U."""

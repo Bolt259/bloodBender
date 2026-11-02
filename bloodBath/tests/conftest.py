@@ -155,8 +155,14 @@ def bolus_event_small():
 
 @pytest.fixture()
 def basal_event_commanded():
-    """Basal event with commandedRate in hundredths (125 → 1.25 U/hr)."""
-    return _SimpleEvent(commandedRate=125)
+    """Basal event with commandedRate in milliunits/hr (1200 mU/hr → 1.2 U/hr)."""
+    return _SimpleEvent(commandedRate=1200)
+
+
+@pytest.fixture()
+def basal_event_commanded_basal_rate():
+    """Basal event with commandedBasalRate in units/hr (LidBasalRateChange style)."""
+    return _SimpleEvent(commandedBasalRate=0.85)
 
 
 # ── Synthetic LSTM DataFrame for save_splits tests ───────────────────────────

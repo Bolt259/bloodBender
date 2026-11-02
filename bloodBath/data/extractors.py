@@ -278,42 +278,57 @@ class EventExtractor:
         return float(bg_value) if bg_value is not None else None
     
     def _extract_basal_rate(self, event: Any) -> float:
-        """Extract basal rate with proper unit conversion"""
-        basal_rate = 0.0
-        
+        """Extract basal rate in U/hr.
+
+        Two real basal event types reach here (from eventparser/events.py):
+          LidBasalRateChange (id 3)  / LidNewDay (id 90):
+              commandedBasalRate: float  # already in units/hour
+          LidBasalDelivery (id 279):
+              commandedRate: int         # milliunits/hour — divide by 1000
+
+        NOTE: These fixes (commandedBasalRate probe + /1000 divisor) change the
+        values produced relative to the pre-fix extractor.  The current v1.3
+        artifacts (scaler.pkl / model.onnx) were trained on the pre-fix values
+        (commandedRate / 100, commandedBasalRate = 0).  Do NOT restart the
+        inference service with this fix until a retrain is complete — see
+        TICKETS.md BB-06.
+        """
+        # LidBasalRateChange / LidNewDay: units/hour directly
+        if hasattr(event, 'commandedBasalRate') and event.commandedBasalRate is not None:
+            return float(event.commandedBasalRate)
+        # LidBasalDelivery: milliunits/hour → units/hour
         if hasattr(event, 'commandedRate') and event.commandedRate is not None:
-            # commandedRate is in hundredths of units/hr
-            basal_rate = float(event.commandedRate) / 100.0
-        elif hasattr(event, 'commandedbasalrate') and event.commandedbasalrate is not None:
-            basal_rate = float(event.commandedbasalrate)
-        elif hasattr(event, 'value') and event.value is not None:
-            value = float(event.value)
-            basal_rate = value / 100.0 if value > 10 else value
-        
-        return basal_rate
+            return float(event.commandedRate) / 1000.0
+        return 0.0
     
     def _extract_bolus_dose(self, event: Any) -> float:
-        """Extract bolus dose with proper unit conversion"""
-        def to_units(v: Any) -> float:
-            try:
-                x = float(v)
-            except (TypeError, ValueError):
-                return 0.0
-            # Heuristic: if it's "large", it's probably hundredths
-            return x / 1000.0 if x > 10 else x
+        """Extract bolus dose in units.
 
-        # 1) Prefer actual delivered insulin if present
+        Two real bolus event types carry a dose value (from eventparser/events.py):
+          LidBolusDelivery (id 279):
+              deliveredTotal: int   # milliunits — divide by 1000
+          LidBolusCompleted (id 20) / LidBolexCompleted (id 21):
+              insulinDelivered: float  # already in units
+
+        Both event types may fire for the same physical bolus (delivery events
+        during + completion event at end).  They carry different timestamps so
+        deduplicate_events() will not catch the overlap.  The resampler takes
+        the max bolus value per 5-min bin, so double-counting is low-risk in
+        practice, but see TICKETS.md BB-02 note on bolus double-counting audit.
+
+        NOTE: Adding insulinDelivered changes values vs the pre-fix extractor
+        which silently dropped LidBolusCompleted events — see TICKETS.md BB-06.
+        """
+        # LidBolusDelivery: milliunits → units
         if hasattr(event, "deliveredTotal") and event.deliveredTotal is not None:
-            return to_units(event.deliveredTotal)
+            v = float(event.deliveredTotal)
+            return v / 1000.0
 
-        # # 2) Activated bolus size (often the intended/confirmed amount)
-        # # Handles cancelled insulin
-        # if hasattr(event, "bolussize") and event.bolussize is not None:
-        #     return to_units(event.bolussize)
+        # LidBolusCompleted / LidBolexCompleted: already in units
+        if hasattr(event, "insulinDelivered") and event.insulinDelivered is not None:
+            return float(event.insulinDelivered)
 
-        # # 3) Requested message totals
-        # if hasattr(event, "totalbolussize") and event.totalbolussize is not None:
-        #     return to_units(event.totalbolussize)
+        return 0.0
     
     def deduplicate_events(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
