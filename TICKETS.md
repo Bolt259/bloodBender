@@ -153,11 +153,19 @@ Set `NTFY_TOPIC=bloodbender-<yourname>` in `.env`, subscribe in ntfy app on phon
 
 | ID    | Sub     | Status   | Title                                                   | Deps      |
 |-------|---------|----------|---------------------------------------------------------|-----------|
+| UI-01 | twin    | done     | ~~Hide static dose labels from right side of dashboard chart~~ | —     |
 | BT-04 | twin    | open     | Multi-horizon control display (trajectory fan UI)       | BT-01     |
 | BB-03 | bath    | blocked  | new_site_lag labels (patient must log site changes)     | patient   |
 | BB-04 | bath    | open     | Retire deprecated sync/ + dead API files                | —         |
 | IN-02 | infra   | done     | ~~Close stale cleanup/deprecated-modules branch~~       | BB-01     |
 | BT-05 | twin    | open     | arch/redesign branch (Hampel deeper, uv2nix, Rust plan) | BB-01     |
+
+### UI-01: Hide static dose labels from right side of chart
+Dose/scenario values currently show as permanent labels to the right of the graph.
+Since hover already shows these values, the static labels are redundant clutter.
+**Fix:** In `bloodTwin/dashboard/charts.py`, remove or suppress the right-side
+annotation/text for each fan scenario line. Keep hover tooltip behavior as-is.
+**Priority:** P2. Small change, isolated to charts.py.
 
 ### BT-04: Multi-horizon control display
 `feat/multi-horizon-control` not started. Depends on BT-01 confirming dose-conditioned fan

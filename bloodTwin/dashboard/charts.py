@@ -103,15 +103,6 @@ def render_fan_svg(fan: list[dict[str, Any]]) -> str:
 
     sorted_fan = sorted(fan, key=lambda s: float((s.get("predicted_bg") or [0])[-1]), reverse=True)
 
-    label_ys: list[float] = []
-    def _nudge_y(raw: float) -> float:
-        cand = raw
-        for prev in sorted(label_ys):
-            if abs(cand - prev) < 13:
-                cand = prev + 13
-        label_ys.append(cand)
-        return cand
-
     for s in sorted_fan:
         preds  = s.get("predicted_bg") or []
         lo_seq = s.get("lower") or []
@@ -157,12 +148,6 @@ def render_fan_svg(fan: list[dict[str, Any]]) -> str:
                 f'data-sx="{cx:.1f}" data-sy="{cy:.1f}"/>'
             )
 
-        lx_lbl = x(len(preds) - 1) + 8
-        ly = _nudge_y(y(float(preds[-1])) + 4)
-        parts.append(f'<text class="bb-end-label" x="{lx_lbl:.1f}" y="{ly:.1f}" '
-                     f'fill="{lbl_col}" font-size="11" '
-                     f'font-weight="{"600" if is_nom else "400"}">'
-                     f'{html.escape(dose_lbl)}</text>')
         parts.append('</g>')
 
     # Static overlay elements — shown/hidden by JS in template
