@@ -190,7 +190,7 @@ bloodBath/bloodTwin/bareMetalBender, Rust planning for embedded port.
 | BM-01 | metal   | open     | bareMetalBender Rust/Tokio design doc                   | BT-01     |
 | BB-05 | bath    | deferred | Dexcom Clarity API cross-check for retroactive corr.    | —         |
 | BT-06 | twin    | open     | Dose-conditioned LSTM: proper training regime (Option C first) | —  |
-| BT-08 | twin    | open     | Baseline (0 U) prediction mean-reversion bias audit         | —         |
+| BT-08 | twin    | done     | ~~Baseline (0 U) prediction mean-reversion bias audit~~     | —         |
 | IN-03 | infra   | deferred | Re-login churn fix in real_tandemsource                 | —         |
 | BT-07 | twin    | done     | ~~sklearn version skew — scaler stored as numpy arrays~~ | —        |
 
