@@ -61,6 +61,7 @@ def collect_residuals(
     sess: ort.InferenceSession,
     input_name: str,
     stride: int,
+    residual_prediction: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Slide a [LOOKBACK] window over df with the given stride, run inference,
@@ -95,6 +96,15 @@ def collect_residuals(
         w_scaled = ((w - center) / scale_safe).astype(np.float32)
         X = w_scaled[np.newaxis]
         preds = sess.run(None, {input_name: X})[0].reshape(-1).astype(np.float32)
+
+        # Residual reconstruction: model output is Δ(BG), add current_bg for absolute
+        if residual_prediction:
+            bg_col = feat_arr[start:end, feat_names.index("bg")] if "bg" in feat_names else np.array([])
+            mask_bg_col = feat_arr[start:end, feat_names.index("mask_bg")].astype(bool) \
+                          if "mask_bg" in feat_names else np.zeros(LOOKBACK, dtype=bool)
+            valid = ~mask_bg_col & ~np.isnan(bg_col)
+            current_bg = float(bg_col[np.where(valid)[0][-1]]) if valid.any() else float(bg_col[-1])
+            preds = preds + np.float32(current_bg)
 
         # Collect per-horizon residuals (NaN where not observed / masked)
         residuals_row = np.full(HORIZON, np.nan, dtype=np.float32)
@@ -145,6 +155,16 @@ def main():
     feat_names, center, scale = load_scaler(scaler_path)
     log.info(f"  {len(feat_names)} features: {feat_names}")
 
+    # Read model_metadata.json to know if this model outputs deltas (v1.5+)
+    import json as _json
+    metadata_path = art / "model_metadata.json"
+    residual_prediction = False
+    if metadata_path.exists():
+        with open(metadata_path) as _mf:
+            residual_prediction = bool(_json.load(_mf).get("residual_prediction", False))
+    if residual_prediction:
+        log.info("  model_metadata.json: residual_prediction=True — will add current_bg to preds")
+
     all_residuals, all_stds = [], []
 
     for pump_id in args.pumps:
@@ -157,7 +177,8 @@ def main():
         log.info(f"  {len(df)} rows  [{df['timestamp'].iloc[0]} → {df['timestamp'].iloc[-1]}]")
 
         log.info(f"  Running rolling inference (stride={args.stride}) ...")
-        res, stds = collect_residuals(df, feat_names, center, scale, sess, input_name, args.stride)
+        res, stds = collect_residuals(df, feat_names, center, scale, sess, input_name, args.stride,
+                                      residual_prediction=residual_prediction)
         valid = ~np.isnan(res).all(axis=1)
         log.info(f"  {valid.sum()} valid windows (of {len(res)} total)")
         all_residuals.append(res[valid])

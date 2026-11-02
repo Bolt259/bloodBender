@@ -1,0 +1,4 @@
+{
+  "residual_prediction": true,
+  "model_name": "bloodTwin_unified_lstm_v1_5"
+}
