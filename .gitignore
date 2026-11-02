@@ -99,6 +99,9 @@ result-*
 **/.DS_Store
 **/Thumbs.db
 
+# Machine-specific symlink to data-sync merged LSTM CSVs
+bloodBath/bloodBank/merged
+
 # Large data files that shouldn't be in git
 **/bloodBank/**/*.csv
 **/bloodBank/raw/**/*.csv
