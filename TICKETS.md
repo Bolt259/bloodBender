@@ -56,15 +56,21 @@ persists without correction inside the horizon — currently only ~23% of elevat
 horizons, creating class imbalance in what the model learns "high BG does."
 
 ### BT-11: Recalibrate conformal on production residuals
-**Quick mitigation while BT-10 retrain is in flight.** Production error is ~3× test
-(q_hat@60min=51.7 vs actual production 60-min error ~45 mg/dL mean with −36 bias).
-The current conformal intervals do NOT cover reality at 90% for the systematically biased
-60-min predictions.
+**Context update (2026-11-02):** BT-10 is done — v1.5 residual decoder deployed. The
+original "quick mitigation while BT-10 is in flight" rationale is moot. However,
+production intervals are still too narrow: current q_hat ±31@30min / ±52@60min vs
+production p90_abs 50.7@30min / 81.2@60min (from 43 archives, mixed v1.4+v1.5).
 
-**Fix:** Run `nix run .#bloodbender-calibrate` against a set of **production archived
-predictions vs actual BG outcomes** instead of the val-split CSVs. This will widen
-q_hat to reflect real-world uncertainty until BT-10 fixes the underlying bias.
-Requires BT-09 archiving to be fixed first (dashboardgated archive → cron-gated).
+**Why not recalibrate now:** Only 43 production samples, ~half from v1.4 (global-mean
+attractor). The 90th percentile from 43 samples is the 39th largest value — far too
+noisy. Recalibrating would inflate intervals using v1.4's inflated errors.
+
+**When:** After 7 days of v1.5-only archives (~2016 samples). Run `nix run
+.#bloodbender-accuracy` to check p90_abs@60min — if it's still > q_hat@60min
+significantly (>10 mg/dL gap), recalibrate using `nix run .#bloodbender-calibrate`
+(val-split only is fine since 14,565 windows >> production sample count).
+
+**Watch:** `bloodBath/logs/accuracy_summary.json` — run weekly after v1.5 roll-out.
 
 ### BB-01: Push main to origin ✅ RESOLVED 2026-10-31
 84 commits pushed to `git@github.com:Bolt259/bloodBender.git`. `.env` confirmed not tracked;
@@ -91,7 +97,7 @@ Requires BT-09 archiving to be fixed first (dashboardgated archive → cron-gate
 
 | ID    | Sub     | Status   | Title                                              | Deps   |
 |-------|---------|----------|----------------------------------------------------|--------|
-| BT-11 | twin    | open     | Recalibrate conformal on production residuals      | —      |
+| BT-11 | twin    | deferred | Recalibrate conformal on production residuals (wait for 7d v1.5 data) | —   |
 | BB-06 | bath    | done     | ~~Retrain v1.4 after basal/bolus extractor fixes~~ | BB-02  |
 | BT-02 | twin    | done     | ~~41-day gap audit (pump 1539514 inactive period)~~ | —     |
 | BT-03 | twin    | done     | ~~CLAUDE.md — project context for AI sessions~~    | BB-01  |
@@ -268,7 +274,7 @@ What remained was the sweetBlood compatibility layer:
 
 | ID    | Sub     | Status   | Title                                                   | Deps      |
 |-------|---------|----------|---------------------------------------------------------|-----------|
-| BT-09 | twin    | open     | Production accuracy tracker + fix archive gap           | —         |
+| BT-09 | twin    | done     | ~~Production accuracy tracker + fix archive gap~~       | —         |
 
 ### BT-09: Production retrospective accuracy tracker
 **Root cause of "model looks worse than expected"**: production MAE is ~33@30min / ~45@60min
@@ -286,15 +292,21 @@ inferences by matching prediction timestamps to actual BG in the merged CSV.
 3. Archiving is dashboard-gated: `_maybe_archive()` only runs inside `render_page()`,
    so production archives are sparse and biased toward times the dashboard was open.
 
-**Required work:**
-1. Move `_maybe_archive()` from `server.py:render_page()` into the 5-min inference cron
-   (`nix/packages.nix bloodbender-inference-cron`) so every inference run is captured.
-2. Add a scheduled accuracy script (like `bloodbender-fit-isf`) that walks the archive,
-   matches predicted timestamps to actual BG in merged CSVs, computes rolling signed error
-   + MAE per horizon, writes `bloodBath/logs/accuracy_summary.json`.
-3. Surface prod MAE + bias on the dashboard next to the ghost chart.
-4. Investigate the systematic negative bias — likely a training distribution issue; may
-   require new data augmentation or a targeted retrain.
+**✅ RESOLVED 2026-11-02:**
+1. `bloodTwin/inference/archive.py` — extracted archive logic; ARCHIVE_MAX=2016 (7d).
+   `bloodbender-inference-cron` (packages.nix) now calls it after every successful
+   inference. No longer dashboard-gated.
+2. `scripts/accuracy_tracker.py` — walks archive, matches 0U baseline predictions to
+   actual BG (±2.5 min tolerance), writes `bloodBath/logs/accuracy_summary.json`.
+   `nix run .#bloodbender-accuracy` app added.
+3. Dashboard shows prod accuracy row below diagnostic chart (MAE + bias, color-coded).
+   Run manually or wire to a daily cron via `nix run .#bloodbender-accuracy`.
+
+**Current production accuracy (v1.5, 43 inferences, mixed v1.4+v1.5):**
+- @30min: MAE=28.6 mg/dL, bias=−15.9 (model predicts too low)
+- @60min: MAE=43.2 mg/dL, bias=−31.8
+- Negative bias confirms BT-08 finding: model still predicts decline more than observed.
+  As v1.5 production data accumulates (7d window), numbers will reflect v1.5 only.
 
 ---
 
@@ -305,7 +317,7 @@ inferences by matching prediction timestamps to actual BG in the merged CSV.
 | BM-01 | metal   | open     | bareMetalBender Rust/Tokio design doc                   | BT-01     |
 | BB-05 | bath    | deferred | Dexcom Clarity API cross-check for retroactive corr.    | —         |
 | BT-06 | twin    | done     | ~~Dose-conditioned LSTM: Option C IOB injection at inference~~  | —  |
-| BT-08 | twin    | open     | Baseline (0 U) prediction mean-reversion bias audit — REOPENED | —      |
+| BT-08 | twin    | done     | ~~Baseline (0 U) prediction mean-reversion bias audit (v1.5)~~ | —     |
 | IN-03 | infra   | deferred | Re-login churn fix in real_tandemsource                 | —         |
 | BT-07 | twin    | done     | ~~sklearn version skew — scaler stored as numpy arrays~~ | —        |
 
@@ -370,6 +382,14 @@ If the model shows mean-reversion only when IOB > 0, the behavior is correct.
 **Action:** Write `scripts/audit_baseline_meanreversion.py` — load test CSVs, filter
 elevated/low windows with no recent bolus, run ConformalPredictor on each, compare
 predicted vs actual 60-min BG. Plot predicted_bg_60min vs actual_bg_60min scatter.
+
+**✅ RESOLVED 2026-11-02 (v1.5 re-audit):**
+- Elevated BG (≥180), IOB≈0, no recent bolus (1164 windows):
+  77% predict decline @60min, mean delta −5.0 mg/dL (v1.4: 98%, −24.9 mg/dL)
+- Low BG (≤80), IOB≈0, no recent bolus (2988 windows):
+  5% predict decline @60min, mean delta +22.6 mg/dL — correct recovery direction
+- Result: **5× bias reduction** vs v1.4. Residual −5 mg/dL mean not clinically alarming
+  but still over-predicts BG descent. Watch via BT-09 accuracy_summary.json over time.
 
 **⚠ REOPENED 2026-11-02:** Prior closure was based on a faulty run — script defaulted to
 v1.3 artifacts (now fixed to v1.4) and capped at 500 windows (now 2000), and had a
