@@ -11,31 +11,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def create_sweetblood_structure(base_dir: Path) -> Dict[str, Path]:
-    """
-    Create the simplified sweetBlood directory structure
-    
-    Args:
-        base_dir: Base directory path (e.g., ./sweetBlood)
-        
-    Returns:
-        Dict mapping structure names to paths
-    """
-    structure = {
-        'base': base_dir,
-        'lstm_pump_data': base_dir / 'lstm_pump_data',
-        'metadata': base_dir / 'metadata',
-        'models': base_dir / 'models',
-        'logs': base_dir / 'logs'
-    }
-    
-    # Create all directories
-    for name, path in structure.items():
-        path.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Created directory: {path}")
-    
-    return structure
-
 
 def create_project_structure_info(structure: Dict[str, Path]) -> Dict[str, Any]:
     """
@@ -494,72 +469,3 @@ export BLOODBATH_BLOODBANK_ROOT=/path/to/custom/bloodbank
     
     logger.info(f"Created bloodBank README at: {readme_file}")
     return readme_file
-
-
-def setup_sweetblood_environment(output_dir: Optional[str] = None) -> Dict[str, Path]:
-    """
-    DEPRECATED: Legacy sweetBlood environment setup
-    
-    Use setup_bloodbank_environment() for new bloodBank v2.0 architecture.
-    This function maintained for backward compatibility only.
-    
-    Args:
-        output_dir: Override output directory (uses env var or default)
-        
-    Returns:
-        Dict mapping structure names to paths
-    """
-    logger.warning("setup_sweetblood_environment() is DEPRECATED. Use setup_bloodbank_environment() instead.")
-    
-    # Get output directory from environment or use default
-    if not output_dir:
-        from .env_utils import get_env_config
-        env_config = get_env_config()
-        output_dir = env_config.get('output_dir', './sweetBlood')
-    
-    base_dir = Path(str(output_dir)).resolve()
-    
-    logger.info(f"Setting up LEGACY sweetBlood environment at: {base_dir}")
-    
-    # Create directory structure
-    structure = create_sweetblood_structure(base_dir)
-    
-    # Create documentation
-    info = create_project_structure_info(structure)
-    save_structure_info(structure, info)
-    create_readme_file(structure)
-    
-    # Create a .gitignore file to exclude temporary files
-    gitignore_content = """# bloodBath temporary files
-*.tmp
-*.temp
-*.log
-
-# Large data files
-*.parquet
-*.h5
-*.hdf5
-*.pkl
-*.pickle
-
-# Model checkpoints (keep only final models)
-models/checkpoints/
-*.ckpt
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-"""
-    
-    gitignore_file = structure['base'] / '.gitignore'
-    with open(gitignore_file, 'w') as f:
-        f.write(gitignore_content)
-    
-    logger.info(f"Created .gitignore file at: {gitignore_file}")
-    
-    return structure

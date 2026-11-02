@@ -36,7 +36,7 @@ class TandemHistoricalSyncClient:
                  email: Optional[str] = None,
                  password: Optional[str] = None,
                  region: str = 'US',
-                 output_dir: Optional[str] = None,  # Will use internal sweetBlood path
+                 output_dir: Optional[str] = None,
                  chunk_days: int = 30,
                  max_retries: int = 5,
                  rate_limit_delay: int = 1,

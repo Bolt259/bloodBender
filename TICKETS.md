@@ -164,7 +164,7 @@ Set `NTFY_TOPIC=bloodbender-<yourname>` in `.env`, subscribe in ntfy app on phon
 | UI-02 | twin    | done     | ~~Dashboard polish: diag cursor, tooltip swap, grid visibility~~ | —       |
 | BT-04 | twin    | done     | ~~Multi-horizon control display (trajectory fan UI)~~   | BT-01     |
 | BB-03 | bath    | blocked  | new_site_lag labels (patient must log site changes)     | patient   |
-| BB-04 | bath    | open     | Retire deprecated sync/ + dead API files                | —         |
+| BB-04 | bath    | done     | ~~Retire deprecated sync/ + dead API files~~            | —         |
 | IN-02 | infra   | done     | ~~Close stale cleanup/deprecated-modules branch~~       | BB-01     |
 | BT-05 | twin    | open     | arch/redesign branch (Hampel deeper, uv2nix, Rust plan) | BB-01     |
 
@@ -197,10 +197,21 @@ Feature is wired and flowing (pump 881235 has 139 events). Patient must log site
 going forward via Tandem CIQ or manual event so future retrains see real site-change labels.
 Failure mode classifier (`failure_mode_clf.pkl`) currently has zero `new_site_lag` examples.
 
-### BB-04: Retire deprecated code
-`bloodBath/sync/sync_engine.py`, `simple_sync.py` — deprecated.
-`bloodBath/api/tandemsource.py`, `events.py`, `common_updated.py` — dead.
-See cleanup_deprecated.sh which exists but may be stale.
+### BB-04: Retire deprecated code ✅ RESOLVED 2026-11-01
+The originally cited files (`sync/`, `api/tandemsource.py`, etc.) were already gone.
+What remained was the sweetBlood compatibility layer:
+- Removed 3 no-op stubs (`add_sweetblood_args`, `handle_sweetblood_commands`,
+  `SweetBloodIntegration`) from `cli/main.py` and all call sites
+- `cmd_lstm` replaced with a one-liner exit (was broken: stub returned `{status: deprecated}`,
+  then code tried `result['metadata']` — KeyError on every call)
+- `cmd_status` stripped of sweetblood output; `TandemHistoricalSyncClient` now uses its
+  default `setup_bloodbank_environment` instead of the deprecated shim
+- `setup_sweetblood_environment` and `create_sweetblood_structure` removed from
+  `utils/structure_utils.py`; re-exports removed from `utils/__init__.py`
+- `cleanup_deprecated.sh` deleted (stale, checked for wrong branch)
+- Legacy docs deleted: `bloodBath/spec/`, `SWEETBLOOD_STRUCTURE_VERIFICATION.md`,
+  `v2.0_Complete_Report.md`, `v2.0_Implementation_Summary.md`
+- 139 tests still passing.
 
 ### BT-05: arch/redesign branch
 Hampel filter is in main (`42256133`) — but the design calls for it to also run identically

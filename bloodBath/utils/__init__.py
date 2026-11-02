@@ -14,8 +14,6 @@ from .env_utils import (
     get_env_file_locations
 )
 from .structure_utils import (
-    create_sweetblood_structure,
-    setup_sweetblood_environment,
     get_pump_data_directory,
     get_metadata_file,
     get_lstm_data_directory,
@@ -41,8 +39,6 @@ __all__ = [
     'validate_credentials',
     'create_env_template',
     'get_env_file_locations',
-    'create_sweetblood_structure',
-    'setup_sweetblood_environment',
     'get_pump_data_directory',
     'get_metadata_file',
     'get_lstm_data_directory',

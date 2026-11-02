@@ -25,30 +25,6 @@ from ..utils.env_utils import (
     get_env_file_locations
 )
 from ..utils.pump_info import analyze_pump_activity, print_pump_summary
-# DEPRECATED: sweetBlood module removed in favor of bloodBank v2.0 architecture
-# from ..sweetBlood import add_sweetblood_args, handle_sweetblood_commands, SweetBloodIntegration
-from ..utils.structure_utils import setup_sweetblood_environment
-
-# Compatibility stubs for legacy sweetBlood functionality
-def add_sweetblood_args(parser):
-    """DEPRECATED: Legacy sweetBlood args - now handled by bloodBank v2.0"""
-    pass
-
-def handle_sweetblood_commands(args, client):
-    """DEPRECATED: Legacy sweetBlood commands - now handled by bloodBank v2.0"""
-    return False
-
-class SweetBloodIntegration:
-    """DEPRECATED: Legacy sweetBlood integration - now handled by bloodBank v2.0"""
-    
-    def prepare_training_data(self, *args, **kwargs):
-        return {"status": "deprecated", "message": "Use bloodBank v2.0 architecture"}
-    
-    def get_training_data_info(self):
-        return {"status": "deprecated", "message": "Use bloodBank v2.0 architecture"}
-    
-    def get_scaler_info(self):
-        return {"status": "deprecated", "message": "Use bloodBank v2.0 architecture"}
 
 logger = logging.getLogger(__name__)
 
@@ -280,9 +256,6 @@ Examples:
         help='Overwrite existing .env file'
     )
     
-    # Add sweetBlood LSTM training arguments
-    add_sweetblood_args(parser)
-    
     return parser
 
 
@@ -482,51 +455,9 @@ def cmd_sync(args):
 
 def cmd_lstm(args):
     """Handle LSTM command"""
-    setup_cli_logging(args.verbose)
-    
-    # Get pump serial from args or environment
-    pump_serial = args.pump_serial or get_default_pump_serial()
-    
-    if not pump_serial:
-        print("Error: Must specify --pump-serial or set PUMP_SERIAL_NUMBER env var")
-        sys.exit(1)
-    
-    # Use sweetBlood integration for LSTM operations
-    sweetblood_integration = SweetBloodIntegration()
-    
-    # Prepare LSTM training data
-    result = sweetblood_integration.prepare_training_data(
-        pump_serial=pump_serial,
-        sequence_length=getattr(args, 'sequence_length', 60),
-        prediction_horizon=getattr(args, 'prediction_horizon', 1),
-        test_split=getattr(args, 'test_split', 0.2),
-        val_split=getattr(args, 'val_split', 0.2),
-        save_data=True
-    )
-    try:
-        print("LSTM training data prepared successfully!")
-        print(f"Training samples: {result['metadata']['train_samples']}")
-        print(f"Validation samples: {result['metadata']['val_samples']}")
-        print(f"Test samples: {result['metadata']['test_samples']}")
-    
-    
-        if 'saved_files' in result and result['saved_files']:
-            saved_files = result['saved_files']
-            if isinstance(saved_files, dict) and 'train_X' in saved_files:
-                train_file = saved_files['train_X']
-                if isinstance(train_file, Path):
-                    print(f"Data saved to: {train_file.parent}")
-                else:
-                    print("Training data prepared (in-memory)")
-            else:
-                print("Training data prepared (in-memory)")
-        else:
-            print("Training data prepared (in-memory)")
-    
-    except KeyError as e:
-        print(f"Warning: Missing expected metadata key: {e}")
-        print("Result may be incomplete or in unexpected format.")
-        print(f"Full result: {result}")
+    print("The 'lstm' subcommand was removed with the sweetBlood migration.")
+    print("Use 'nix develop .#cuda' to retrain. See TICKETS.md BT-05.")
+    sys.exit(1)
 
 
 def cmd_unified_lstm(args):
@@ -685,37 +616,7 @@ def cmd_unified_lstm(args):
 def cmd_status(args):
     """Handle status command"""
     setup_cli_logging(args.verbose)
-    
-    # Use sweetBlood integration for status
-    sweetblood_integration = SweetBloodIntegration()
-    
-    # Get training data info
-    training_info = sweetblood_integration.get_training_data_info()
-    try:
-        print("sweetBlood Training Data Status:")
-        print(f"  Available datasets: {training_info['total_count']}")
-        if training_info['latest_timestamp']:
-            print(f"  Latest dataset: {training_info['latest_timestamp']}")
-        print(f"  Data directory: {training_info['training_data_dir']}")
-        
-        # Get scaler info
-        scaler_info = sweetblood_integration.get_scaler_info()
-        if scaler_info:
-            print("\nScaler Information:")
-            for name, details in scaler_info.items():
-                print(f"  {name}: {details['type']}")
-        
-        
-    except Exception as e:
-        logger.error(f"Error retrieving status: {e}")
-        print(f"Error retrieving status: {e}")
-        print(f"Full Training Info: {training_info}")
-
-    # Initialize client for pump status
-    internal_sweetblood_path = str(Path(__file__).parent.parent / 'bloodBank')
-    client = TandemHistoricalSyncClient(
-        output_dir=str(setup_sweetblood_environment(internal_sweetblood_path)['lstm_pump_data'])
-    )
+    client = TandemHistoricalSyncClient()
 
     status = client.get_sync_status()
     
@@ -906,10 +807,6 @@ def main():
     if not args.command:
         parser.print_help()
         sys.exit(1)
-    
-    # Handle sweetBlood commands first
-    if handle_sweetblood_commands(args, None):
-        return
     
     # Route to appropriate command handler
     if args.command == 'sync':
