@@ -79,14 +79,18 @@ Manage with: `systemctl --user {status,start,stop} bloodbender-<name>.timer`
 ## Active Model Artifact
 
 ```
-bloodTwin/artifacts/bloodTwin_unified_lstm_v1_3/
-  model.onnx              ONNX LSTM (15 features, v1.3)
+bloodTwin/artifacts/bloodTwin_unified_lstm_v1_4/
+  model.onnx              ONNX LSTM (15 features, v1.4)
   scaler.pkl              RobustScaler as numpy arrays (center_, scale_)
-  conformal_summary.json  90% coverage, ±31@30min ±51@60min (14,075 cal windows)
-  test_results.yaml       MAE 30min=9.88, 60min=15.27, RMSE=22.65, meal_acc=78.7%
+  conformal_summary.json  90% coverage, ±31@30min ±52@60min (14,565 cal windows)
+  test_results.yaml       MAE 30min=9.87, 60min=15.47, RMSE=23.04, meal_acc=81.1%
 ```
 
-Controlled by env var `BLOODTWIN_ARTIFACTS` (defaults to the path above).
+Controlled by env var `BLOODTWIN_ARTIFACTS` (defaults to v1.3 path; systemd service overrides
+to v1.4 via `Environment=BLOODTWIN_ARTIFACTS=bloodTwin/artifacts/bloodTwin_unified_lstm_v1_4`).
+
+v1.4 was retrained after the BB-02 extractor fixes (basal 10× inflation + bolus unit errors).
+v1.3 remains in the repo but is no longer used in production.
 
 ## Feature Schema v1.3 (15 features, order matters)
 
@@ -138,10 +142,11 @@ main (always deployable)
 
 See `TICKETS.md` for the full prioritized list. Top items:
 
-- **BT-02** (P1) — audit 41-day gap in pump 1539514 training windows
-- **BB-02** (P1) — Tandem API field audit against real BFF JSON
-- **IN-01** (P1) — hypoglycemia push notification (ntfy.sh)
+- **BT-04** (P2) — multi-horizon control display (trajectory fan UI, `feat/multi-horizon-control`)
+- **BB-04** (P2) — retire deprecated sync/ + dead API files
+- **BT-05** (P2) — arch/redesign branch (Hampel embedded, uv2nix, Rust plan)
 - **BT-06** (P3) — dose-conditioned LSTM redesign (Option C: IOB injection, no retrain)
+- **BM-01** (P3) — bareMetalBender Rust/Tokio design doc
 
 ## Tests
 

@@ -58,7 +58,7 @@ BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
 
 | ID    | Sub     | Status   | Title                                              | Deps   |
 |-------|---------|----------|----------------------------------------------------|--------|
-| BB-06 | bath    | open     | **Retrain v1.4** after basal/bolus extractor fixes | BB-02  |
+| BB-06 | bath    | done     | ~~Retrain v1.4 after basal/bolus extractor fixes~~ | BB-02  |
 | BT-02 | twin    | done     | ~~41-day gap audit (pump 1539514 inactive period)~~ | —     |
 | BT-03 | twin    | done     | ~~CLAUDE.md — project context for AI sessions~~    | BB-01  |
 | BB-02 | bath    | done     | ~~Tandem API systematic field audit~~              | —      |
@@ -122,20 +122,27 @@ with this fix active until a full retrain + recalibration is complete — see BB
 now extract a dose. The resampler's bolus aggregation (max per 5-min bin) limits the impact
 but the exact behavior is unverified — investigate during BB-06 retrain data prep.
 
-### BB-06: Retrain required after extractor fixes
-The `_extract_basal_rate` and `_extract_bolus_dose` fixes (BB-02) change the feature values
-the extractor produces. The current v1.3 artifacts were trained and calibrated on the pre-fix
-distribution. Deploying the fixes to the running sync/inference services without retraining
-will push basal_rate values far out of the scaler's learned range, breaking inference.
+### BB-06: Retrain v1.4 ✅ RESOLVED 2026-11-01
 
-**Required steps before deploying the extractor fix to production:**
-1. Stop `bloodbender-sync` and `bloodbender-inference-cron` systemd timers
-2. Regenerate merged LSTM CSVs: run the full sync with the fixed extractor
-3. Retrain v1.4: `nix develop .#cuda`, run training pipeline on the new data
-4. Export ONNX, refit scaler, run conformal calibration (`nix run .#bloodbender-calibrate`)
-5. Update `BLOODTWIN_ARTIFACTS` to point to the new artifact dir (or rename)
-6. Restart services
-7. Monitor `bloodBath/logs/inference_latest.json` for sanity (basal_rate ~0.5-2.0, not ~5-20)
+**What changed:** Extractor fixes (BB-02) corrected basal 10× inflation and bolus unit errors.
+v1.3 artifacts were trained on pre-fix values; retraining was required before deploying.
+
+**Completed steps:**
+1. Stopped `bloodbender-sync` and `bloodbender-inference-cron` timers
+2. Applied extractor fix to `bloodBender-data-sync/bloodBath/data/extractors.py`
+3. Ran full sync — merged CSVs regenerated with correct basal (mean 0.47 U/hr vs 4.7 U/hr pre-fix)
+4. Trained v1.4 on RTX 2070 SUPER: `nix develop .#cuda`, config `lstm_v1_4.yaml`
+5. Ran conformal calibration: `BLOODTWIN_ARTIFACTS=...v1_4 nix run .#bloodbender-calibrate`
+6. Added `Environment=BLOODTWIN_ARTIFACTS=bloodTwin/artifacts/bloodTwin_unified_lstm_v1_4`
+   to `~/.config/systemd/user/bloodbender-inference.service`; copied artifacts to data-sync
+7. Restarted both timers; verified inference output (basal_rate confirmed ~0.47 U/hr mean)
+
+**v1.4 metrics:**
+- test_mae_30min: 9.87 mg/dL  (v1.3: 9.88)
+- test_mae_60min: 15.47 mg/dL (v1.3: 15.27)
+- test_rmse: 23.04 mg/dL      (v1.3: 22.65)
+- meal_acc: 81.1%              (v1.3: 78.7%)
+- conformal: 90% coverage, ±31@30min ±52@60min (v1.3: ±31/±51 — nearly identical)
 
 ### IN-01: Phone notification on hypoglycemia risk ✅ RESOLVED 2026-11-01
 `bloodTwin/inference/notify.py` — stdlib-only, no extra deps. Two triggers:
