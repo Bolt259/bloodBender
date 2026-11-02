@@ -38,7 +38,7 @@ from bloodTwin.schema import FEATURE_NAMES
 # ── Config ──────────────────────────────────────────────────────────────────
 ARTIFACTS_DIR = Path(os.environ.get(
     "BLOODTWIN_ARTIFACTS",
-    ROOT / "bloodTwin/artifacts/bloodTwin_unified_lstm_v1_3"
+    ROOT / "bloodTwin/artifacts/bloodTwin_unified_lstm_v1_4"
 ))
 DATA_DIR = Path(os.environ.get(
     "BLOODBENDER_DATA",
@@ -57,7 +57,7 @@ BG_COL              = FEATURE_NAMES.index("bg")
 MASK_LABEL_COL      = FEATURE_NAMES.index("mask_label")
 
 
-def load_qualifying_windows(pump_id: str, high_bg: bool = True, max_windows: int = 500):
+def load_qualifying_windows(pump_id: str, high_bg: bool = True, max_windows: int = 2000):
     """
     Load windows where the current timestep (last row) qualifies for the audit:
     - high_bg=True:  current BG >= HIGH_BG_THRESHOLD, IOB < MAX_IOB_U, no recent bolus
@@ -85,7 +85,7 @@ def load_qualifying_windows(pump_id: str, high_bg: bool = True, max_windows: int
     if "hypothetical_dose" not in df.columns:
         df["hypothetical_dose"] = df["bolus_dose"].fillna(0.0)
 
-    data_vals = df[FEATURE_NAMES].values.astype(np.float32)
+    data_vals = df[list(FEATURE_NAMES)].values.astype(np.float32)
     n = len(df)
 
     windows = []
@@ -138,7 +138,7 @@ def run_audit():
         for high_bg in (True, False):
             label = "elevated" if high_bg else "low"
             print(f"Loading pump {pump_id} {label}-BG qualifying windows...")
-            windows = load_qualifying_windows(pump_id, high_bg=high_bg, max_windows=500)
+            windows = load_qualifying_windows(pump_id, high_bg=high_bg, max_windows=2000)
             print(f"  {len(windows)} qualifying windows")
 
             for ts, arr in windows:

@@ -28,10 +28,43 @@ BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
 
 ## P0 — Blocking / Critical
 
-| ID    | Sub     | Status | Title                                         | Deps   |
-|-------|---------|--------|-----------------------------------------------|--------|
-| BB-01 | infra   | done   | ~~Push main to origin (84 commits pushed)~~   | —      |
-| BT-01 | twin    | done   | ~~Validate dose-conditioned fan vs physics fan~~ | —   |
+| ID    | Sub     | Status | Title                                                        | Deps   |
+|-------|---------|--------|--------------------------------------------------------------|--------|
+| BT-10 | twin    | open   | **Residual decoder retrain** — fix 60-min global-mean collapse | —    |
+| BB-01 | infra   | done   | ~~Push main to origin (84 commits pushed)~~                  | —      |
+| BT-01 | twin    | done   | ~~Validate dose-conditioned fan vs physics fan~~             | —      |
+
+### BT-10: Residual decoder retrain — fix 60-min global-mean collapse
+**Root cause (Opus audit 2026-11-02):** The LSTM decoder outputs **absolute BG**, causing the
+60-min head to collapse to a global attractor (~94–113 mg/dL) regardless of current BG.
+Confirmed: `corr(current_bg, pred@60min) = −0.019` across 39 archives; output std compressed
+from 34.5 → 9.0 (ratio 0.26). Model predicts a fixed endpoint, not a trajectory.
+On elevated-BG/low-IOB/no-bolus windows: **98% predict decline, mean −24.9 mg/dL despite
+zero insulin driver**. Production MAE: ~33@30min / ~45@60min vs test claims 9.87/15.47.
+
+**Fix:** Switch decoder output from absolute BG to **Δ (residuals relative to current BG)**:
+- In training: target = `future_bg - current_bg` (a signed delta per horizon step)
+- At inference: add predicted delta back to `current_bg` to get absolute prediction
+- This structurally prevents global-mean regression since the model now learns zero-mean deltas
+
+**Implementation:** `bloodTwin/models/lstm.py` decoder (L86-92); training target construction
+in `bloodTwin/data/dataset.py`; inference output reconstruction in `bloodTwin/inference/conformal.py`.
+Config: new `bloodTwin/configs/lstm_v1_5.yaml`. Full retrain required.
+
+**Secondary improvement (same retrain):** Oversample/upweight windows where elevated BG
+persists without correction inside the horizon — currently only ~23% of elevated-window
+horizons, creating class imbalance in what the model learns "high BG does."
+
+### BT-11: Recalibrate conformal on production residuals
+**Quick mitigation while BT-10 retrain is in flight.** Production error is ~3× test
+(q_hat@60min=51.7 vs actual production 60-min error ~45 mg/dL mean with −36 bias).
+The current conformal intervals do NOT cover reality at 90% for the systematically biased
+60-min predictions.
+
+**Fix:** Run `nix run .#bloodbender-calibrate` against a set of **production archived
+predictions vs actual BG outcomes** instead of the val-split CSVs. This will widen
+q_hat to reflect real-world uncertainty until BT-10 fixes the underlying bias.
+Requires BT-09 archiving to be fixed first (dashboardgated archive → cron-gated).
 
 ### BB-01: Push main to origin ✅ RESOLVED 2026-10-31
 84 commits pushed to `git@github.com:Bolt259/bloodBender.git`. `.env` confirmed not tracked;
@@ -58,6 +91,7 @@ BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
 
 | ID    | Sub     | Status   | Title                                              | Deps   |
 |-------|---------|----------|----------------------------------------------------|--------|
+| BT-11 | twin    | open     | Recalibrate conformal on production residuals      | —      |
 | BB-06 | bath    | done     | ~~Retrain v1.4 after basal/bolus extractor fixes~~ | BB-02  |
 | BT-02 | twin    | done     | ~~41-day gap audit (pump 1539514 inactive period)~~ | —     |
 | BT-03 | twin    | done     | ~~CLAUDE.md — project context for AI sessions~~    | BB-01  |
@@ -271,7 +305,7 @@ inferences by matching prediction timestamps to actual BG in the merged CSV.
 | BM-01 | metal   | open     | bareMetalBender Rust/Tokio design doc                   | BT-01     |
 | BB-05 | bath    | deferred | Dexcom Clarity API cross-check for retroactive corr.    | —         |
 | BT-06 | twin    | done     | ~~Dose-conditioned LSTM: Option C IOB injection at inference~~  | —  |
-| BT-08 | twin    | done     | ~~Baseline (0 U) prediction mean-reversion bias audit~~     | —         |
+| BT-08 | twin    | open     | Baseline (0 U) prediction mean-reversion bias audit — REOPENED | —      |
 | IN-03 | infra   | deferred | Re-login churn fix in real_tandemsource                 | —         |
 | BT-07 | twin    | done     | ~~sklearn version skew — scaler stored as numpy arrays~~ | —        |
 
@@ -336,6 +370,13 @@ If the model shows mean-reversion only when IOB > 0, the behavior is correct.
 **Action:** Write `scripts/audit_baseline_meanreversion.py` — load test CSVs, filter
 elevated/low windows with no recent bolus, run ConformalPredictor on each, compare
 predicted vs actual 60-min BG. Plot predicted_bg_60min vs actual_bg_60min scatter.
+
+**⚠ REOPENED 2026-11-02:** Prior closure was based on a faulty run — script defaulted to
+v1.3 artifacts (now fixed to v1.4) and capped at 500 windows (now 2000), and had a
+`df[tuple]` bug (now `df[list(FEATURE_NAMES)]`). Opus audit of v1.4 confirms the bias IS
+present: 98% of elevated-BG/low-IOB/no-bolus windows predict decline at 60min, mean −24.9
+mg/dL, with `corr(current_bg, pred@60min) = −0.019` (essentially no correlation).
+Root cause and fix tracked in BT-10 (residual decoder retrain).
 
 ### BT-07: sklearn version skew ✅ RESOLVED 2026-11-01
 `scaler.pkl` stores `{'scaler': RobustScaler, 'feature_names': [...], 'center_': ndarray(15,), 'scale_': ndarray(15,)}`.
