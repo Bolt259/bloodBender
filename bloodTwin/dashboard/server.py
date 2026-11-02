@@ -9,7 +9,6 @@ Run:  PYTHONPATH=. python bloodTwin/dashboard/server.py
 """
 from __future__ import annotations
 
-import glob
 import json
 import os
 from datetime import datetime, timezone
@@ -28,7 +27,8 @@ ARCHIVE_DIR   = REPO_ROOT / "bloodBath" / "logs" / "inference_archive"
 MERGED_DIR    = REPO_ROOT / "bloodBath" / "bloodBank" / "merged"
 RAW_LSTM_DIR  = REPO_ROOT / "bloodBath" / "bloodBank" / "raw" / "lstm"
 TEMPLATES     = Path(__file__).parent / "templates"
-ARCHIVE_MAX   = 96   # keep 8h @ 5-min intervals
+ACCURACY_JSON = REPO_ROOT / "bloodBath" / "logs" / "accuracy_summary.json"
+ARCHIVE_LOAD  = 288  # load last 24h of archives for the diagnostic chart
 
 HOST  = os.environ.get("DASHBOARD_HOST", "127.0.0.1")
 PORT  = int(os.environ.get("DASHBOARD_PORT", "8765"))
@@ -45,35 +45,23 @@ _env = jinja2.Environment(
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 
-def _maybe_archive(data: dict) -> None:
-    """Save a timestamped copy of the current inference JSON for diagnostics."""
-    ts = data.get("timestamp", "")
-    if not ts:
-        return
-    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-    safe = ts.replace(":", "").replace("+", "").replace("-", "")[:15]
-    dest = ARCHIVE_DIR / f"inference_{safe}.json"
-    if not dest.exists():
-        try:
-            dest.write_text(json.dumps(data))
-            # Prune oldest beyond ARCHIVE_MAX
-            files = sorted(ARCHIVE_DIR.glob("inference_*.json"))
-            for old in files[:-ARCHIVE_MAX]:
-                old.unlink(missing_ok=True)
-        except OSError:
-            pass
-
-
 def _load_archive() -> list[dict]:
     if not ARCHIVE_DIR.exists():
         return []
     entries = []
-    for f in sorted(ARCHIVE_DIR.glob("inference_*.json"))[-ARCHIVE_MAX:]:
+    for f in sorted(ARCHIVE_DIR.glob("inference_*.json"))[-ARCHIVE_LOAD:]:
         try:
             entries.append(json.loads(f.read_text()))
         except Exception:
             pass
     return entries
+
+
+def _load_accuracy() -> dict | None:
+    try:
+        return json.loads(ACCURACY_JSON.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
 
 
 def _load_inference() -> tuple[dict, str | None]:
@@ -233,9 +221,8 @@ def render_page() -> str:
     p60        = _point_at(fan, 11)
 
     # ── Archive + Charts ────────────────────────────────────────────────────
-    if data:
-        _maybe_archive(data)
     archive     = _load_archive()
+    accuracy    = _load_accuracy()
     history_df  = _load_history_df()
     fan_svg     = render_fan_svg(fan)
     history_svg = render_history_svg(history_df)
@@ -270,6 +257,7 @@ def render_page() -> str:
         history_svg  = history_svg,
         diag_svg     = diag_svg,
         archive_count = len(archive),
+        accuracy     = accuracy,
         json_path    = str(LATEST_JSON),
     )
 

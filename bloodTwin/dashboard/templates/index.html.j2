@@ -238,6 +238,21 @@
   <span><span class="sw sw-tgt"></span> personal 75–130</span>
   <span><span class="sw sw-clin"></span> clinical 70–180</span>
 </div>
+{% if accuracy and accuracy.horizons %}
+{% set h30 = accuracy.horizons.get("30") %}
+{% set h60 = accuracy.horizons.get("60") %}
+<div class="prod-accuracy" style="margin-top:6px;font-size:0.78rem;color:#8b949e">
+  production accuracy ({{ accuracy.n_matched }} inferences matched):
+  {% if h30 %}
+  @30min MAE <span style="color:#e6edf3">{{ "%.1f"|format(h30.mae) }}</span> mg/dL
+  bias <span style="color:{{ '#ff7b72' if h30.bias < -5 else ('#3fb950' if h30.bias > 5 else '#8b949e') }}">{{ "%+.1f"|format(h30.bias) }}</span>&nbsp;
+  {% endif %}
+  {% if h60 %}
+  &middot; @60min MAE <span style="color:#e6edf3">{{ "%.1f"|format(h60.mae) }}</span> mg/dL
+  bias <span style="color:{{ '#ff7b72' if h60.bias < -5 else ('#3fb950' if h60.bias > 5 else '#8b949e') }}">{{ "%+.1f"|format(h60.bias) }}</span>
+  {% endif %}
+</div>
+{% endif %}
 
 <div class="footer">
   Auto-refresh 60s &middot;

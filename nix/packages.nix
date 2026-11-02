@@ -100,6 +100,11 @@
           rc=$?
           if [[ "$rc" -eq 0 && -s "$TMP" ]]; then
             mv -f "$TMP" "$OUT"
+            # Archive every inference for production accuracy tracking (BT-09)
+            PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
+              python bloodTwin/inference/archive.py \
+              --latest "$OUT" --archive-dir "$LOG_DIR/inference_archive" \
+              >>"$ERR" 2>&1 || true
             # Fire push notifications if NTFY_TOPIC is set (IN-01)
             if [[ -n "''${NTFY_TOPIC:-}" ]]; then
               PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
@@ -145,6 +150,21 @@
           PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
             python bloodTwin/pipelines/fit_isf_model.py \
             --pump "$PUMP" --artifacts "$ARTIFACTS"
+        '';
+      };
+
+      # ── Production accuracy tracker (BT-09) ──
+      # Walks inference_archive/, matches predictions to actual BG in merged
+      # CSVs, and writes bloodBath/logs/accuracy_summary.json.
+      bloodbender-accuracy = pkgs.writeShellApplication {
+        name = "bloodbender-accuracy";
+        runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
+        text = ''
+          REPO="''${BLOODBENDER_ROOT:-$PWD}"
+          PUMP="''${PUMP:-1539514}"
+          cd "$REPO"
+          PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
+            python scripts/accuracy_tracker.py
         '';
       };
 
