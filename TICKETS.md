@@ -215,10 +215,16 @@ with the natural trajectory, making the baseline prediction optimistically self-
 scenarios all show dose effects as deltas relative to an already-optimistic baseline.
 The fan looks smaller than reality — underdosing becomes the "safe" apparent choice.
 
+**Important caveat:** A downward BG trend in the 0 U baseline may simply reflect
+active IOB already on board — the LSTM sees `iob` as a feature and correctly anticipates
+that circulating insulin will bring BG down. This is NOT a bug. The audit must control
+for IOB: only flag windows where current IOB ≈ 0 AND BG is trending down in the baseline.
+If the model shows mean-reversion only when IOB > 0, the behavior is correct.
+
 **How to check:**
-1. Pull windows where current BG is ≥ 180 mg/dL (clearly elevated, no recent bolus in
-   last 60 min). Run baseline (0 U) prediction. If LSTM predicts BG declining toward
-   ~140 over the horizon without any insulin input, the bias is present.
+1. Pull windows where current BG is ≥ 180 mg/dL, current IOB ≈ 0 (< 0.1 U), AND no
+   recent bolus in last 90 min. Run baseline (0 U) prediction. If LSTM predicts BG
+   declining toward ~140 without any insulin input and negligible IOB, the bias is present.
 2. Compare predicted 60-min BG vs actual 60-min BG for these windows across the test set.
    A systematic over-prediction of descent = mean-reversion artifact.
 3. Repeat for low BG windows (≤ 80) — if model predicts BG rising without food/glucagon
