@@ -100,6 +100,13 @@
           rc=$?
           if [[ "$rc" -eq 0 && -s "$TMP" ]]; then
             mv -f "$TMP" "$OUT"
+            # Fire push notifications if NTFY_TOPIC is set (IN-01)
+            if [[ -n "''${NTFY_TOPIC:-}" ]]; then
+              PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
+                python bloodTwin/inference/notify.py \
+                --latest "$OUT" --log-dir "$LOG_DIR" \
+                >>"$ERR" 2>&1 || true
+            fi
           else
             rm -f "$TMP"
             echo "$(date -Iseconds) inference exited $rc; kept previous $OUT" >>"$ERR"

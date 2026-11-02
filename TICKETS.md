@@ -61,7 +61,7 @@ BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
 | BT-02 | twin    | done     | ~~41-day gap audit (pump 1539514 inactive period)~~ | —     |
 | BT-03 | twin    | done     | ~~CLAUDE.md — project context for AI sessions~~    | BB-01  |
 | BB-02 | bath    | open     | Tandem API systematic field audit                  | —      |
-| IN-01 | infra   | open     | Phone notification on hypoglycemia risk            | —      |
+| IN-01 | infra   | done     | ~~Phone notification on hypoglycemia risk~~        | —      |
 
 ### BT-02: 41-day gap audit ✅ RESOLVED 2026-10-31
 
@@ -93,11 +93,15 @@ Architecture redesign plan calls for systematic verification of every extractor 
 real BFF JSON. `casing bug` caught in 2026 silently dropped 93% of BG. Follow-up: audit
 all fields in `bloodBath/data/extractors.py` against a captured BFF response sample.
 
-### IN-01: Phone notification on hypoglycemia risk
-Infrastructure is ready per nix service design. Trigger: failure_mode_clf predicts
-`site_failure` or `exercise_induced_sensitivity` with ≥85% precision, or predicted BG
-trajectory dips below 70 mg/dL within 30 min. Delivery: ntfy.sh or similar push service
-(no third-party insulin-pump commands — display/alert only). Tagged as deferred in MVP.
+### IN-01: Phone notification on hypoglycemia risk ✅ RESOLVED 2026-11-01
+`bloodTwin/inference/notify.py` — stdlib-only, no extra deps. Two triggers:
+1. Hypo risk: baseline (0 U) predicted BG < 70 mg/dL within 30 min (6 steps)
+2. Failure mode: top state is `site_failure` or `exercise_induced_sensitivity` with ≥85% confidence
+15-min per-trigger cooldown (`.notify_last_{trigger}.ts` stamp files in LOG_DIR).
+Wired into `bloodbender-inference-cron` (packages.nix) — runs after successful `mv` of
+inference output. Opt-in: only runs when `NTFY_TOPIC` env var is set.
+Set `NTFY_TOPIC=bloodbender-<yourname>` in `.env`, subscribe in ntfy app on phone.
+12 tests added (`bloodTwin/tests/test_notify.py`). Total: 172 passing.
 
 ---
 
