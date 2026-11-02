@@ -299,6 +299,15 @@ class ConformalPredictor:
 
         self._cal = ConformalCalibrator.load(cal_path)
 
+        # Read model_metadata.json if present (written by train_lstm.py for v1.5+)
+        metadata_path = Path(onnx_path).parent / "model_metadata.json"
+        self._residual: bool = False
+        if metadata_path.exists():
+            import json as _json
+            with open(metadata_path) as _f:
+                _meta = _json.load(_f)
+            self._residual = bool(_meta.get("residual_prediction", False))
+
     # ── public ────────────────────────────────────────────────────────────────
 
     def predict_from_window(
@@ -416,6 +425,19 @@ class ConformalPredictor:
         predicted = onnx_out[0].reshape(-1).astype(np.float32)
         meal_logit = float(onnx_out[1].reshape(-1)[0]) if len(onnx_out) > 1 else 0.0
         meal_prob  = float(1.0 / (1.0 + np.exp(-meal_logit)))  # sigmoid
+
+        # Residual reconstruction: model output is Δ(BG), add current_bg for absolute
+        if self._residual:
+            bg_col_idx = self._feature_names.index("bg") if "bg" in self._feature_names else 0
+            if "mask_bg" in self._feature_names:
+                mask_idx = self._feature_names.index("mask_bg")
+                mask_col = raw_arr[:, mask_idx].astype(bool)
+                bg_vals  = raw_arr[:, bg_col_idx]
+                valid    = ~mask_col & ~np.isnan(bg_vals)
+                current_bg = float(bg_vals[np.where(valid)[0][-1]]) if valid.any() else float(raw_arr[-1, bg_col_idx])
+            else:
+                current_bg = float(raw_arr[-1, bg_col_idx])
+            predicted = predicted + np.float32(current_bg)
 
         # Conformal interval
         bg_col_idx = self._feature_names.index("bg") if "bg" in self._feature_names else 0

@@ -43,6 +43,7 @@ class BloodTwinLSTM(pl.LightningModule):
         bg_max: float = 600.0,
         meal_loss_weight: float = 0.1,
         meal_pos_weight: float = 3.0,
+        delta_prediction: bool = False,
     ):
         """
         Args:
@@ -54,8 +55,10 @@ class BloodTwinLSTM(pl.LightningModule):
             learning_rate: Initial learning rate
             weight_decay: L2 regularization
             scheduler_params: ReduceLROnPlateau parameters
-            bg_min: Minimum physiological BG (mg/dL)
-            bg_max: Maximum physiological BG (mg/dL)
+            bg_min: Minimum physiological BG (mg/dL); unused when delta_prediction=True
+            bg_max: Maximum physiological BG (mg/dL); unused when delta_prediction=True
+            delta_prediction: If True, the model outputs BG deltas (future-current) and
+                the clamp uses [-400, 400] instead of physiological absolute BG bounds.
         """
         super().__init__()
         self.save_hyperparameters()
@@ -69,6 +72,7 @@ class BloodTwinLSTM(pl.LightningModule):
         self.scheduler_params = scheduler_params or {}
         self.bg_min = bg_min
         self.bg_max = bg_max
+        self.delta_prediction = delta_prediction
         self.meal_loss_weight = meal_loss_weight
 
         # LSTM encoder
@@ -140,7 +144,10 @@ class BloodTwinLSTM(pl.LightningModule):
         h = self._encode(x)
         bg_preds = self.decoder(h)
         if not self.training:
-            bg_preds = torch.clamp(bg_preds, self.bg_min, self.bg_max)
+            if self.delta_prediction:
+                bg_preds = torch.clamp(bg_preds, -400.0, 400.0)
+            else:
+                bg_preds = torch.clamp(bg_preds, self.bg_min, self.bg_max)
         meal_logit = self.meal_head(h).squeeze(-1)  # (batch,)
         return bg_preds, meal_logit
     

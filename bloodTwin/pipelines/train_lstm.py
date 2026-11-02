@@ -82,6 +82,7 @@ def train(config_path: Path, file_name: str):
         persistent_workers=config['dataloader']['persistent_workers'],
         scaler_path=scaler_path,
         dose_mask_prob=config['data'].get('dose_mask_prob', 0.0),
+        residual_prediction=config.get('residual_prediction', False),
     )
     
     logger.info(f"Train batches: {len(train_loader)}")
@@ -104,6 +105,7 @@ def train(config_path: Path, file_name: str):
         bg_max=config['constraints']['bg_max'],
         meal_loss_weight=meal_cfg.get('loss_weight', 0.1),
         meal_pos_weight=meal_cfg.get('pos_weight', 3.0),
+        delta_prediction=config.get('residual_prediction', False),
     )
     
     # Log model info
@@ -210,7 +212,17 @@ def train(config_path: Path, file_name: str):
         
         yaml.dump(test_results[0], f)
     logger.info(f"Saved test results to {results_file}")
-    
+
+    # Write model metadata so inference knows which decoder conventions to use
+    import json as _json
+    metadata = {
+        "residual_prediction": config.get('residual_prediction', False),
+        "model_name": config['model']['name'],
+    }
+    with open(artifacts_dir / 'model_metadata.json', 'w') as _mf:
+        _json.dump(metadata, _mf, indent=2)
+    logger.info("Saved model_metadata.json")
+
     # Export models if requested
     if 'export_formats' in config['artifacts']:
         logger.info("Exporting model...")

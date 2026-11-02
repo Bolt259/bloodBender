@@ -54,6 +54,7 @@ class BloodGlucoseDataset(Dataset):
         scaler: Optional[RobustScaler] = None,
         fit_scaler: bool = False,
         dose_mask_prob: float = 0.0,
+        residual_prediction: bool = False,
     ):
         """
         Args:
@@ -67,6 +68,8 @@ class BloodGlucoseDataset(Dataset):
             stride: Step size for sliding window
             scaler: Pre-fitted scaler (for val/test)
             fit_scaler: If True, fit new scaler on this data (train only)
+            residual_prediction: If True, targets are deltas (future_bg - current_bg)
+                instead of absolute BG. Model learns changes, not levels.
             dose_mask_prob: Probability (TRAIN only) of zeroing the current
                 (last lookback) step's hypothetical_dose so the model learns the
                 current-step dose can differ from the historical bolus (v1.3).
@@ -81,6 +84,7 @@ class BloodGlucoseDataset(Dataset):
         self.stride = stride
         self.scaler = scaler
         self.dose_mask_prob = float(dose_mask_prob)
+        self.residual_prediction = residual_prediction
 
         # Precompute the hypothetical_dose column index for dose-masking (v1.3).
         self._hypo_idx = (
@@ -296,15 +300,24 @@ class BloodGlucoseDataset(Dataset):
         target_mask = (observed & target_sequence[self.target].notna().to_numpy()).astype(np.float32)
 
         # Meal-rise label (indirect supervision): 1 if BG rises ≥35 mg/dL over the
-        # horizon AND current BG is ≥80.  Covers post-meal highs and rebound
-        # hyperglycaemia after a prolonged low.  Computed on raw (unscaled) BG.
+        # horizon AND current BG is ≥80.  Computed on raw (unscaled) BG.
         current_bg = input_sequence[self.target].values[-1]  # last raw BG in lookback
-        valid_future = target_values[target_mask > 0]        # observed horizon BG only
-        if len(valid_future) > 0 and not np.isnan(current_bg):
-            max_rise = float(np.nanmax(valid_future) - current_bg)
+
+        # Meal-rise label — computed on ABSOLUTE future BG before any delta conversion.
+        abs_future = target_values[target_mask > 0]
+        if len(abs_future) > 0 and not np.isnan(current_bg):
+            max_rise = float(np.nanmax(abs_future) - current_bg)
             meal_label = float(max_rise >= 35.0 and current_bg >= 80.0)
         else:
             meal_label = 0.0
+
+        # Residual prediction: targets become deltas (future_bg - current_bg).
+        # delta MAE == absolute MAE so existing loss/metrics are directly comparable.
+        # Forces the model to learn BG *change*, preventing global-mean attractor collapse.
+        if self.residual_prediction and not np.isnan(current_bg):
+            target_values = target_values - current_bg
+
+        valid_future = target_values[target_mask > 0]
 
         # Per-step correction mask: 1.0 = this horizon step is pre-correction
         # (safe to include in loss), 0.0 = a patient bolus occurred at or before
@@ -438,6 +451,7 @@ def create_dataloaders(
     persistent_workers: bool = True,
     scaler_path: Optional[Path] = None,
     dose_mask_prob: float = 0.0,
+    residual_prediction: bool = False,
 ) -> Tuple[DataLoader, DataLoader, DataLoader, RobustScaler]:
     """
     Create train, validation, and test dataloaders.
@@ -482,14 +496,15 @@ def create_dataloaders(
         stride=stride,
         fit_scaler=True,
         dose_mask_prob=dose_mask_prob,
+        residual_prediction=residual_prediction,
     )
-    
+
     scaler = train_dataset.scaler
-    
+
     # Save scaler if path provided
     if scaler_path:
         train_dataset.save_scaler(scaler_path)
-    
+
     # Create validation dataset with fitted scaler
     val_dataset = BloodGlucoseDataset(
         data_dir=data_dir,
@@ -500,9 +515,10 @@ def create_dataloaders(
         lookback=lookback,
         horizon=horizon,
         stride=stride,
-        scaler=scaler
+        scaler=scaler,
+        residual_prediction=residual_prediction,
     )
-    
+
     # Create test dataset with fitted scaler
     test_dataset = BloodGlucoseDataset(
         data_dir=data_dir,
@@ -513,7 +529,8 @@ def create_dataloaders(
         lookback=lookback,
         horizon=horizon,
         stride=stride,
-        scaler=scaler
+        scaler=scaler,
+        residual_prediction=residual_prediction,
     )
     
     # Create DataLoaders
