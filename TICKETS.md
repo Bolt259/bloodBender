@@ -229,6 +229,40 @@ What remained was the sweetBlood compatibility layer:
 
 ---
 
+## P2 — Normal
+
+| ID    | Sub     | Status   | Title                                                   | Deps      |
+|-------|---------|----------|---------------------------------------------------------|-----------|
+| BT-09 | twin    | open     | Production accuracy tracker + fix archive gap           | —         |
+
+### BT-09: Production retrospective accuracy tracker
+**Root cause of "model looks worse than expected"**: production MAE is ~33@30min / ~45@60min
+(vs test-set claims 9.87 / 15.47), with a systematic **−21 / −36 mg/dL negative bias** —
+the model predicts much more BG drop than actually occurs. Computed from 28 archived
+inferences by matching prediction timestamps to actual BG in the merged CSV.
+
+**Contributing factors to investigate:**
+1. Training data distribution: v1.4 was trained on 6+ years of historical data where the
+   patient was actively managing BG. Every "high BG with no recent bolus" window is
+   followed by a correction — the model may have learned this as a BG trajectory feature
+   rather than an IOB feature (similar to the BT-08 concern, but less severe).
+2. IOB over-counting: the `iob: 7.74` high IOB readings suggest real IOB values may be
+   inflated (investigate if IOB cap is applied correctly in production merged CSVs).
+3. Archiving is dashboard-gated: `_maybe_archive()` only runs inside `render_page()`,
+   so production archives are sparse and biased toward times the dashboard was open.
+
+**Required work:**
+1. Move `_maybe_archive()` from `server.py:render_page()` into the 5-min inference cron
+   (`nix/packages.nix bloodbender-inference-cron`) so every inference run is captured.
+2. Add a scheduled accuracy script (like `bloodbender-fit-isf`) that walks the archive,
+   matches predicted timestamps to actual BG in merged CSVs, computes rolling signed error
+   + MAE per horizon, writes `bloodBath/logs/accuracy_summary.json`.
+3. Surface prod MAE + bias on the dashboard next to the ghost chart.
+4. Investigate the systematic negative bias — likely a training distribution issue; may
+   require new data augmentation or a targeted retrain.
+
+---
+
 ## P3 — Low / Someday
 
 | ID    | Sub     | Status   | Title                                                   | Deps      |
