@@ -235,10 +235,24 @@ What remained was the sweetBlood compatibility layer:
 |-------|---------|----------|---------------------------------------------------------|-----------|
 | BM-01 | metal   | open     | bareMetalBender Rust/Tokio design doc                   | BT-01     |
 | BB-05 | bath    | deferred | Dexcom Clarity API cross-check for retroactive corr.    | —         |
-| BT-06 | twin    | open     | Dose-conditioned LSTM: proper training regime (Option C first) | —  |
+| BT-06 | twin    | done     | ~~Dose-conditioned LSTM: Option C IOB injection at inference~~  | —  |
 | BT-08 | twin    | done     | ~~Baseline (0 U) prediction mean-reversion bias audit~~     | —         |
 | IN-03 | infra   | deferred | Re-login churn fix in real_tandemsource                 | —         |
 | BT-07 | twin    | done     | ~~sklearn version skew — scaler stored as numpy arrays~~ | —        |
+
+### BT-06: Dose-conditioned LSTM: Option C ✅ RESOLVED 2026-11-01
+`iob_conditioned_fan()` added to `ScenarioSimulator`. For each candidate dose `d`,
+copies the raw lookback window and adds `d` to `iob[now]`. The LSTM uses its
+learned IOB→BG response (trained on 6+ years of real bolus history) to produce
+a genuinely dose-conditioned trajectory — no retraining needed.
+
+Why better than `dose_conditioned_fan()` (which used `hypothetical_dose`):
+the model trained on 30%-masked `hypothetical_dose` = noisy copy of `bolus_dose`,
+producing +1 mg/dL/U instead of −24. IOB is a real causal feature the model trusts.
+
+`fan()` now dispatches to `iob_conditioned_fan()` first, falls back to physics
+`run()` on error. Option B (proper counterfactual training regime with causal
+masking of `hypothetical_dose`) remains the long-term target for a future retrain.
 
 ### BM-01: bareMetalBender Rust/Tokio
 Embedded Rust port: async control loop (Tokio), same patient_state schema, runs model.onnx
