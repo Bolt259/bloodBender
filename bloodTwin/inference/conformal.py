@@ -44,18 +44,9 @@ import onnxruntime as ort
 import pandas as pd
 
 from bloodTwin._feature_utils import ensure_passthrough_features
-
-# Keep inference module free of bloodBath sync-stack dependencies so it
-# runs in the lightweight onnxruntime-only Nix env.  build_feature_frame
-# is imported lazily inside predict_from_df only.
-FEATURE_NAMES: tuple[str, ...] = (
-    "bg", "basal_rate", "bolus_dose", "basal_delta",
-    "time_since_last_bolus", "bg_slope_15min", "bg_slope_30min",
-    "sin_time", "cos_time", "mask_bg", "mask_label",
+from bloodTwin.schema import (
+    FEATURE_NAMES, CGM_STEP_MINUTES, HORIZON, LOOKBACK,
 )
-CGM_STEP_MINUTES: int = 5
-HORIZON  = 12    # prediction steps
-LOOKBACK = 288   # 24 h @ 5 min
 
 
 

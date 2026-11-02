@@ -33,13 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from bloodTwin.inference.conformal import ConformalPredictor
-
-# Feature schema v1.3/v1.4 — hardcoded to avoid importing bloodBath (which needs arrow)
-FEATURE_NAMES = [
-    "bg", "basal_rate", "bolus_dose", "basal_delta", "time_since_last_bolus",
-    "bg_slope_15min", "bg_slope_30min", "sin_time", "cos_time", "iob",
-    "bg_acceleration", "mask_bg", "mask_label", "hypothetical_dose", "site_change",
-]
+from bloodTwin.schema import FEATURE_NAMES
 
 # ── Config ──────────────────────────────────────────────────────────────────
 ARTIFACTS_DIR = Path(os.environ.get(

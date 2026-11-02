@@ -92,7 +92,7 @@ to v1.4 via `Environment=BLOODTWIN_ARTIFACTS=bloodTwin/artifacts/bloodTwin_unifi
 v1.4 was retrained after the BB-02 extractor fixes (basal 10× inflation + bolus unit errors).
 v1.3 remains in the repo but is no longer used in production.
 
-## Feature Schema v1.3 (15 features, order matters)
+## Feature Schema v1.4 (15 features, order matters)
 
 ```
 bg, basal_rate, bolus_dose, basal_delta, time_since_last_bolus,
@@ -100,7 +100,20 @@ bg_slope_15min, bg_slope_30min, sin_time, cos_time, iob,
 bg_acceleration, mask_bg, mask_label, hypothetical_dose, site_change
 ```
 
+Canonical source: **`bloodTwin/schema.py`** — import `FEATURE_NAMES` from there.
+Do NOT hardcode this list anywhere else; it changed from 11→15 features between v1.0 and v1.4.
 Canonical derivation: `bloodBath/core/patient_state.py → build_feature_frame()`
+
+## Hampel Filter Contract (for bareMetalBender embedded port)
+
+`BgHampelFilter` (`bloodBath/data/resampler.py`) runs on raw CGM before slope and
+acceleration features are derived. The Rust/C port must reproduce these parameters
+exactly (constants are in `bloodTwin/schema.py` as `HAMPEL_*`):
+- Window half-width: 2 samples (±10 min at 5-min CGM)
+- Threshold: 3.0 scaled MADs
+- K_SCALE: 1.4826 (MAD → σ̂ consistency constant)
+- A 1 mg/dL sigma floor catches spikes in perfectly flat baselines (MAD = 0)
+- Spikes replaced with local window median; NaN positions unchanged
 
 ## Key Source Files
 

@@ -166,7 +166,7 @@ Set `NTFY_TOPIC=bloodbender-<yourname>` in `.env`, subscribe in ntfy app on phon
 | BB-03 | bath    | blocked  | new_site_lag labels (patient must log site changes)     | patient   |
 | BB-04 | bath    | done     | ~~Retire deprecated sync/ + dead API files~~            | —         |
 | IN-02 | infra   | done     | ~~Close stale cleanup/deprecated-modules branch~~       | BB-01     |
-| BT-05 | twin    | open     | arch/redesign branch (Hampel deeper, uv2nix, Rust plan) | BB-01     |
+| BT-05 | twin    | done     | ~~arch/redesign: schema.py, fix stale FEATURE_NAMES, Hampel contract~~ | BB-01 |
 
 ### UI-02: Dashboard polish
 Three small UX issues in `bloodTwin/dashboard/charts.py` + `templates/index.html.j2`:
@@ -213,11 +213,19 @@ What remained was the sweetBlood compatibility layer:
   `v2.0_Complete_Report.md`, `v2.0_Implementation_Summary.md`
 - 139 tests still passing.
 
-### BT-05: arch/redesign branch
-Hampel filter is in main (`42256133`) — but the design calls for it to also run identically
-in the embedded patient_state assembly (bareMetalBender). Other redesign items: uv2nix
-deeper integration, unified patient_state schema as single source of truth across
-bloodBath/bloodTwin/bareMetalBender, Rust planning for embedded port.
+### BT-05: arch/redesign ✅ RESOLVED 2026-11-01
+**Canonical schema module** (`bloodTwin/schema.py`) created as single source of truth for:
+- `FEATURE_NAMES` (15 features, index-ordered) — was hardcoded in 2+ places with stale
+  11-feature version in `conformal.py` (missing `iob`, `bg_acceleration`,
+  `hypothetical_dose`, `site_change`)
+- `FEAT_IDX` — dict for O(1) index lookup
+- `LOOKBACK=288`, `HORIZON=12`, `CGM_STEP_MINUTES=5` — model time constants
+- `HAMPEL_*` constants — embedded port contract for `BgHampelFilter`
+
+`conformal.py` updated to import from `schema.py` (stale local definition removed).
+`scripts/audit_baseline_meanreversion.py` updated to import from `schema.py`.
+`CLAUDE.md` updated with Hampel filter algorithm contract for bareMetalBender Rust port.
+35 bloodTwin tests passing.
 
 ---
 
