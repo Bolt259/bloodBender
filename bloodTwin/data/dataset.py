@@ -125,18 +125,26 @@ class BloodGlucoseDataset(Dataset):
         for subject_id, subject_root in self.subject_dirs.items():
             split_dir = subject_root / self.subset
 
-            csv_files = list(split_dir.glob(f"lstm_{self.subset}_*.csv"))
+            csv_files = sorted(split_dir.glob(f"lstm_{self.subset}_*.csv"))
 
             if not csv_files:
                 logger.warning(f"No CSV files found in {split_dir}")
                 continue
 
-            csv_file = sorted(csv_files)[-1]
-            df = pd.read_csv(csv_file, comment="#")
-            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-            df["subject_id"] = subject_id
+            if len(csv_files) > 1:
+                logger.info(
+                    f"{subject_id}: loading {len(csv_files)} segment CSVs "
+                    "(SequenceSegmenter gap-split; all segments loaded)"
+                )
 
-            all_data.append(df)
+            frames = []
+            for csv_file in csv_files:
+                df = pd.read_csv(csv_file, comment="#")
+                df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+                df["subject_id"] = subject_id
+                frames.append(df)
+
+            all_data.append(pd.concat(frames, ignore_index=True))
 
         if not all_data:
             raise ValueError(f"No data loaded for {self.subset} set!")

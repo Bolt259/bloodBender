@@ -58,17 +58,30 @@ BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
 
 | ID    | Sub     | Status   | Title                                              | Deps   |
 |-------|---------|----------|----------------------------------------------------|--------|
-| BT-02 | twin    | open     | 41-day gap audit (pump 1539514 inactive period)    | —      |
+| BT-02 | twin    | done     | ~~41-day gap audit (pump 1539514 inactive period)~~ | —     |
 | BT-03 | twin    | done     | ~~CLAUDE.md — project context for AI sessions~~    | BB-01  |
 | BB-02 | bath    | open     | Tandem API systematic field audit                  | —      |
 | IN-01 | infra   | open     | Phone notification on hypoglycemia risk            | —      |
 
-### BT-02: 41-day gap audit
-Pump 1539514 has an inactive period in 2024-2025 (validate/test split lands there). Verify
-the 41-day gap is handled: mask_label=False for those windows → excluded from training.
-Also check: does the IOB physiological cap (`b205c913`) interact correctly with the gap?
-**Action:** `grep -n "mask_label" bloodBath/data/resampler.py` around lines 563-580, run
-`nix develop .#default -- python -c "import ...dataset; check window counts per pump"`.
+### BT-02: 41-day gap audit ✅ RESOLVED 2026-10-31
+
+**Findings:**
+1. Pump 1539514 (Mobi) data starts 2025-11-11, ends 2026-02-09. No gap within the active
+   period — the pump simply wasn't in use before Nov 2025. No mid-active-period gap to exclude.
+2. `_create_sequences` (dataset.py) groups by `subject_id` (pump_serial): windows cannot
+   span across pumps. Each pump is isolated.
+3. BG NaN check (`sequence[target].isna().any()`) in `_create_sequences` would exclude any
+   window where training labels are missing, regardless of mask_label.
+4. SequenceSegmenter (max_gap_hours=15.0) in processors.py correctly breaks genuine gaps
+   into separate segment CSVs. `_load_data` formerly loaded only `sorted(csv_files)[-1]`,
+   silently dropping all earlier segments if a pump had multiple. **Fixed:** all segment
+   CSVs per pump per split are now loaded and concatenated (commit with BT-02 closure).
+5. `mask_label` is a model INPUT feature (passed as-is), not a window filter. Conformal
+   calibration DOES respect mask_label (calibrate_conformal.py line 105). Training loss
+   does not gate on mask_label directly, but BG NaN exclusion in step 3 handles the same
+   cases (large gaps → NaN BG → excluded).
+
+**Action taken:** Fixed `_load_data` to load all segment CSVs, not just the last one.
 
 ### BT-03: CLAUDE.md ✅ RESOLVED 2026-10-31
 Created and pushed. Covers: nix shells + apps, pump serials, artifact paths, feature schema
