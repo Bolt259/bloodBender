@@ -203,9 +203,13 @@ class BloodGlucoseDataset(Dataset):
         """
         sequences = []
         total_length = self.lookback + self.horizon
-        feat_indices = [self.data.columns.get_loc(f) for f in self.features]
-        tgt_idx = self.data.columns.get_loc(self.target)
-        data_vals = self.data.to_numpy()  # O(1) view; avoids per-window pandas overhead
+        # Build a numeric-only float32 view covering exactly features+target so
+        # np.isnan works correctly (self.data.to_numpy() returns object dtype due
+        # to the timestamp/subject_id columns added by _load_data).
+        _cols = list(self.features) + ([self.target] if self.target not in self.features else [])
+        data_vals = self.data[_cols].to_numpy(dtype=np.float32, na_value=np.nan)
+        feat_indices = list(range(len(self.features)))
+        tgt_idx = _cols.index(self.target)
 
         for _, group in self.data.groupby("subject_id", sort=False):
             idx = group.index.to_numpy()  # sorted integer positions in self.data
