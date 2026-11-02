@@ -366,14 +366,57 @@
       histTipBg.setAttribute("x", tx - 4); histTipBg.setAttribute("y", ty - 14);
       histTipBg.setAttribute("width", 120); histTipBg.setAttribute("height", 34);
       histT1.setAttribute("x", tx); histT1.setAttribute("y", ty);
-      histT1.textContent = histTs[idx];
+      histT1.textContent = histBgs[idx].toFixed(1) + " mg/dL";
       histT2.setAttribute("x", tx); histT2.setAttribute("y", ty + 14);
-      histT2.textContent = histBgs[idx].toFixed(1) + " mg/dL";
+      histT2.textContent = histTs[idx];
       histTip.setAttribute("visibility", "visible");
     });
     histOverlay.addEventListener("mouseleave", function() {
       histCursor.setAttribute("visibility", "hidden");
       histTip.setAttribute("visibility", "hidden");
+    });
+  }
+
+  // ── Diagnostic chart: cursor + tooltip ───────────────────────────────
+  var diagSvg = document.getElementById("bb-diag");
+  if (diagSvg) {
+    var diagOverlay = document.getElementById("bb-diag-overlay");
+    var diagCursor  = document.getElementById("bb-diag-cursor");
+    var diagTip     = document.getElementById("bb-diag-tip");
+    var diagTipBg   = document.getElementById("bb-diag-tip-bg");
+    var diagT1      = document.getElementById("bb-diag-t1");
+    var diagT2      = document.getElementById("bb-diag-t2");
+    var diagXs      = JSON.parse(diagSvg.getAttribute("data-xs"));
+    var diagBgs     = JSON.parse(diagSvg.getAttribute("data-bgs"));
+    var diagTs      = JSON.parse(diagSvg.getAttribute("data-ts"));
+    var diagW       = parseFloat(diagSvg.getAttribute("data-W"));
+
+    function nearestDiagIdx(ex) {
+      var best = 0, bd = 1e9;
+      diagXs.forEach(function(cx, i) {
+        var d = Math.abs(cx - ex); if (d < bd) { bd = d; best = i; }
+      });
+      return best;
+    }
+    diagOverlay.addEventListener("mousemove", function(e) {
+      var ex  = e.offsetX;
+      var idx = nearestDiagIdx(ex);
+      var cx  = diagXs[idx];
+      diagCursor.setAttribute("x1", cx); diagCursor.setAttribute("x2", cx);
+      diagCursor.setAttribute("visibility", "visible");
+      var tx = cx + 8, ty = parseFloat(diagSvg.getAttribute("data-mt")) + 20;
+      if (tx + 120 > diagW - 10) { tx = cx - 128; }
+      diagTipBg.setAttribute("x", tx - 4); diagTipBg.setAttribute("y", ty - 14);
+      diagTipBg.setAttribute("width", 120); diagTipBg.setAttribute("height", 34);
+      diagT1.setAttribute("x", tx); diagT1.setAttribute("y", ty);
+      diagT1.textContent = diagBgs[idx].toFixed(1) + " mg/dL";
+      diagT2.setAttribute("x", tx); diagT2.setAttribute("y", ty + 14);
+      diagT2.textContent = diagTs[idx];
+      diagTip.setAttribute("visibility", "visible");
+    });
+    diagOverlay.addEventListener("mouseleave", function() {
+      diagCursor.setAttribute("visibility", "hidden");
+      diagTip.setAttribute("visibility", "hidden");
     });
   }
 })();

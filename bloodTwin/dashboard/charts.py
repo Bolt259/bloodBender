@@ -75,13 +75,13 @@ def render_fan_svg(fan: list[dict[str, Any]]) -> str:
     for gv in _axis_ticks(ymin, ymax):
         gy = y(gv)
         parts.append(f'<line x1="{ml}" y1="{gy:.1f}" x2="{ml+pw}" y2="{gy:.1f}" '
-                     f'stroke="#161b22" stroke-width="1"/>')
+                     f'stroke="#30363d" stroke-width="1"/>')
         parts.append(f'<text x="{ml-8}" y="{gy+4:.1f}" fill="#6e7681" font-size="11" '
                      f'text-anchor="end">{gv:.0f}</text>')
     for i in range(0, nsteps, 2):
         gx = x(i)
         parts.append(f'<line x1="{gx:.1f}" y1="{mt}" x2="{gx:.1f}" y2="{mt+ph}" '
-                     f'stroke="#161b22" stroke-width="1"/>')
+                     f'stroke="#30363d" stroke-width="1"/>')
         parts.append(f'<text x="{gx:.1f}" y="{H-mb+20}" fill="#6e7681" font-size="11" '
                      f'text-anchor="middle">{i*5}m</text>')
 
@@ -216,7 +216,7 @@ def render_history_svg(df: pd.DataFrame) -> str:
     for gv in _axis_ticks(ymin, ymax, n=5):
         gy = y(gv)
         parts.append(f'<line x1="{ml}" y1="{gy:.1f}" x2="{ml+pw}" y2="{gy:.1f}" '
-                     f'stroke="#161b22" stroke-width="1"/>')
+                     f'stroke="#30363d" stroke-width="1"/>')
         parts.append(f'<text x="{ml-6}" y="{gy+4:.1f}" fill="#6e7681" font-size="10" '
                      f'text-anchor="end">{gv:.0f}</text>')
 
@@ -332,17 +332,22 @@ def render_diagnostic_svg(df: pd.DataFrame, archive: list[dict]) -> str:
 
     ts_local = [pd.Timestamp(t).to_pydatetime().astimezone().strftime("%H:%M")
                 for t in df["timestamp"].tolist()]
+    xs_js  = json.dumps([round(x(i), 1) for i in range(n)])
+    bg_js  = json.dumps([round(float(v), 1) for v in bg_vals])
+    ts_js  = json.dumps(ts_local)
 
     parts: list[str] = [
         f'<svg id="bb-diag" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
-        f'style="background:#0d1117;display:block">'
+        f'data-xs=\'{xs_js}\' data-bgs=\'{bg_js}\' data-ts=\'{ts_js}\' '
+        f'data-ml="{ml}" data-mt="{mt}" data-ph="{ph}" data-W="{W}" '
+        f'style="background:#0d1117;display:block;cursor:crosshair">'
     ]
 
     # Minimal gridlines
     for gv in _axis_ticks(ymin, ymax, n=4):
         gy = y(gv)
         parts.append(f'<line x1="{ml}" y1="{gy:.1f}" x2="{ml+pw}" y2="{gy:.1f}" '
-                     f'stroke="#161b22" stroke-width="1"/>')
+                     f'stroke="#30363d" stroke-width="1"/>')
         parts.append(f'<text x="{ml-6}" y="{gy+4:.1f}" fill="#6e7681" font-size="10" '
                      f'text-anchor="end">{gv:.0f}</text>')
 
@@ -423,5 +428,18 @@ def render_diagnostic_svg(df: pd.DataFrame, archive: list[dict]) -> str:
     parts.append(f'<text x="{ml}" y="{mt+12}" fill="#6e7681" font-size="10">'
                  f'{len(archive)} past predictions shown</text>')
 
+    # Overlay rect for mouse events + static overlays (mirror of history chart)
+    parts.append(f'<rect id="bb-diag-overlay" x="{ml}" y="{mt}" '
+                 f'width="{pw}" height="{ph}" fill="transparent" cursor="crosshair"/>')
+    parts.append(f'<line id="bb-diag-cursor" x1="0" y1="{mt}" x2="0" y2="{mt+ph}" '
+                 f'stroke="#e6edf3" stroke-width="1" opacity="0.35" '
+                 f'stroke-dasharray="4,3" visibility="hidden" pointer-events="none"/>')
+    parts.append(
+        '<g id="bb-diag-tip" visibility="hidden" pointer-events="none">'
+        '<rect id="bb-diag-tip-bg" rx="4" ry="4" fill="#161b22" stroke="#30363d" stroke-width="1"/>'
+        '<text id="bb-diag-t1" fill="#e6edf3" font-size="11" font-weight="600"/>'
+        '<text id="bb-diag-t2" fill="#8b949e" font-size="10"/>'
+        '</g>'
+    )
     parts.append('</svg>')
     return "".join(parts)

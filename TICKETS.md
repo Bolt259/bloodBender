@@ -161,11 +161,22 @@ Set `NTFY_TOPIC=bloodbender-<yourname>` in `.env`, subscribe in ntfy app on phon
 | ID    | Sub     | Status   | Title                                                   | Deps      |
 |-------|---------|----------|---------------------------------------------------------|-----------|
 | UI-01 | twin    | done     | ~~Hide static dose labels from right side of dashboard chart~~ | —     |
+| UI-02 | twin    | done     | ~~Dashboard polish: diag cursor, tooltip swap, grid visibility~~ | —       |
 | BT-04 | twin    | open     | Multi-horizon control display (trajectory fan UI)       | BT-01     |
 | BB-03 | bath    | blocked  | new_site_lag labels (patient must log site changes)     | patient   |
 | BB-04 | bath    | open     | Retire deprecated sync/ + dead API files                | —         |
 | IN-02 | infra   | done     | ~~Close stale cleanup/deprecated-modules branch~~       | BB-01     |
 | BT-05 | twin    | open     | arch/redesign branch (Hampel deeper, uv2nix, Rust plan) | BB-01     |
+
+### UI-02: Dashboard polish
+Three small UX issues in `bloodTwin/dashboard/charts.py` + `templates/index.html.j2`:
+1. **Model accuracy chart has no cursor** — add vertical cursor line + hover tooltip
+   (matching the history and fan charts).
+2. **History tooltip text order is wrong** — bold white text shows time, secondary shows
+   BG value. Should be swapped: BG value bold, time secondary.
+3. **Gridlines invisible in target bands** — current `stroke="#161b22"` is near-black,
+   essentially invisible against the green (`#14532d`) and purple (`#2d1b4e`) bands.
+   Raise to `stroke="#30363d"` across all three charts.
 
 ### UI-01: Hide static dose labels from right side of chart
 Dose/scenario values currently show as permanent labels to the right of the graph.
