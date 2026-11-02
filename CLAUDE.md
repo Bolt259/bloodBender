@@ -79,18 +79,21 @@ Manage with: `systemctl --user {status,start,stop} bloodbender-<name>.timer`
 ## Active Model Artifact
 
 ```
-bloodTwin/artifacts/bloodTwin_unified_lstm_v1_4/
-  model.onnx              ONNX LSTM (15 features, v1.4)
+bloodTwin/artifacts/bloodTwin_unified_lstm_v1_5/
+  model.onnx              ONNX LSTM (15 features, v1.5) — residual decoder
+  model_metadata.json     {"residual_prediction": true} — read by conformal.py + calibrate_conformal.py
   scaler.pkl              RobustScaler as numpy arrays (center_, scale_)
   conformal_summary.json  90% coverage, ±31@30min ±52@60min (14,565 cal windows)
-  test_results.yaml       MAE 30min=9.87, 60min=15.47, RMSE=23.04, meal_acc=81.1%
+  test_results.yaml       MAE 30min=9.69, 60min=15.31, RMSE=22.97, meal_acc=78.7%
 ```
 
-Controlled by env var `BLOODTWIN_ARTIFACTS` (defaults to v1.3 path; systemd service overrides
-to v1.4 via `Environment=BLOODTWIN_ARTIFACTS=bloodTwin/artifacts/bloodTwin_unified_lstm_v1_4`).
+Controlled by env var `BLOODTWIN_ARTIFACTS`. Systemd service:
+`Environment=BLOODTWIN_ARTIFACTS=bloodTwin/artifacts/bloodTwin_unified_lstm_v1_5`
 
-v1.4 was retrained after the BB-02 extractor fixes (basal 10× inflation + bolus unit errors).
-v1.3 remains in the repo but is no longer used in production.
+**v1.5 key change:** Decoder outputs Δ(BG) = future_bg − current_bg instead of absolute BG.
+Fixes the confirmed global-mean attractor collapse (v1.4 `corr(current_bg, pred@60min) = −0.019`).
+Inference: conformal.py reads model_metadata.json and adds current_bg back to reconstruct absolute BG.
+Calibration: calibrate_conformal.py does the same reconstruction before computing residuals.
 
 ## Feature Schema v1.4 (15 features, order matters)
 

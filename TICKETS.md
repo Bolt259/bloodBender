@@ -30,7 +30,7 @@ BT-04 (multi-horizon trajectory fan), IN-01 (hypoglycemia push notification)
 
 | ID    | Sub     | Status | Title                                                        | Deps   |
 |-------|---------|--------|--------------------------------------------------------------|--------|
-| BT-10 | twin    | open   | **Residual decoder retrain** — fix 60-min global-mean collapse | —    |
+| BT-10 | twin    | done   | ~~Residual decoder retrain — fix 60-min global-mean collapse~~ | —    |
 | BB-01 | infra   | done   | ~~Push main to origin (84 commits pushed)~~                  | —      |
 | BT-01 | twin    | done   | ~~Validate dose-conditioned fan vs physics fan~~             | —      |
 
