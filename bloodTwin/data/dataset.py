@@ -199,26 +199,27 @@ class BloodGlucoseDataset(Dataset):
         """
         sequences = []
         total_length = self.lookback + self.horizon
+        feat_indices = [self.data.columns.get_loc(f) for f in self.features]
+        tgt_idx = self.data.columns.get_loc(self.target)
+        data_vals = self.data.to_numpy()  # O(1) view; avoids per-window pandas overhead
 
         for _, group in self.data.groupby("subject_id", sort=False):
-            indices = group.index.to_list()
+            idx = group.index.to_numpy()  # sorted integer positions in self.data
 
-            for offset in range(0, len(indices) - total_length + 1, self.stride):
-                window_indices = indices[offset:offset + total_length]
-                sequence = self.data.loc[window_indices]
+            for i in range(0, len(idx) - total_length + 1, self.stride):
+                start = idx[i]
+                end   = idx[i + total_length - 1] + 1  # exclusive
 
-                if sequence[self.target].isna().any():
+                tgt_col = data_vals[start:end, tgt_idx]
+                if np.isnan(tgt_col).any():
                     continue
 
-                nan_ratio = (
-                    sequence[self.features].isna().sum().sum()
-                    / (len(sequence) * len(self.features))
-                )
-
+                feat_block = data_vals[start:end][:, feat_indices]
+                nan_ratio  = np.isnan(feat_block).sum() / feat_block.size
                 if nan_ratio > 0.1:
                     continue
 
-                sequences.append((window_indices[0], window_indices[-1] + 1))
+                sequences.append((start, end))
 
         return sequences
     
