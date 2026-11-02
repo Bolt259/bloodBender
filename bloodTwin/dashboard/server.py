@@ -134,6 +134,10 @@ def _bg_class(v) -> str:
     return "bg-tgt"
 
 
+_FAN_KEY_DOSES = [0.0, 0.5, 1.0, 1.5, 2.0]
+_FAN_KEY_COLORS = {0.0: "#58a6ff", 0.5: "#3fb950", 1.0: "#e3b341", 1.5: "#f0883e", 2.0: "#ff7b72"}
+
+
 def _fan_rows(fan: list) -> list[dict]:
     rows = []
     def cell(seq, idx):
@@ -142,14 +146,22 @@ def _fan_rows(fan: list) -> list[dict]:
         if lo and up and idx < len(lo) and idx < len(up):
             return f"[{_fmt(lo[idx])} – {_fmt(up[idx])}]"
         return ""
-    for s in fan:
-        p  = s.get("predicted_bg") or []
-        lo = s.get("lower") or []
-        up = s.get("upper") or []
+
+    # Only show the 5 key doses in the table, in order
+    for kd in _FAN_KEY_DOSES:
+        s = next((s for s in fan if abs(float(s.get("dose_u", -1)) - kd) < 0.01), None)
+        if s is None:
+            continue
+        p    = s.get("predicted_bg") or []
+        lo   = s.get("lower") or []
+        up   = s.get("upper") or []
         dose = float(s.get("dose_u", 0.0))
+        reasoning = s.get("delta_reasoning", "")
         rows.append({
-            "dose":    _fmt(dose, 2),
-            "nominal": abs(dose) < 1e-9,
+            "dose":      _fmt(dose, 2),
+            "nominal":   abs(dose) < 1e-9,
+            "color":     _FAN_KEY_COLORS.get(round(dose * 2) / 2, "#8b949e"),
+            "reasoning": reasoning,
             "p5":   cell(p, 0),  "ci5":  ci_cell(lo, up, 0),
             "p30":  cell(p, 5),  "ci30": ci_cell(lo, up, 5),
             "p60":  cell(p, 11), "ci60": ci_cell(lo, up, 11),

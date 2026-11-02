@@ -162,7 +162,7 @@ Set `NTFY_TOPIC=bloodbender-<yourname>` in `.env`, subscribe in ntfy app on phon
 |-------|---------|----------|---------------------------------------------------------|-----------|
 | UI-01 | twin    | done     | ~~Hide static dose labels from right side of dashboard chart~~ | —     |
 | UI-02 | twin    | done     | ~~Dashboard polish: diag cursor, tooltip swap, grid visibility~~ | —       |
-| BT-04 | twin    | open     | Multi-horizon control display (trajectory fan UI)       | BT-01     |
+| BT-04 | twin    | done     | ~~Multi-horizon control display (trajectory fan UI)~~   | BT-01     |
 | BB-03 | bath    | blocked  | new_site_lag labels (patient must log site changes)     | patient   |
 | BB-04 | bath    | open     | Retire deprecated sync/ + dead API files                | —         |
 | IN-02 | infra   | done     | ~~Close stale cleanup/deprecated-modules branch~~       | BB-01     |
@@ -185,11 +185,12 @@ Since hover already shows these values, the static labels are redundant clutter.
 annotation/text for each fan scenario line. Keep hover tooltip behavior as-is.
 **Priority:** P2. Small change, isolated to charts.py.
 
-### BT-04: Multi-horizon control display
-`feat/multi-horizon-control` not started. Depends on BT-01 confirming dose-conditioned fan
-actually works. UI: show fan of 5 BG trajectories (0/0.5/1.0/1.5/2.0 U) with conformal
-intervals, each trajectory its own color, reasoning line = expected BG delta per scenario.
-No hard gates — patient picks their path.
+### BT-04: Multi-horizon control display ✅ RESOLVED 2026-11-01
+5 key doses (0/0.5/1.0/1.5/2.0 U) rendered with distinct colors (blue/green/amber/orange/red),
+each with a shaded 90% CI polygon. Non-key doses (0.25/0.75/…) rendered as thin dim background
+lines. Fan table filtered to 5 key rows with color swatches and `delta_reasoning` text
+(e.g. "vs 0U: −0.6@30, −2.3@60 mg/dL"). Legend updated to show 5 named dose colors.
+Hover tooltip on key dose points now shows reasoning (first clause of delta_reasoning).
 
 ### BB-03: new_site_lag labels
 Feature is wired and flowing (pump 881235 has 139 events). Patient must log site changes

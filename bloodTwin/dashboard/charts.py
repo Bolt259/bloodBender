@@ -24,6 +24,16 @@ PERSONAL_LO,  PERSONAL_HI  = 75.0, 130.0
 _PERSONAL_FILL  = "#14532d";  _PERSONAL_LABEL = "#22c55e"
 _CLINICAL_FILL  = "#2d1b4e";  _CLINICAL_LABEL = "#a855f7"
 
+# Five key doses shown with distinct colors; all others dimmed
+_KEY_DOSES: list[float] = [0.0, 0.5, 1.0, 1.5, 2.0]
+_KEY_COLORS: dict[float, str] = {
+    0.0: "#58a6ff",  # blue
+    0.5: "#3fb950",  # green
+    1.0: "#e3b341",  # amber
+    1.5: "#f0883e",  # orange
+    2.0: "#ff7b72",  # red-pink
+}
+
 
 def _axis_ticks(lo: float, hi: float, n: int = 6) -> list[float]:
     step = (hi - lo) / n
@@ -101,38 +111,71 @@ def render_fan_svg(fan: list[dict[str, Any]]) -> str:
     _band(CLINICAL_LO, CLINICAL_HI, _CLINICAL_FILL, "0.45", _CLINICAL_LABEL, "clinical")
     _band(PERSONAL_LO,  PERSONAL_HI,  _PERSONAL_FILL,  "0.5",  _PERSONAL_LABEL,  "target")
 
-    sorted_fan = sorted(fan, key=lambda s: float((s.get("predicted_bg") or [0])[-1]), reverse=True)
+    def _is_key(dose: float) -> bool:
+        return any(abs(dose - kd) < 0.01 for kd in _KEY_DOSES)
 
+    def _key_color(dose: float) -> str:
+        for kd, col in _KEY_COLORS.items():
+            if abs(dose - kd) < 0.01:
+                return col
+        return "#4a8596"
+
+    # Render non-key doses first (behind key doses)
+    sorted_fan = sorted(fan, key=lambda s: float((s.get("predicted_bg") or [0])[-1]), reverse=True)
     for s in sorted_fan:
+        preds = s.get("predicted_bg") or []
+        if not preds:
+            continue
+        dose = float(s.get("dose_u", 0.0))
+        if _is_key(dose):
+            continue
+        dose_lbl = f"{dose:.2g} U"
+        pts = " ".join(f"{x(j):.1f},{y(float(v)):.1f}" for j, v in enumerate(preds))
+        parts.append(
+            f'<polyline class="bb-scenario bb-line" data-scenario="{html.escape(dose_lbl)}" '
+            f'data-stroke="#4a8596" data-nom="0" data-width="0.8" data-opacity="0.2" '
+            f'points="{pts}" fill="none" stroke="#4a8596" stroke-width="0.8" opacity="0.2"/>'
+        )
+
+    # Render key doses on top with CI bands and distinct colors
+    for kd in reversed(_KEY_DOSES):
+        s = next((s for s in fan if abs(float(s.get("dose_u", -1)) - kd) < 0.01), None)
+        if s is None:
+            continue
         preds  = s.get("predicted_bg") or []
         lo_seq = s.get("lower") or []
         up_seq = s.get("upper") or []
+        reasoning = s.get("delta_reasoning", "")
         if not preds:
             continue
         dose     = float(s.get("dose_u", 0.0))
         is_nom   = abs(dose) < 1e-9
         dose_lbl = "0 U" if is_nom else f"{dose:.2g} U"
-        stroke   = "#58a6ff" if is_nom else "#4a8596"
+        stroke   = _key_color(dose)
         nom_str  = "1" if is_nom else "0"
-        width    = "2.5" if is_nom else "1.3"
-        opacity  = "1"   if is_nom else "0.7"
-        lbl_col  = "#58a6ff" if is_nom else "#79c0d4"
-        dot_r    = "3.5" if is_nom else "2.5"
+        width    = "2.5" if is_nom else "2.0"
+        dot_r    = "3.5" if is_nom else "3.0"
 
         parts.append(f'<g class="bb-scenario" data-scenario="{html.escape(dose_lbl)}" '
                      f'data-stroke="{stroke}" data-nom="{nom_str}" '
-                     f'data-width="{width}" data-opacity="{opacity}">')
+                     f'data-width="{width}" data-opacity="1">')
+
+        # CI band as a filled polygon (upper forward, lower backward)
+        if lo_seq and up_seq and len(lo_seq) == len(preds) and len(up_seq) == len(preds):
+            up_pts = " ".join(f"{x(j):.1f},{y(float(v)):.1f}" for j, v in enumerate(up_seq))
+            lo_pts = " ".join(f"{x(j):.1f},{y(float(v)):.1f}"
+                              for j, v in reversed(list(enumerate(lo_seq))))
+            parts.append(f'<polygon points="{up_pts} {lo_pts}" '
+                         f'fill="{stroke}" opacity="0.10" pointer-events="none"/>')
 
         pts = " ".join(f"{x(j):.1f},{y(float(v)):.1f}" for j, v in enumerate(preds))
         parts.append(f'<polyline class="bb-line" points="{pts}" fill="none" '
-                     f'stroke="{stroke}" stroke-width="{width}" opacity="{opacity}"/>')
+                     f'stroke="{stroke}" stroke-width="{width}" opacity="1"/>')
 
-        # Visible dots (pointer-events=none so they don't block hit targets)
         for j, v in enumerate(preds):
             parts.append(f'<circle cx="{x(j):.1f}" cy="{y(float(v)):.1f}" r="{dot_r}" '
-                         f'fill="{stroke}" opacity="{opacity}" pointer-events="none"/>')
+                         f'fill="{stroke}" opacity="1" pointer-events="none"/>')
 
-        # Transparent hit targets with all data needed for JS tooltip
         for j, v in enumerate(preds):
             lo_v = float(lo_seq[j]) if j < len(lo_seq) else None
             up_v = float(up_seq[j]) if j < len(up_seq) else None
@@ -145,6 +188,7 @@ def render_fan_svg(fan: list[dict[str, Any]]) -> str:
                 f'data-mins="{j*5}" '
                 f'data-bg="{float(v):.0f}" '
                 f'data-ci="{html.escape(ci)}" '
+                f'data-reasoning="{html.escape(reasoning)}" '
                 f'data-sx="{cx:.1f}" data-sy="{cy:.1f}"/>'
             )
 
