@@ -192,7 +192,7 @@ bloodBath/bloodTwin/bareMetalBender, Rust planning for embedded port.
 | BT-06 | twin    | open     | Dose-conditioned LSTM: proper training regime (Option C first) | —  |
 | BT-08 | twin    | open     | Baseline (0 U) prediction mean-reversion bias audit         | —         |
 | IN-03 | infra   | deferred | Re-login churn fix in real_tandemsource                 | —         |
-| BT-07 | twin    | deferred | sklearn version skew — pin or store as numpy arrays     | done?     |
+| BT-07 | twin    | done     | ~~sklearn version skew — scaler stored as numpy arrays~~ | —        |
 
 ### BM-01: bareMetalBender Rust/Tokio
 Embedded Rust port: async control loop (Tokio), same patient_state schema, runs model.onnx
@@ -242,8 +242,9 @@ If the model shows mean-reversion only when IOB > 0, the behavior is correct.
 elevated/low windows with no recent bolus, run ConformalPredictor on each, compare
 predicted vs actual 60-min BG. Plot predicted_bg_60min vs actual_bg_60min scatter.
 
-### BT-07: sklearn version skew
-Scaler now loads as numpy arrays (`1aa372ed`) — may already be done. Verify and close.
+### BT-07: sklearn version skew ✅ RESOLVED 2026-11-01
+`scaler.pkl` stores `{'scaler': RobustScaler, 'feature_names': [...], 'center_': ndarray(15,), 'scale_': ndarray(15,)}`.
+`conformal.py` uses `center_`/`scale_` numpy arrays directly — no sklearn version dependency at inference.
 
 ---
 
