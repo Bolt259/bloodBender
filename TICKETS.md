@@ -162,6 +162,7 @@ Set `NTFY_TOPIC=bloodbender-<yourname>` in `.env`, subscribe in ntfy app on phon
 |-------|---------|----------|---------------------------------------------------------|-----------|
 | UI-01 | twin    | done     | ~~Hide static dose labels from right side of dashboard chart~~ | —     |
 | UI-02 | twin    | done     | ~~Dashboard polish: diag cursor, tooltip swap, grid visibility~~ | —       |
+| UI-03 | twin    | done     | ~~CI bands on hover only; bolus hover tooltip; bolus on diag chart~~ | —   |
 | BT-04 | twin    | done     | ~~Multi-horizon control display (trajectory fan UI)~~   | BT-01     |
 | BB-03 | bath    | blocked  | new_site_lag labels (patient must log site changes)     | patient   |
 | BB-04 | bath    | done     | ~~Retire deprecated sync/ + dead API files~~            | —         |

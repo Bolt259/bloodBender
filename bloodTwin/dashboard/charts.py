@@ -160,13 +160,13 @@ def render_fan_svg(fan: list[dict[str, Any]]) -> str:
                      f'data-stroke="{stroke}" data-nom="{nom_str}" '
                      f'data-width="{width}" data-opacity="1">')
 
-        # CI band as a filled polygon (upper forward, lower backward)
+        # CI band — hidden by default, shown when this scenario is hovered
         if lo_seq and up_seq and len(lo_seq) == len(preds) and len(up_seq) == len(preds):
             up_pts = " ".join(f"{x(j):.1f},{y(float(v)):.1f}" for j, v in enumerate(up_seq))
             lo_pts = " ".join(f"{x(j):.1f},{y(float(v)):.1f}"
                               for j, v in reversed(list(enumerate(lo_seq))))
-            parts.append(f'<polygon points="{up_pts} {lo_pts}" '
-                         f'fill="{stroke}" opacity="0.10" pointer-events="none"/>')
+            parts.append(f'<polygon class="bb-ci" points="{up_pts} {lo_pts}" '
+                         f'fill="{stroke}" opacity="0" pointer-events="none"/>')
 
         pts = " ".join(f"{x(j):.1f},{y(float(v)):.1f}" for j, v in enumerate(preds))
         parts.append(f'<polyline class="bb-line" points="{pts}" fill="none" '
@@ -299,13 +299,17 @@ def render_history_svg(df: pd.DataFrame) -> str:
         if b > 0.1:
             tick_h = 6 + 16 * (b / max_bolus)
             bx = x(i)
+            dot_cy = y(CLINICAL_LO) + tick_h
             parts.append(f'<line x1="{bx:.1f}" y1="{y(CLINICAL_LO):.1f}" '
-                         f'x2="{bx:.1f}" y2="{y(CLINICAL_LO)+tick_h:.1f}" '
-                         f'stroke="#d97706" stroke-width="2" opacity="0.8"/>')
+                         f'x2="{bx:.1f}" y2="{dot_cy:.1f}" '
+                         f'stroke="#d97706" stroke-width="2" opacity="0.8" pointer-events="none"/>')
+            parts.append(f'<circle cx="{bx:.1f}" cy="{dot_cy:.1f}" r="3" '
+                         f'fill="#d97706" opacity="0.8" pointer-events="none"/>')
             parts.append(
-                f'<circle cx="{bx:.1f}" cy="{y(CLINICAL_LO)+tick_h:.1f}" r="3" '
-                f'fill="#d97706" opacity="0.8">'
-                f'<title>{b:.2f} U @ {ts_local[i]}</title></circle>'
+                f'<circle cx="{bx:.1f}" cy="{dot_cy:.1f}" r="8" fill="transparent" '
+                f'class="bb-bolus-pt" '
+                f'data-dose="{b:.2f}" data-time="{html.escape(ts_local[i])}" '
+                f'data-cx="{bx:.1f}" data-cy="{dot_cy:.1f}"/>'
             )
 
     # "Now" marker
@@ -325,6 +329,13 @@ def render_history_svg(df: pd.DataFrame) -> str:
         '<rect id="bb-hist-tip-bg" rx="4" ry="4" fill="#161b22" stroke="#30363d" stroke-width="1"/>'
         '<text id="bb-hist-t1" fill="#e6edf3" font-size="11" font-weight="600"/>'
         '<text id="bb-hist-t2" fill="#8b949e" font-size="10"/>'
+        '</g>'
+    )
+    parts.append(
+        '<g id="bb-hist-bolus-tip" visibility="hidden" pointer-events="none">'
+        '<rect id="bb-hist-bolus-tip-bg" rx="4" ry="4" fill="#161b22" stroke="#d97706" stroke-width="1"/>'
+        '<text id="bb-hist-bolus-t1" fill="#fbbf24" font-size="11" font-weight="600"/>'
+        '<text id="bb-hist-bolus-t2" fill="#8b949e" font-size="10"/>'
         '</g>'
     )
     parts.append('</svg>')
@@ -454,6 +465,26 @@ def render_diagnostic_svg(df: pd.DataFrame, archive: list[dict]) -> str:
             parts.append(f'<circle cx="{sx:.1f}" cy="{y(float(preds[0])):.1f}" '
                          f'r="2" fill="#6e7681" opacity="0.35"/>')
 
+    # Bolus markers (same as history chart)
+    bolus_diag = df.get("bolus_dose", pd.Series([0.0]*n)).fillna(0.0).tolist()
+    max_bolus_diag = max((b for b in bolus_diag if b > 0), default=1.0)
+    for i, b in enumerate(bolus_diag):
+        if b > 0.1:
+            tick_h = 5 + 12 * (b / max_bolus_diag)
+            bx = x(i)
+            dot_cy = y(CLINICAL_LO) + tick_h
+            parts.append(f'<line x1="{bx:.1f}" y1="{y(CLINICAL_LO):.1f}" '
+                         f'x2="{bx:.1f}" y2="{dot_cy:.1f}" '
+                         f'stroke="#d97706" stroke-width="1.5" opacity="0.7" pointer-events="none"/>')
+            parts.append(f'<circle cx="{bx:.1f}" cy="{dot_cy:.1f}" r="2.5" '
+                         f'fill="#d97706" opacity="0.7" pointer-events="none"/>')
+            parts.append(
+                f'<circle cx="{bx:.1f}" cy="{dot_cy:.1f}" r="7" fill="transparent" '
+                f'class="bb-bolus-pt" '
+                f'data-dose="{b:.2f}" data-time="{html.escape(ts_local[i])}" '
+                f'data-cx="{bx:.1f}" data-cy="{dot_cy:.1f}"/>'
+            )
+
     # Actual BG line on top (so it reads clearly over ghost curves)
     full_pts = " ".join(f"{x(i):.1f},{y(v):.1f}" for i, v in enumerate(bg_vals))
     parts.append(f'<polyline points="{full_pts}" fill="none" '
@@ -483,6 +514,13 @@ def render_diagnostic_svg(df: pd.DataFrame, archive: list[dict]) -> str:
         '<rect id="bb-diag-tip-bg" rx="4" ry="4" fill="#161b22" stroke="#30363d" stroke-width="1"/>'
         '<text id="bb-diag-t1" fill="#e6edf3" font-size="11" font-weight="600"/>'
         '<text id="bb-diag-t2" fill="#8b949e" font-size="10"/>'
+        '</g>'
+    )
+    parts.append(
+        '<g id="bb-bolus-tip" visibility="hidden" pointer-events="none">'
+        '<rect id="bb-bolus-tip-bg" rx="4" ry="4" fill="#161b22" stroke="#d97706" stroke-width="1"/>'
+        '<text id="bb-bolus-t1" fill="#fbbf24" font-size="11" font-weight="600"/>'
+        '<text id="bb-bolus-t2" fill="#8b949e" font-size="10"/>'
         '</g>'
     )
     parts.append('</svg>')

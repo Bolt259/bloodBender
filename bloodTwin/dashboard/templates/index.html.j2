@@ -286,6 +286,9 @@
           l.setAttribute("opacity", match ? "1" : "0.15");
           l.setAttribute("stroke-width", match ? (nom ? "3" : "2.2") : (nom ? "2.5" : "1.3"));
         });
+        g.querySelectorAll(".bb-ci").forEach(function(p) {
+          p.setAttribute("opacity", match ? "0.15" : "0");
+        });
       });
     }
     function resetHighlight() {
@@ -294,6 +297,9 @@
         g.querySelectorAll(".bb-line").forEach(function(l) {
           l.setAttribute("opacity", nom ? "1" : "0.7");
           l.setAttribute("stroke-width", nom ? "2.5" : "1.3");
+        });
+        g.querySelectorAll(".bb-ci").forEach(function(p) {
+          p.setAttribute("opacity", "0");
         });
       });
     }
@@ -429,6 +435,47 @@
       diagTip.setAttribute("visibility", "hidden");
     });
   }
+
+  // ── Bolus marker hover (history + diagnostic charts) ─────────────────
+  (function() {
+    var bolusTip    = document.getElementById("bb-bolus-tip")    || document.getElementById("bb-hist-bolus-tip");
+    var bolusTipBg  = document.getElementById("bb-bolus-tip-bg") || document.getElementById("bb-hist-bolus-tip-bg");
+    var bolusT1     = document.getElementById("bb-bolus-t1")     || document.getElementById("bb-hist-bolus-t1");
+    var bolusT2     = document.getElementById("bb-bolus-t2")     || document.getElementById("bb-hist-bolus-t2");
+
+    function showBolusTip(el, tip, tipBg, t1, t2) {
+      var dose = el.getAttribute("data-dose");
+      var time = el.getAttribute("data-time");
+      var cx   = parseFloat(el.getAttribute("data-cx"));
+      var cy   = parseFloat(el.getAttribute("data-cy"));
+      var svg  = el.closest("svg");
+      var W    = parseFloat(svg.getAttribute("data-W") || svg.getAttribute("width") || 800);
+      var tx = cx + 10, ty = cy - 28;
+      if (tx + 110 > W - 10) { tx = cx - 118; }
+      tipBg.setAttribute("x", tx - 4); tipBg.setAttribute("y", ty - 14);
+      tipBg.setAttribute("width", 110); tipBg.setAttribute("height", 34);
+      t1.setAttribute("x", tx); t1.setAttribute("y", ty);
+      t1.textContent = dose + " U";
+      t2.setAttribute("x", tx); t2.setAttribute("y", ty + 14);
+      t2.textContent = time;
+      tip.setAttribute("visibility", "visible");
+    }
+
+    document.querySelectorAll(".bb-bolus-pt").forEach(function(el) {
+      var svg    = el.closest("svg");
+      var tipId  = svg && svg.id === "bb-hist" ? "bb-hist-bolus-tip"    : "bb-bolus-tip";
+      var bgId   = svg && svg.id === "bb-hist" ? "bb-hist-bolus-tip-bg" : "bb-bolus-tip-bg";
+      var t1Id   = svg && svg.id === "bb-hist" ? "bb-hist-bolus-t1"     : "bb-bolus-t1";
+      var t2Id   = svg && svg.id === "bb-hist" ? "bb-hist-bolus-t2"     : "bb-bolus-t2";
+      var tip    = document.getElementById(tipId);
+      var tipBg  = document.getElementById(bgId);
+      var t1     = document.getElementById(t1Id);
+      var t2     = document.getElementById(t2Id);
+      if (!tip) return;
+      el.addEventListener("mouseover",  function() { showBolusTip(el, tip, tipBg, t1, t2); });
+      el.addEventListener("mouseout",   function() { tip.setAttribute("visibility", "hidden"); });
+    });
+  })();
 })();
 </script>
 </body>
