@@ -156,7 +156,7 @@ Set `NTFY_TOPIC=bloodbender-<yourname>` in `.env`, subscribe in ntfy app on phon
 | BT-04 | twin    | open     | Multi-horizon control display (trajectory fan UI)       | BT-01     |
 | BB-03 | bath    | blocked  | new_site_lag labels (patient must log site changes)     | patient   |
 | BB-04 | bath    | open     | Retire deprecated sync/ + dead API files                | —         |
-| IN-02 | infra   | open     | Close stale cleanup/deprecated-modules branch           | BB-01     |
+| IN-02 | infra   | done     | ~~Close stale cleanup/deprecated-modules branch~~       | BB-01     |
 | BT-05 | twin    | open     | arch/redesign branch (Hampel deeper, uv2nix, Rust plan) | BB-01     |
 
 ### BT-04: Multi-horizon control display
