@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -262,6 +263,29 @@ def render_page() -> str:
     )
 
 
+# ── Page cache ────────────────────────────────────────────────────────────────
+# Invalidates when inference_latest.json is updated (i.e. each cron run).
+# Between runs serving is instant; renders happen at most once per inference.
+
+_cache_lock = threading.Lock()
+_cache: dict = {"body": None, "mtime": -1.0}
+
+
+def _render_cached() -> bytes:
+    try:
+        mtime = LATEST_JSON.stat().st_mtime
+    except FileNotFoundError:
+        mtime = 0.0
+    with _cache_lock:
+        if _cache["body"] is not None and mtime <= _cache["mtime"]:
+            return _cache["body"]
+    body = render_page().encode()
+    with _cache_lock:
+        _cache["body"] = body
+        _cache["mtime"] = mtime
+    return body
+
+
 # ── HTTP handler ──────────────────────────────────────────────────────────────
 
 class Handler(BaseHTTPRequestHandler):
@@ -269,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path not in ("/", "/index.html"):
             self.send_error(404)
             return
-        body = render_page().encode()
+        body = _render_cached()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
