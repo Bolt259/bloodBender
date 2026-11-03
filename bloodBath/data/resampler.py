@@ -969,59 +969,6 @@ class FeatureEngineer:
         logger.info(f"Normalized {len(self.feature_stats)} features")
         return normalized_features
     
-    def _calculate_time_since_last_bolus(self, bolus_series: pd.Series) -> pd.Series:
-        """Calculate minutes since last bolus event"""
-        bolus_events = bolus_series > 0
-        time_since_bolus = pd.Series(0, index=bolus_series.index, dtype=float)
-        
-        last_bolus_idx = None
-        for i, (timestamp, has_bolus) in enumerate(bolus_events.items()):
-            if has_bolus:
-                last_bolus_idx = i
-                time_since_bolus.iloc[i] = 0.0
-            elif last_bolus_idx is not None:
-                intervals_since = i - last_bolus_idx
-                time_since_bolus.iloc[i] = intervals_since * 5.0  # Convert to minutes
-            else:
-                time_since_bolus.iloc[i] = np.inf  # No previous bolus
-        
-        # Cap at reasonable maximum (24 hours = 1440 minutes)
-        time_since_bolus = time_since_bolus.clip(upper=1440.0)
-        
-        return time_since_bolus
-    
-    def _calculate_bg_slope(self, bg_series: pd.Series, window_intervals: int) -> pd.Series:
-        """Calculate BG slope over specified window"""
-        slope_series = pd.Series(0.0, index=bg_series.index)
-        
-        for i in range(window_intervals, len(bg_series)):
-            window_start = i - window_intervals
-            window_end = i
-            
-            # Check if we have valid BG values at both ends
-            if (pd.notna(bg_series.iloc[window_start]) and 
-                pd.notna(bg_series.iloc[window_end])):
-                
-                bg_change = bg_series.iloc[window_end] - bg_series.iloc[window_start]
-                time_change = window_intervals * 5  # minutes
-                slope = bg_change / time_change  # mg/dL per minute
-                slope_series.iloc[i] = slope
-        
-        return slope_series
-    
-    def _add_time_of_day_features(self, time_index: pd.DatetimeIndex) -> Tuple[pd.Series, pd.Series]:
-        """Add cyclical time-of-day features"""
-        # Convert to minutes from midnight
-        minutes_from_midnight = (time_index.hour * 60 + time_index.minute)
-        
-        # Convert to cyclical features (0-2π range)
-        radians = 2 * np.pi * minutes_from_midnight / 1440  # 1440 = minutes per day
-        
-        sin_time = pd.Series(np.sin(radians), index=time_index, name='sin_time')
-        cos_time = pd.Series(np.cos(radians), index=time_index, name='cos_time')
-        
-        return sin_time, cos_time
-    
     def _z_score_normalize(self, series: pd.Series) -> Tuple[pd.Series, Dict[str, float]]:
         """Apply z-score normalization"""
         valid_values = series.dropna()

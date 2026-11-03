@@ -224,9 +224,9 @@ class TestBuildFeatureFrame:
         assert list(out.columns) == list(ALL_COLUMN_NAMES)
 
     def test_column_count(self, minimal_raw_df):
-        """Schema v1.1 defines 13 columns."""
+        """Schema v1.5 defines 15 columns."""
         out = build_feature_frame(minimal_raw_df)
-        assert len(out.columns) == 13
+        assert len(out.columns) == 15
 
     def test_no_nan_in_non_mask_columns(self, minimal_raw_df):
         """
@@ -354,3 +354,20 @@ class TestDeriveIsf:
         assert 20 <= naive_isf <= 300, (
             f"Naive ISF {naive_isf:.1f} mg/dL/U is outside physiological range [20, 300]"
         )
+
+
+class TestSchemaCrossCheck:
+    """DR-12: FEATURE_NAMES in patient_state must match bloodTwin/schema.py exactly."""
+
+    def test_feature_names_match_bloodtwin_schema(self):
+        from bloodBath.core.patient_state import FEATURE_NAMES as ps_names
+        from bloodTwin.schema import FEATURE_NAMES as bt_names
+        assert ps_names == bt_names, (
+            f"Schema divergence (DR-12):\n"
+            f"  patient_state: {list(ps_names)}\n"
+            f"  bloodTwin/schema.py: {list(bt_names)}"
+        )
+
+    def test_schema_version_is_current(self):
+        from bloodBath.core.patient_state import SCHEMA_VERSION
+        assert SCHEMA_VERSION == "1.5", f"Expected SCHEMA_VERSION 1.5, got {SCHEMA_VERSION}"

@@ -43,7 +43,7 @@ import pandas as pd
 # ── Schema version ────────────────────────────────────────────────────────────
 # Bump when the model-input feature set changes (field added/removed/renamed).
 # model.onnx artifacts are tagged against this version at export time.
-SCHEMA_VERSION: str = "1.1"
+SCHEMA_VERSION: str = "1.5"
 
 # Minutes per CGM sample interval (5 min for Dexcom G-series / Tandem CGM)
 CGM_STEP_MINUTES: int = 5
@@ -226,6 +226,27 @@ SCHEMA: tuple[PatientStateField, ...] = (
         unit="bool",
         description="True where row is valid for training loss/metrics; "
                     "False for long-gap rows where BG target is unreliable",
+        is_model_input=True,
+        is_derived=False,
+    ),
+    PatientStateField(
+        name="hypothetical_dose",
+        dtype="float32",
+        unit="U",
+        description="Training: copy of bolus_dose (dose-masking in dataset.py). "
+                    "Inference: overridden at the current lookback step with a "
+                    "candidate dose for dose-conditioned scenario fans. "
+                    "Added by dataset._load_data, not by build_feature_frame.",
+        is_model_input=True,
+        is_derived=True,
+    ),
+    PatientStateField(
+        name="site_change",
+        dtype="float32",
+        unit="bool",
+        description="1.0 on steps where a new infusion site was filled "
+                    "(LID_CANNULA_FILLED event from pump 881235). "
+                    "Present in merged CSVs; defaults to 0.0 if column absent.",
         is_model_input=True,
         is_derived=False,
     ),
@@ -471,6 +492,14 @@ def build_feature_frame(
         out["mask_bg"] = False
     if "mask_label" not in out.columns:
         out["mask_label"] = True
+
+    # Pipeline-only features: added by the training data pipeline (dataset._load_data),
+    # not derivable from raw pump events. Default to safe neutral values here so
+    # build_feature_frame always returns all ALL_COLUMN_NAMES columns.
+    if "hypothetical_dose" not in out.columns:
+        out["hypothetical_dose"] = out["bolus_dose"].fillna(0.0)
+    if "site_change" not in out.columns:
+        out["site_change"] = 0.0
 
     # Return only the canonical columns in canonical order
     return out[list(ALL_COLUMN_NAMES)].astype(

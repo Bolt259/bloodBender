@@ -12,10 +12,17 @@ contract that must be reproduced identically in Rust/C:
 """
 from __future__ import annotations
 
-# ── Feature schema v1.4 ───────────────────────────────────────────────────────
+# ── Feature schema v1.5 ───────────────────────────────────────────────────────
 #
 # Exact column order fed to the LSTM. Any change here requires a full retrain.
-# Canonical derivation: bloodBath/core/patient_state.py → build_feature_frame()
+# Authoritative source: bloodBath/core/patient_state.py SCHEMA (SCHEMA_VERSION="1.5")
+# This module republishes those names for bloodTwin (no bloodBath import needed
+# in the inference shell). A test (bloodBath/tests/test_patient_state.py) asserts
+# that FEATURE_NAMES here matches patient_state.FEATURE_NAMES exactly.
+#
+# Fields 1-13: produced by patient_state.build_feature_frame()
+# Field 14 (hypothetical_dose): added by dataset._load_data (training copy of bolus_dose)
+# Field 15 (site_change): read from merged CSV, defaults 0.0 if absent
 #
 FEATURE_NAMES: tuple[str, ...] = (
     "bg",
