@@ -31,11 +31,12 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
 PROJECT_ROOT   = Path(__file__).resolve().parents[2]
-ARTIFACTS_DIR  = PROJECT_ROOT / os.environ.get(
+DATA_ROOT      = Path(os.environ.get("BLOODBENDER_ROOT", str(PROJECT_ROOT)))
+ARTIFACTS_DIR  = DATA_ROOT / os.environ.get(
     "BLOODTWIN_ARTIFACTS",
-    "bloodTwin/artifacts/bloodTwin_unified_lstm_v1_5",
+    "bloodTwin/artifacts/current",
 )
-MERGED_DIR     = PROJECT_ROOT / "bloodBath/bloodBank/merged"
+MERGED_DIR     = DATA_ROOT / "bloodBath/bloodBank/merged"
 PUMP_IDS       = ["1539514", "901161470", "881235"]
 
 

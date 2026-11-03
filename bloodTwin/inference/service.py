@@ -45,11 +45,14 @@ from .scenarios import ScenarioSimulator, ScenarioFan, PatientConfig
 log = logging.getLogger(__name__)
 
 PROJECT_ROOT  = Path(__file__).resolve().parents[2]
-ARTIFACTS_DIR = PROJECT_ROOT / os.environ.get(
+# BLOODBENDER_ROOT is the runtime data dir (merged CSVs, artifacts, logs).
+# Falls back to the source repo root for dev runs without the env var set.
+DATA_ROOT     = Path(os.environ.get("BLOODBENDER_ROOT", str(PROJECT_ROOT)))
+ARTIFACTS_DIR = DATA_ROOT / os.environ.get(
     "BLOODTWIN_ARTIFACTS",
-    "bloodTwin/artifacts/bloodTwin_unified_lstm_v1_3",
+    "bloodTwin/artifacts/current",
 )
-DATA_DIR      = PROJECT_ROOT / "bloodBath/bloodBank/merged"
+DATA_DIR      = DATA_ROOT / "bloodBath/bloodBank/merged"
 
 WINDOW_ROWS: int = 300   # rows handed to the simulator (≥ LOOKBACK=288)
 
