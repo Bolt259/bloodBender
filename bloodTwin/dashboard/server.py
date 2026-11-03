@@ -105,6 +105,40 @@ def _fmt(v, nd: int = 1) -> str:
         return str(v) if v is not None else "n/a"
 
 
+def _trend_arrow(history_df: "pd.DataFrame | None") -> tuple[str, str]:
+    """CGM trend arrow + rate string from last bg_slope_15min in history."""
+    if history_df is None or "bg_slope_15min" not in history_df.columns:
+        return "→", ""
+    slope_col = history_df["bg_slope_15min"].dropna()
+    if slope_col.empty:
+        return "→", ""
+    slope = float(slope_col.iloc[-1])
+    if   slope >  3.0: arrow = "↑↑"
+    elif slope >  2.0: arrow = "↑"
+    elif slope >  1.0: arrow = "↗"
+    elif slope > -1.0: arrow = "→"
+    elif slope > -2.0: arrow = "↘"
+    elif slope > -3.0: arrow = "↓"
+    else:              arrow = "↓↓"
+    return arrow, f"{slope:+.1f} mg/dL·min⁻¹"
+
+
+def _time_in_range(history_df: "pd.DataFrame | None") -> dict:
+    """TIR percentages from the last 288 rows (up to 24 h) of history."""
+    if history_df is None or "bg" not in history_df.columns:
+        return {}
+    bg = history_df.tail(288)["bg"].dropna()
+    n = len(bg)
+    if n < 12:
+        return {}
+    return {
+        "tir":       int(round(100 * ((bg >= 75) & (bg <= 130)).sum() / n)),
+        "tir_low":   int(round(100 * (bg < 70).sum() / n)),
+        "tir_high":  int(round(100 * (bg > 180).sum() / n)),
+        "n_hours":   round(n * 5 / 60, 1),
+    }
+
+
 def _ci_str(ci: dict, horizon: int) -> str:
     pair = (ci or {}).get(str(horizon)) or (ci or {}).get(horizon)
     if not pair or len(pair) != 2:
@@ -225,6 +259,8 @@ def render_page() -> str:
     archive     = _load_archive()
     accuracy    = _load_accuracy()
     history_df  = _load_history_df()
+    trend_arrow, trend_rate = _trend_arrow(history_df)
+    tir         = _time_in_range(history_df)
     fan_svg     = render_fan_svg(fan)
     history_svg = render_history_svg(history_df)
     diag_svg    = render_diagnostic_svg(history_df, archive)
@@ -259,6 +295,9 @@ def render_page() -> str:
         diag_svg     = diag_svg,
         archive_count = len(archive),
         accuracy     = accuracy,
+        trend_arrow  = trend_arrow,
+        trend_rate   = trend_rate,
+        tir          = tir,
         json_path    = str(LATEST_JSON),
     )
 

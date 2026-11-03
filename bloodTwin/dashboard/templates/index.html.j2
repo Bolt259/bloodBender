@@ -150,8 +150,10 @@
 <div class="cards">
   <div class="card accent">
     <div class="label">Current BG</div>
-    <div class="val {{ bg_class }}">{{ current_bg }} <span class="unit">mg/dL</span></div>
-    <div class="sub">{{ meal_prob_disp }}</div>
+    <div class="val {{ bg_class }}">{{ current_bg }} <span class="unit">mg/dL</span>
+      <span style="font-size:1.1rem;margin-left:6px;color:#8b949e" title="{{ trend_rate }}">{{ trend_arrow }}</span>
+    </div>
+    <div class="sub">{{ trend_rate }}</div>
   </div>
   <div class="card">
     <div class="label">30 min</div>
@@ -183,6 +185,17 @@
     <div class="val" style="font-size:22px">{{ meal_prob }}</div>
     <div class="sub">{{ model_trigger }}</div>
   </div>
+  {% if tir %}
+  <div class="card">
+    <div class="label">Time in range <span style="font-size:0.7rem;color:#8b949e">({{ tir.n_hours }}h)</span></div>
+    <div class="val" style="font-size:22px;color:#3fb950">{{ tir.tir }}<span class="unit">%</span></div>
+    <div class="sub" style="color:#8b949e">
+      <span style="color:#ff7b72">↓{{ tir.tir_low }}%</span> low
+      &nbsp;·&nbsp;
+      <span style="color:#f0883e">↑{{ tir.tir_high }}%</span> high
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 <!-- ── 24h BG history ──────────────────────────────────────────────── -->
