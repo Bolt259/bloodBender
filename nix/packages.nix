@@ -70,14 +70,17 @@
         name = "bloodbender-sync";
         runtimeInputs = [ pythonSyncEnv pkgs.coreutils ];
         text = ''
-          REPO="''${BLOODBENDER_ROOT:-$PWD}"
+          # SRC = Python source (bloodBender repo); REPO = runtime data root.
+          SRC="''${BLOODBENDER_SOURCE:-''${BLOODBENDER_ROOT:-$PWD}}"
+          REPO="''${BLOODBENDER_ROOT:-$SRC}"
           PUMP="''${PUMP:-1539514}"
-          if [[ ! -d "$REPO/bloodBath" ]]; then
-            echo "ERR: BLOODBENDER_ROOT ($REPO) missing ./bloodBath" >&2
+          if [[ ! -d "$SRC/bloodBath" ]]; then
+            echo "ERR: BLOODBENDER_SOURCE ($SRC) missing ./bloodBath" >&2
             exit 1
           fi
-          cd "$REPO"
-          export PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}"
+          cd "$SRC"
+          export BLOODBENDER_ROOT="$REPO"
+          export PYTHONPATH="$SRC''${PYTHONPATH:+:$PYTHONPATH}"
           exec python -m bloodBath.cli.main sync --pump-serial "$PUMP" --update
         '';
       };
@@ -86,29 +89,29 @@
         name = "bloodbender-inference-cron";
         runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
         text = ''
-          REPO="''${BLOODBENDER_ROOT:-$PWD}"
+          SRC="''${BLOODBENDER_SOURCE:-''${BLOODBENDER_ROOT:-$PWD}}"
+          REPO="''${BLOODBENDER_ROOT:-$SRC}"
           PUMP="''${PUMP:-1539514}"
           LOG_DIR="$REPO/bloodBath/logs"
           OUT="$LOG_DIR/inference_latest.json"
           ERR="$LOG_DIR/inference_latest.err"
           TMP="$LOG_DIR/.inference_latest.json.tmp"
           mkdir -p "$LOG_DIR"
-          cd "$REPO"
-          PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
-            python bloodTwin/pipelines/run_inference.py --pump "$PUMP" \
+          cd "$SRC"
+          export BLOODBENDER_ROOT="$REPO"
+          export PYTHONPATH="$SRC''${PYTHONPATH:+:$PYTHONPATH}"
+          python bloodTwin/pipelines/run_inference.py --pump "$PUMP" \
             >"$TMP" 2>"$ERR"
           rc=$?
           if [[ "$rc" -eq 0 && -s "$TMP" ]]; then
             mv -f "$TMP" "$OUT"
             # Archive every inference for production accuracy tracking (BT-09)
-            PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
-              python bloodTwin/inference/archive.py \
+            python bloodTwin/inference/archive.py \
               --latest "$OUT" --archive-dir "$LOG_DIR/inference_archive" \
               >>"$ERR" 2>&1 || true
             # Fire push notifications if NTFY_TOPIC is set (IN-01)
             if [[ -n "''${NTFY_TOPIC:-}" ]]; then
-              PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
-                python bloodTwin/inference/notify.py \
+              python bloodTwin/inference/notify.py \
                 --latest "$OUT" --log-dir "$LOG_DIR" \
                 >>"$ERR" 2>&1 || true
             fi
@@ -127,43 +130,42 @@
         name = "bloodbender-calibrate";
         runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
         text = ''
-          REPO="''${BLOODBENDER_ROOT:-$PWD}"
-          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/bloodTwin_unified_lstm_v1_5}"
-          cd "$REPO"
-          PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
+          SRC="''${BLOODBENDER_SOURCE:-''${BLOODBENDER_ROOT:-$PWD}}"
+          REPO="''${BLOODBENDER_ROOT:-$SRC}"
+          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/current}"
+          cd "$SRC"
+          PYTHONPATH="$SRC''${PYTHONPATH:+:$PYTHONPATH}" \
             python bloodTwin/pipelines/calibrate_conformal.py \
             --artifacts "$ARTIFACTS" --coverage 0.90 --stride 6
         '';
       };
 
       # ── Weekly ISF re-estimation (#11) ──
-      # Re-fits the ISFModel so it tracks the patient's current insulin
-      # sensitivity rather than the value frozen at training time.
       bloodbender-fit-isf = pkgs.writeShellApplication {
         name = "bloodbender-fit-isf";
         runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
         text = ''
-          REPO="''${BLOODBENDER_ROOT:-$PWD}"
-          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/bloodTwin_unified_lstm_v1_5}"
+          SRC="''${BLOODBENDER_SOURCE:-''${BLOODBENDER_ROOT:-$PWD}}"
+          REPO="''${BLOODBENDER_ROOT:-$SRC}"
+          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/current}"
           PUMP="''${PUMP:-1539514}"
-          cd "$REPO"
-          PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
+          cd "$SRC"
+          PYTHONPATH="$SRC''${PYTHONPATH:+:$PYTHONPATH}" \
             python bloodTwin/pipelines/fit_isf_model.py \
             --pump "$PUMP" --artifacts "$ARTIFACTS"
         '';
       };
 
       # ── Production accuracy tracker (BT-09) ──
-      # Walks inference_archive/, matches predictions to actual BG in merged
-      # CSVs, and writes bloodBath/logs/accuracy_summary.json.
       bloodbender-accuracy = pkgs.writeShellApplication {
         name = "bloodbender-accuracy";
         runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
         text = ''
-          REPO="''${BLOODBENDER_ROOT:-$PWD}"
+          SRC="''${BLOODBENDER_SOURCE:-''${BLOODBENDER_ROOT:-$PWD}}"
+          REPO="''${BLOODBENDER_ROOT:-$SRC}"
           PUMP="''${PUMP:-1539514}"
-          cd "$REPO"
-          PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
+          cd "$SRC"
+          BLOODBENDER_ROOT="$REPO" PYTHONPATH="$SRC''${PYTHONPATH:+:$PYTHONPATH}" \
             python scripts/accuracy_tracker.py
         '';
       };
@@ -181,111 +183,100 @@
             calBin  = "${config.packages.bloodbender-calibrate}/bin/bloodbender-calibrate";
             isfBin  = "${config.packages.bloodbender-fit-isf}/bin/bloodbender-fit-isf";
           in ''
-            REPO="''${BLOODBENDER_ROOT:-$PWD}"
+            # SRC = bloodBender source repo (where nix run is called from, or $BLOODBENDER_SOURCE).
+            # DATA = runtime data root (merged CSVs, logs, artifacts).
+            # These are the same dir in the legacy two-dir setup; separated by DR-11.
+            SRC="''${BLOODBENDER_SOURCE:-$PWD}"
+            DATA="''${BLOODBENDER_ROOT:-$SRC}"
+            ARTIFACTS_REL="''${BLOODTWIN_ARTIFACTS:-bloodTwin/artifacts/current}"
             UNIT="$HOME/.config/systemd/user"
             mkdir -p "$UNIT"
 
-            cat >"$UNIT/bloodbender-sync.service" <<EOF
-            [Unit]
-            Description=bloodBender incremental pump sync
-            After=network-online.target
+            # Ensure artifacts/current symlink exists (points to the active model).
+            # Create it if missing; leave it alone if already set (operator manages it).
+            ARTS_DIR="$DATA/bloodTwin/artifacts"
+            if [[ -d "$ARTS_DIR" && ! -e "$ARTS_DIR/current" ]]; then
+              LATEST=$(find "$ARTS_DIR" -maxdepth 1 -name 'bloodTwin_unified_lstm_v*' -type d | sort -r | head -1)
+              if [[ -n "$LATEST" ]]; then
+                ln -sfn "$(basename "$LATEST")" "$ARTS_DIR/current"
+                echo "Created $ARTS_DIR/current → $(basename "$LATEST")"
+              fi
+            fi
 
-            [Service]
-            Type=oneshot
-            Environment=BLOODBENDER_ROOT=$REPO
-            ExecStart=${syncBin}
-            StandardOutput=journal
-            StandardError=journal
-            EOF
+            write_service() {
+              local name="$1" desc="$2" bin="$3"
+              cat >"$UNIT/$name.service" <<EOF
+[Unit]
+Description=$desc
+After=network.target
+
+[Service]
+Type=oneshot
+Environment=BLOODBENDER_SOURCE=$SRC
+Environment=BLOODBENDER_ROOT=$DATA
+Environment=BLOODTWIN_ARTIFACTS=$ARTIFACTS_REL
+ExecStart=$bin
+StandardOutput=journal
+StandardError=journal
+EOF
+            }
+
+            write_service "bloodbender-sync"      "bloodBender incremental pump sync"              "${syncBin}"
+            write_service "bloodbender-inference"  "bloodBender inference — refresh dashboard JSON" "${infBin}"
+            write_service "bloodbender-calibrate"  "bloodBender monthly conformal recalibration"    "${calBin}"
+            write_service "bloodbender-fit-isf"    "bloodBender weekly ISF re-estimation"           "${isfBin}"
 
             cat >"$UNIT/bloodbender-sync.timer" <<EOF
-            [Unit]
-            Description=bloodBender sync every 15 minutes
+[Unit]
+Description=bloodBender sync every 15 minutes
 
-            [Timer]
-            OnBootSec=2min
-            OnUnitActiveSec=15min
-            AccuracySec=60
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+AccuracySec=60
 
-            [Install]
-            WantedBy=timers.target
-            EOF
-
-            cat >"$UNIT/bloodbender-inference.service" <<EOF
-            [Unit]
-            Description=bloodBender inference — refresh dashboard JSON
-            After=network.target
-
-            [Service]
-            Type=oneshot
-            Environment=BLOODBENDER_ROOT=$REPO
-            ExecStart=${infBin}
-            StandardOutput=journal
-            StandardError=journal
-            EOF
+[Install]
+WantedBy=timers.target
+EOF
 
             cat >"$UNIT/bloodbender-inference.timer" <<EOF
-            [Unit]
-            Description=bloodBender inference every 5 minutes
+[Unit]
+Description=bloodBender inference every 5 minutes
 
-            [Timer]
-            OnBootSec=60
-            OnUnitActiveSec=5min
-            AccuracySec=30
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=5min
+AccuracySec=30
 
-            [Install]
-            WantedBy=timers.target
-            EOF
-
-            cat >"$UNIT/bloodbender-calibrate.service" <<EOF
-            [Unit]
-            Description=bloodBender monthly conformal recalibration
-
-            [Service]
-            Type=oneshot
-            Environment=BLOODBENDER_ROOT=$REPO
-            ExecStart=${calBin}
-            StandardOutput=journal
-            StandardError=journal
-            EOF
+[Install]
+WantedBy=timers.target
+EOF
 
             cat >"$UNIT/bloodbender-calibrate.timer" <<EOF
-            [Unit]
-            Description=bloodBender conformal recalibration (monthly)
+[Unit]
+Description=bloodBender conformal recalibration (monthly)
 
-            [Timer]
-            OnCalendar=monthly
-            Persistent=true
-            AccuracySec=1h
+[Timer]
+OnCalendar=monthly
+Persistent=true
+AccuracySec=1h
 
-            [Install]
-            WantedBy=timers.target
-            EOF
-
-            cat >"$UNIT/bloodbender-fit-isf.service" <<EOF
-            [Unit]
-            Description=bloodBender weekly ISF re-estimation
-
-            [Service]
-            Type=oneshot
-            Environment=BLOODBENDER_ROOT=$REPO
-            ExecStart=${isfBin}
-            StandardOutput=journal
-            StandardError=journal
-            EOF
+[Install]
+WantedBy=timers.target
+EOF
 
             cat >"$UNIT/bloodbender-fit-isf.timer" <<EOF
-            [Unit]
-            Description=bloodBender ISF re-estimation (weekly)
+[Unit]
+Description=bloodBender ISF re-estimation (weekly)
 
-            [Timer]
-            OnCalendar=weekly
-            Persistent=true
-            AccuracySec=1h
+[Timer]
+OnCalendar=weekly
+Persistent=true
+AccuracySec=1h
 
-            [Install]
-            WantedBy=timers.target
-            EOF
+[Install]
+WantedBy=timers.target
+EOF
 
             systemctl --user daemon-reload
             systemctl --user enable --now bloodbender-sync.timer bloodbender-inference.timer bloodbender-calibrate.timer bloodbender-fit-isf.timer

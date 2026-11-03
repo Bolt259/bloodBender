@@ -2,20 +2,46 @@
 
 Auto-loaded by Claude Code. Read this before anything else.
 
-## Two-Directory Architecture
+## Source / Data Architecture (DR-11)
 
-The project lives in **two separate directories**:
+Two directories with distinct roles — **no more manual patching**:
 
-| Path | Role |
-|------|------|
-| `/home/lkshply/dev/bloodBender` | Source repo (this repo). Code changes go here. |
-| `/home/lkshply/dev/bloodBender-data-sync` | Runtime data directory. Systemd services run from here, with `BLOODBENDER_ROOT=/home/lkshply/dev/bloodBender-data-sync`. Raw sync data and merged LSTM CSVs live here. |
+| Path | Role | Env var |
+|------|------|---------|
+| `/home/lkshply/dev/bloodBender` | **Source repo** (this repo). All code lives here. | `BLOODBENDER_SOURCE` |
+| `/home/lkshply/dev/bloodBender-data-sync` | **Runtime data root**. Merged CSVs (128 GB), logs, model artifacts, inference JSON. No source code. | `BLOODBENDER_ROOT` |
 
-The `bloodBender-data-sync` dir is a separate git repo (older snapshot of the code). The running nix services (`bloodbender-sync`, `bloodbender-inference-cron`) use `PYTHONPATH=/home/lkshply/dev/bloodBender-data-sync`, so they execute source code from data-sync, not from this repo. To push a source change into production: patch `bloodBender-data-sync` manually and restart services via `nix run .#install-services`.
+### Deploy workflow (DR-11, replaces manual patching)
 
-**Important shell hygiene**: The devshell hook sets `PYTHONPATH=$PWD`. Always run nix shell commands from `/home/lkshply/dev/bloodBender` (never from data-sync), or tests and imports will load data-sync source instead of this repo.
+```bash
+# After any code change — run from the source repo:
+BLOODBENDER_SOURCE=/home/lkshply/dev/bloodBender \
+BLOODBENDER_ROOT=/home/lkshply/dev/bloodBender-data-sync \
+nix run .#install-services
+```
 
-`bloodBender/bloodBath/bloodBank/merged` is a symlink → `bloodBender-data-sync/bloodBath/bloodBank/merged`. This lets training scripts find LSTM CSVs at their expected relative path.
+This rebuilds all Nix app binaries with the current source and rewrites the systemd unit files. No manual `cp` to data-sync needed. Each unit file now carries:
+```
+Environment=BLOODBENDER_SOURCE=/home/lkshply/dev/bloodBender
+Environment=BLOODBENDER_ROOT=/home/lkshply/dev/bloodBender-data-sync
+Environment=BLOODTWIN_ARTIFACTS=bloodTwin/artifacts/current
+```
+
+### Active model — `artifacts/current` symlink
+
+```
+/home/lkshply/dev/bloodBender-data-sync/bloodTwin/artifacts/current
+  → bloodTwin_unified_lstm_v1_5   (symlink, flip to upgrade)
+```
+
+To deploy a new model after retrain + calibration:
+```bash
+cd /home/lkshply/dev/bloodBender-data-sync/bloodTwin/artifacts
+ln -sfn bloodTwin_unified_lstm_v1_6 current
+systemctl --user restart bloodbender-inference.timer
+```
+
+**Shell hygiene**: devshell sets `PYTHONPATH=$PWD`. Always run nix commands from `/home/lkshply/dev/bloodBender`. `bloodBender/bloodBath/bloodBank/merged` is a symlink → `bloodBender-data-sync/bloodBath/bloodBank/merged` for training scripts.
 
 ## What This Project Is
 
