@@ -8,7 +8,7 @@ and preparing batches for training.
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 from sklearn.preprocessing import RobustScaler
@@ -194,12 +194,14 @@ class BloodGlucoseDataset(Dataset):
 
         return combined, pd.DatetimeIndex(combined["timestamp"])
     
-    def _create_sequences(self) -> List[Tuple[int, int]]:
+    def _create_sequences(self) -> List[Tuple[int, int, bool]]:
         """
         Create sliding window sequence indices, filtering out sequences with missing BG values.
-        
+
         Returns:
-            List of (start_idx, end_idx) tuples for each valid sequence
+            List of (start_idx, end_idx, corrected_in_horizon) tuples for each valid sequence.
+            corrected_in_horizon is True when a bolus > 0.5U occurs in the horizon steps —
+            used by the weighted sampler (DR-02) to balance corrected vs uncorrected windows.
         """
         sequences = []
         total_length = self.lookback + self.horizon
@@ -210,6 +212,12 @@ class BloodGlucoseDataset(Dataset):
         data_vals = self.data[_cols].to_numpy(dtype=np.float32, na_value=np.nan)
         feat_indices = list(range(len(self.features)))
         tgt_idx = _cols.index(self.target)
+
+        bolus_idx: int | None = None
+        if "bolus_dose" in self.data.columns:
+            bolus_arr = self.data["bolus_dose"].fillna(0.0).to_numpy(dtype=np.float32)
+        else:
+            bolus_arr = None
 
         for _, group in self.data.groupby("subject_id", sort=False):
             idx = group.index.to_numpy()  # sorted integer positions in self.data
@@ -227,9 +235,37 @@ class BloodGlucoseDataset(Dataset):
                 if nan_ratio > 0.1:
                     continue
 
-                sequences.append((start, end))
+                # corrected_in_horizon: any bolus > 0.5U in the horizon portion
+                if bolus_arr is not None:
+                    corrected = bool(np.any(bolus_arr[start + self.lookback:end] > 0.5))
+                else:
+                    corrected = False
+
+                sequences.append((start, end, corrected))
 
         return sequences
+
+    def get_sample_weights(self) -> np.ndarray:
+        """
+        Inverse-frequency weights for WeightedRandomSampler (DR-02).
+
+        Corrected-horizon windows (~77% of training data) and uncorrected-horizon
+        windows (~23%) are given equal total weight, so each batch is ~50/50.
+        This addresses the observational confounding where the model over-learns
+        "high BG → patient corrects → BG falls" from the dominant corrected class.
+        """
+        flags = np.array([s[2] for s in self.sequences], dtype=bool)
+        n_corr   = int(flags.sum())
+        n_uncorr = int((~flags).sum())
+        if n_corr == 0 or n_uncorr == 0:
+            return np.ones(len(flags), dtype=np.float32)
+        weights = np.where(flags, 1.0 / n_corr, 1.0 / n_uncorr).astype(np.float32)
+        logger.info(
+            f"Sample weights: {n_corr} corrected ({n_corr/len(flags):.1%}) "
+            f"/ {n_uncorr} uncorrected ({n_uncorr/len(flags):.1%}) — "
+            "reweighted 50/50 per batch"
+        )
+        return weights
     
     def __len__(self) -> int:
         return len(self.sequences)
@@ -244,7 +280,7 @@ class BloodGlucoseDataset(Dataset):
                 - 'target': (horizon,) tensor (BG values)
                 - 'timestamp': start timestamp (for debugging)
         """
-        start_idx, end_idx = self.sequences[idx]
+        start_idx, end_idx, _ = self.sequences[idx]
         
         # Extract sequence
         sequence = self.data.iloc[start_idx:end_idx]
@@ -456,6 +492,7 @@ def create_dataloaders(
     scaler_path: Optional[Path] = None,
     dose_mask_prob: float = 0.0,
     residual_prediction: bool = False,
+    correction_reweighting: bool = False,
 ) -> Tuple[DataLoader, DataLoader, DataLoader, RobustScaler]:
     """
     Create train, validation, and test dataloaders.
@@ -538,14 +575,30 @@ def create_dataloaders(
     )
     
     # Create DataLoaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=persistent_workers and num_workers > 0
-    )
+    if correction_reweighting:
+        weights = train_dataset.get_sample_weights()
+        sampler = WeightedRandomSampler(
+            weights=torch.from_numpy(weights),
+            num_samples=len(weights),
+            replacement=True,
+        )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=persistent_workers and num_workers > 0,
+        )
+    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            persistent_workers=persistent_workers and num_workers > 0,
+        )
     
     val_loader = DataLoader(
         val_dataset,

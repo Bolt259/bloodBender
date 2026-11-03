@@ -128,7 +128,7 @@
         runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
         text = ''
           REPO="''${BLOODBENDER_ROOT:-$PWD}"
-          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/bloodTwin_unified_lstm_v1_3}"
+          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/bloodTwin_unified_lstm_v1_5}"
           cd "$REPO"
           PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \
             python bloodTwin/pipelines/calibrate_conformal.py \
@@ -144,7 +144,7 @@
         runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
         text = ''
           REPO="''${BLOODBENDER_ROOT:-$PWD}"
-          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/bloodTwin_unified_lstm_v1_3}"
+          ARTIFACTS="''${BLOODTWIN_ARTIFACTS:-$REPO/bloodTwin/artifacts/bloodTwin_unified_lstm_v1_5}"
           PUMP="''${PUMP:-1539514}"
           cd "$REPO"
           PYTHONPATH="$REPO''${PYTHONPATH:+:$PYTHONPATH}" \

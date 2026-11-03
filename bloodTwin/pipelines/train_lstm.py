@@ -83,6 +83,7 @@ def train(config_path: Path, file_name: str):
         scaler_path=scaler_path,
         dose_mask_prob=config['data'].get('dose_mask_prob', 0.0),
         residual_prediction=config.get('residual_prediction', False),
+        correction_reweighting=config.get('correction_reweighting', False),
     )
     
     logger.info(f"Train batches: {len(train_loader)}")

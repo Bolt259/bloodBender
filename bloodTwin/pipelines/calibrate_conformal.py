@@ -16,6 +16,7 @@ Outputs:
 import argparse
 import json
 import logging
+import os
 import pickle
 from pathlib import Path
 
@@ -30,7 +31,10 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
 
 PROJECT_ROOT   = Path(__file__).resolve().parents[2]
-ARTIFACTS_DIR  = PROJECT_ROOT / "bloodTwin/artifacts/bloodTwin_unified_lstm"
+ARTIFACTS_DIR  = PROJECT_ROOT / os.environ.get(
+    "BLOODTWIN_ARTIFACTS",
+    "bloodTwin/artifacts/bloodTwin_unified_lstm_v1_5",
+)
 MERGED_DIR     = PROJECT_ROOT / "bloodBath/bloodBank/merged"
 PUMP_IDS       = ["1539514", "901161470", "881235"]
 
@@ -48,9 +52,10 @@ def load_val_csv(pump_id: str) -> pd.DataFrame:
     csvs = sorted(split_dir.glob("lstm_validate_*.csv"))
     if not csvs:
         raise FileNotFoundError(f"No validate CSVs in {split_dir}")
-    df = pd.read_csv(csvs[-1], comment="#")
+    frames = [pd.read_csv(f, comment="#") for f in csvs]
+    df = pd.concat(frames, ignore_index=True)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    return df.sort_values("timestamp").reset_index(drop=True)
+    return df.sort_values("timestamp").drop_duplicates("timestamp").reset_index(drop=True)
 
 
 def collect_residuals(

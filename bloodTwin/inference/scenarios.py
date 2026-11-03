@@ -7,15 +7,11 @@ BG trajectories the patient can compare.
 
 Two fan modes
 -------------
-* run() — PHYSICS fan (MVP, schema v1.1 / 13-feature model). Runs the dose-blind
-  LSTM once and shifts the baseline by an ISF×IOB physics delta per dose. This
-  is an approximation: the model never saw dose as input. Kept as the fallback.
-* dose_conditioned_fan() — LEARNED fan (schema v1.2 / 14-feature model). Runs the
-  LSTM once PER candidate dose, injecting the candidate into the current step's
-  `hypothetical_dose` feature so the model's own learned dose response shapes
-  each trajectory. See bloodTwin/docs/dose_conditioned_lstm.md for the full
-  design, the training/inference asymmetry, and why only the current lookback
-  step is overridden.
+* iob_conditioned_fan() / fan() — PRIMARY. Runs the LSTM once per candidate dose,
+  injecting the dose into iob[now] so the model's own learned IOB→BG response
+  shapes each trajectory. Falls back to run() on error.
+* run() — PHYSICS fallback. Runs the LSTM once (0U) then shifts the baseline by
+  an ISF×IOB physics delta per dose.
 
 Design decisions
 ----------------
@@ -42,6 +38,7 @@ Usage
 
 from __future__ import annotations
 
+import dataclasses as _dc
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -249,19 +246,6 @@ class ScenarioFan:
         """The 0U 'do nothing' scenario."""
         return self.scenarios[0]
 
-    # Model-derived insight fields (set by ScenarioSimulator after run())
-    model_predicted_peak: float = 0.0        # LSTM's predicted BG peak within horizon
-    current_bg: float | None = None          # BG at window end (for context)
-    model_trigger: str = ""                  # Why LSTM predicts a rise ("dawn pattern", etc.)
-    meal_probability: float = 0.0           # From aux head
-    failure_top_state: str = "nominal"
-    failure_top_prob: float = 0.0
-
-    @property
-    def baseline(self) -> Scenario:
-        """The 0U 'do nothing' scenario."""
-        return self.scenarios[0]
-
     @property
     def best_scenario(self) -> Scenario:
         """
@@ -460,32 +444,7 @@ class ScenarioSimulator:
         obs_bg = bg_col[~mask_col].dropna()
         current_bg = float(obs_bg.iloc[-1]) if not obs_bg.empty else None
 
-        # ── Residual anchor: shift prediction to start from current observed BG ──
-        # The LSTM's trajectory shape (rate of rise, peak timing, plateau) is
-        # learned from 6+ years of patterns.  But the model can predict
-        # "BG=185 at +5min" when actual BG is currently 114 — physically
-        # impossible.  We anchor the fan to the real sensor reading by shifting
-        # the entire trajectory by (current_bg - predicted_bg[0]), preserving
-        # the LSTM's learned shape while grounding the starting point in reality.
-        # The conformal intervals are shifted by the same offset so coverage is
-        # maintained relative to the anchored trajectory.
-        import dataclasses as _dc
-        anchor_offset = 0.0
-        if current_bg is not None:
-            # Tapered anchor: at h=0, fully trust current_bg; by h=HORIZON,
-            # fully trust the LSTM's absolute prediction.  Linear taper.
-            # This corrects the physically-impossible early-step jumps while
-            # letting the LSTM's learned trajectory shape take over as the
-            # horizon grows (where the current reading has less predictive power).
-            anchor_offset = float(current_bg - baseline.predicted_bg[0])
-            taper = np.linspace(1.0, 0.0, HORIZON, dtype=np.float32)  # 1→0
-            shift = (anchor_offset * taper).astype(np.float32)
-            baseline = _dc.replace(baseline,
-                                   predicted_bg=(baseline.predicted_bg + shift),
-                                   lower        =(baseline.lower        + shift),
-                                   upper        =(baseline.upper        + shift))
-
-        # ── ECD from anchored LSTM-predicted peak + dynamic ISF ────────────
+        # ── ECD from LSTM-predicted peak + dynamic ISF ────────────────────
         # Shape comes from LSTM; effective ISF is adjusted by model-estimated
         # sensitivity state so the correction dose reflects e.g. reduced
         # sensitivity at dawn or amplified sensitivity after exercise.
@@ -571,16 +530,6 @@ class ScenarioSimulator:
         )
         return fan
 
-    # ── Dose-conditioned (learned) fan ──────────────────────────────────────
-
-    @property
-    def supports_dose_conditioning(self) -> bool:
-        """True iff the loaded model/scaler expose the `hypothetical_dose`
-        feature (schema v1.2). Used to decide between dose_conditioned_fan()
-        (learned) and run() (physics fallback)."""
-        names = getattr(self._pred, "feature_names", None)
-        return bool(names) and "hypothetical_dose" in names
-
     def fan(self, df: pd.DataFrame, **kwargs) -> ScenarioFan:
         """Dispatch to IOB-conditioned fan (Option C). Falls back to physics fan
         if IOB feature is unavailable. See BT-06 for design notes."""
@@ -617,7 +566,6 @@ class ScenarioSimulator:
           6+ years of this patient's data. Physics uses a fixed ISF everywhere.
         """
         cfg = self._config
-        import dataclasses as _dc
 
         base_isf = self._derive_isf(df)
         isf_eff, isf_note = self.effective_isf(base_isf, failure_mode_probs)
@@ -638,15 +586,6 @@ class ScenarioSimulator:
         mask_col = df["mask_bg"].astype(bool) if "mask_bg" in df.columns else pd.Series(False, index=df.index)
         obs_bg   = bg_col[~mask_col].dropna()
         current_bg = float(obs_bg.iloc[-1]) if not obs_bg.empty else None
-
-        if current_bg is not None:
-            anchor_offset = float(current_bg - baseline.predicted_bg[0])
-            taper = np.linspace(1.0, 0.0, HORIZON, dtype=np.float32)
-            shift = (anchor_offset * taper).astype(np.float32)
-            baseline = _dc.replace(baseline,
-                                   predicted_bg=(baseline.predicted_bg + shift),
-                                   lower=(baseline.lower + shift),
-                                   upper=(baseline.upper + shift))
 
         peak_idx = int(np.argmax(baseline.predicted_bg))
         peak_bg  = float(baseline.predicted_bg[peak_idx])
@@ -679,19 +618,7 @@ class ScenarioSimulator:
 
         scenarios = []
         for dose in doses:
-            if dose == 0.0:
-                pred = baseline
-            else:
-                pred = _predict_for_dose(dose)
-                if current_bg is not None:
-                    anchor_offset = float(current_bg - pred.predicted_bg[0])
-                    taper = np.linspace(1.0, 0.0, HORIZON, dtype=np.float32)
-                    shift = (anchor_offset * taper).astype(np.float32)
-                    pred = _dc.replace(pred,
-                                       predicted_bg=(pred.predicted_bg + shift),
-                                       lower=(pred.lower + shift),
-                                       upper=(pred.upper + shift))
-
+            pred = baseline if dose == 0.0 else _predict_for_dose(dose)
             d30 = float(pred.predicted_bg[5])  - base_30
             d60 = float(pred.predicted_bg[11]) - base_60
             reasoning = (
@@ -722,8 +649,6 @@ class ScenarioSimulator:
             failure_top_state=fm_top,
             failure_top_prob=round(fm_prob, 4),
         )
-
-    def dose_conditioned_fan(
         self,
         df: pd.DataFrame,
         pump_serial: str = "",
