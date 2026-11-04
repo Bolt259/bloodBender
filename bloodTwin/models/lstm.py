@@ -120,7 +120,11 @@ class BloodTwinLSTM(pl.LightningModule):
         self.train_rmse = torchmetrics.MeanSquaredError(squared=False)
         self.val_rmse = torchmetrics.MeanSquaredError(squared=False)
         self.test_rmse = torchmetrics.MeanSquaredError(squared=False)
-        
+
+        # DR-01: counterfactual-honest metrics — test only, uncorrected windows
+        self.test_mae_uncorr  = torchmetrics.MeanAbsoluteError()
+        self.test_rmse_uncorr = torchmetrics.MeanSquaredError(squared=False)
+
         # Horizon-specific metrics (e.g., 30min, 60min)
         self.horizon_checkpoints = [6, 12]  # 30min and 60min @ 5-min intervals
     
@@ -206,6 +210,26 @@ class BloodTwinLSTM(pl.LightningModule):
                         torch.abs(bg_preds[:, :k] - targets[:, :k]), mask_obs[:, :k]
                     )
                     self.log(f'{stage}_mae_{k*5}min', mae_k)
+
+        # DR-01: counterfactual-honest eval — restrict to windows with no correction bolus
+        if stage == 'test' and 'corrected_in_horizon' in batch:
+            uncorr = ~batch['corrected_in_horizon'].bool()  # (batch,)
+            if uncorr.any():
+                up = bg_preds[uncorr]   # (n_uncorr, horizon)
+                ut = targets[uncorr]
+                um = mask_obs[uncorr]
+                obs_u = um > 0.5
+                if obs_u.any():
+                    self.test_mae_uncorr(up[obs_u], ut[obs_u])
+                    self.test_rmse_uncorr(up[obs_u], ut[obs_u])
+                for k in self.horizon_checkpoints:
+                    if k <= self.horizon:
+                        mae_k_u = self._masked_mean(
+                            torch.abs(up[:, :k] - ut[:, :k]), um[:, :k]
+                        )
+                        self.log(f'test_mae_uncorr_{k*5}min', mae_k_u)
+            self.log('test_mae_uncorr',  self.test_mae_uncorr,  on_step=False, on_epoch=True)
+            self.log('test_rmse_uncorr', self.test_rmse_uncorr, on_step=False, on_epoch=True)
 
         prog = stage != 'test'
         self.log(f'{stage}_loss',      loss,      on_step=(stage == 'train'), on_epoch=True, prog_bar=prog)

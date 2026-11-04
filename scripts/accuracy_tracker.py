@@ -72,7 +72,10 @@ def main() -> None:
         return
     print(f"Archive files: {len(files)}")
 
-    errors: dict[int, list[float]] = {h: [] for h in HORIZONS}
+    # DR-01: split errors by corrected_in_horizon flag
+    errors:      dict[int, list[float]] = {h: [] for h in HORIZONS}
+    errors_corr: dict[int, list[float]] = {h: [] for h in HORIZONS}
+    errors_uncorr: dict[int, list[float]] = {h: [] for h in HORIZONS}
     n_matched = 0
     n_skipped = 0
 
@@ -97,6 +100,8 @@ def main() -> None:
         if not preds:
             continue
 
+        corrected = bool(data.get("corrected_in_horizon", False))
+
         any_matched = False
         for h_min, idx in HORIZONS.items():
             if idx >= len(preds):
@@ -115,13 +120,27 @@ def main() -> None:
             if best is None:
                 continue
             _, actual_bg = best
-            errors[h_min].append(float(preds[idx]) - actual_bg)
+            err = float(preds[idx]) - actual_bg
+            errors[h_min].append(err)
+            (errors_corr if corrected else errors_uncorr)[h_min].append(err)
             any_matched = True
 
         if any_matched:
             n_matched += 1
         else:
             n_skipped += 1
+
+    def _stats(errs: list[float]) -> dict | None:
+        if not errs:
+            return None
+        arr = np.array(errs, dtype=np.float32)
+        return {
+            "n":       int(len(arr)),
+            "mae":     round(float(np.mean(np.abs(arr))), 2),
+            "bias":    round(float(np.mean(arr)), 2),
+            "rmse":    round(float(np.sqrt(np.mean(arr ** 2))), 2),
+            "p90_abs": round(float(np.percentile(np.abs(arr), 90)), 2),
+        }
 
     summary: dict = {
         "n_archives": len(files),
@@ -131,28 +150,26 @@ def main() -> None:
         "horizons": {},
     }
 
-    for h_min, errs in errors.items():
-        if not errs:
-            summary["horizons"][str(h_min)] = None
-            continue
-        arr = np.array(errs, dtype=np.float32)
-        summary["horizons"][str(h_min)] = {
-            "n":        int(len(arr)),
-            "mae":      round(float(np.mean(np.abs(arr))), 2),
-            "bias":     round(float(np.mean(arr)), 2),
-            "rmse":     round(float(np.sqrt(np.mean(arr ** 2))), 2),
-            "p90_abs":  round(float(np.percentile(np.abs(arr), 90)), 2),
+    for h_min in HORIZONS:
+        h_key = str(h_min)
+        summary["horizons"][h_key] = {
+            "all":        _stats(errors[h_min]),
+            "uncorrected": _stats(errors_uncorr[h_min]),
+            "corrected":   _stats(errors_corr[h_min]),
         }
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(json.dumps(summary, indent=2))
     print(f"Written: {OUT_PATH}")
     print(f"  Matched {n_matched}/{len(files)} archives, {n_skipped} unmatched (future BG not yet observed)")
-    for h_min, stats in summary["horizons"].items():
-        if stats:
-            print(f"  @{h_min}min: MAE={stats['mae']:.1f} mg/dL, "
-                  f"bias={stats['bias']:+.1f}, RMSE={stats['rmse']:.1f} "
-                  f"({stats['n']} samples)")
+    for h_min in HORIZONS:
+        h_key = str(h_min)
+        s_all   = summary["horizons"][h_key]["all"]
+        s_uncorr = summary["horizons"][h_key]["uncorrected"]
+        if s_all:
+            print(f"  @{h_min}min all:        MAE={s_all['mae']:.1f} bias={s_all['bias']:+.1f}  (n={s_all['n']})")
+        if s_uncorr:
+            print(f"  @{h_min}min uncorrected: MAE={s_uncorr['mae']:.1f} bias={s_uncorr['bias']:+.1f}  (n={s_uncorr['n']}) ← DR-01")
 
 
 if __name__ == "__main__":

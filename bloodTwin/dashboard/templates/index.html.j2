@@ -252,17 +252,24 @@
   <span><span class="sw sw-clin"></span> clinical 70–180</span>
 </div>
 {% if accuracy and accuracy.horizons %}
-{% set h30 = accuracy.horizons.get("30") %}
-{% set h60 = accuracy.horizons.get("60") %}
+{# Support both old schema (h.mae) and new DR-01 schema (h.all.mae / h.uncorrected.mae) #}
+{% set h30_raw = accuracy.horizons.get("30") %}
+{% set h60_raw = accuracy.horizons.get("60") %}
+{% set h30     = h30_raw.all        if h30_raw and h30_raw.all        else h30_raw %}
+{% set h30u    = h30_raw.uncorrected if h30_raw and h30_raw.uncorrected else None %}
+{% set h60     = h60_raw.all        if h60_raw and h60_raw.all        else h60_raw %}
+{% set h60u    = h60_raw.uncorrected if h60_raw and h60_raw.uncorrected else None %}
 <div class="prod-accuracy" style="margin-top:6px;font-size:0.78rem;color:#8b949e">
   production accuracy ({{ accuracy.n_matched }} inferences matched):
   {% if h30 %}
-  @30min MAE <span style="color:#e6edf3">{{ "%.1f"|format(h30.mae) }}</span> mg/dL
-  bias <span style="color:{{ '#ff7b72' if h30.bias < -5 else ('#3fb950' if h30.bias > 5 else '#8b949e') }}">{{ "%+.1f"|format(h30.bias) }}</span>&nbsp;
+  @30min all: MAE <span style="color:#e6edf3">{{ "%.1f"|format(h30.mae) }}</span> mg/dL
+  bias <span style="color:{{ '#ff7b72' if h30.bias < -5 else ('#3fb950' if h30.bias > 5 else '#8b949e') }}">{{ "%+.1f"|format(h30.bias) }}</span>
+  {% if h30u %}&nbsp;· uncorr: MAE <span style="color:#e6edf3">{{ "%.1f"|format(h30u.mae) }}</span> bias <span style="color:{{ '#ff7b72' if h30u.bias < -5 else ('#3fb950' if h30u.bias > 5 else '#8b949e') }}">{{ "%+.1f"|format(h30u.bias) }}</span> (n={{ h30u.n }}){% endif %}&nbsp;
   {% endif %}
   {% if h60 %}
-  &middot; @60min MAE <span style="color:#e6edf3">{{ "%.1f"|format(h60.mae) }}</span> mg/dL
+  &middot; @60min all: MAE <span style="color:#e6edf3">{{ "%.1f"|format(h60.mae) }}</span> mg/dL
   bias <span style="color:{{ '#ff7b72' if h60.bias < -5 else ('#3fb950' if h60.bias > 5 else '#8b949e') }}">{{ "%+.1f"|format(h60.bias) }}</span>
+  {% if h60u %}&nbsp;· uncorr: MAE <span style="color:#e6edf3">{{ "%.1f"|format(h60u.mae) }}</span> bias <span style="color:{{ '#ff7b72' if h60u.bias < -5 else ('#3fb950' if h60u.bias > 5 else '#8b949e') }}">{{ "%+.1f"|format(h60u.bias) }}</span> (n={{ h60u.n }}){% endif %}
   {% endif %}
 </div>
 {% endif %}
