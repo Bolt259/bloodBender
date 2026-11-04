@@ -91,16 +91,19 @@ nix run .#install-services        # install systemd user timers
 
 Retrain is manual (`nix develop .#cuda`, then run the training script directly) — it takes 20+ min and requires the GPU shell.
 
-## Active Systemd Timers
+## Active Systemd Services
 
 ```
 bloodbender-sync.timer        15-min sync
 bloodbender-inference.timer    5-min inference → latest.json
 bloodbender-calibrate.timer   monthly conformal recalibration
 bloodbender-fit-isf.timer     weekly ISF re-estimation
+bloodbender-dashboard.service  persistent dashboard (0.0.0.0:8765, Restart=on-failure)
 ```
 
-Manage with: `systemctl --user {status,start,stop} bloodbender-<name>.timer`
+Manage with: `systemctl --user {status,start,stop,restart} bloodbender-<name>.{timer,service}`
+
+**Pi headless deploy**: run `loginctl enable-linger <user>` once so user services start at boot without a logged-in session. Then `nix run .#install-services` as normal.
 
 ## Active Model Artifact
 

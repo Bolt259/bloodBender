@@ -23,12 +23,13 @@ from bloodTwin.dashboard.charts import render_fan_svg, render_history_svg, rende
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 REPO_ROOT     = Path(__file__).resolve().parents[2]
-LATEST_JSON   = REPO_ROOT / "bloodBath" / "logs" / "inference_latest.json"
-ARCHIVE_DIR   = REPO_ROOT / "bloodBath" / "logs" / "inference_archive"
-MERGED_DIR    = REPO_ROOT / "bloodBath" / "bloodBank" / "merged"
-RAW_LSTM_DIR  = REPO_ROOT / "bloodBath" / "bloodBank" / "raw" / "lstm"
+DATA_ROOT     = Path(os.environ.get("BLOODBENDER_ROOT", str(REPO_ROOT)))
+LATEST_JSON   = DATA_ROOT / "bloodBath" / "logs" / "inference_latest.json"
+ARCHIVE_DIR   = DATA_ROOT / "bloodBath" / "logs" / "inference_archive"
+MERGED_DIR    = DATA_ROOT / "bloodBath" / "bloodBank" / "merged"
+RAW_LSTM_DIR  = DATA_ROOT / "bloodBath" / "bloodBank" / "raw" / "lstm"
 TEMPLATES     = Path(__file__).parent / "templates"
-ACCURACY_JSON = REPO_ROOT / "bloodBath" / "logs" / "accuracy_summary.json"
+ACCURACY_JSON = DATA_ROOT / "bloodBath" / "logs" / "accuracy_summary.json"
 ARCHIVE_LOAD  = 288  # load last 24h of archives for the diagnostic chart
 
 HOST  = os.environ.get("DASHBOARD_HOST", "127.0.0.1")

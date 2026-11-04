@@ -156,6 +156,25 @@
         '';
       };
 
+      # ── Dashboard HTTP server ──
+      bloodbender-dashboard = pkgs.writeShellApplication {
+        name = "bloodbender-dashboard";
+        runtimeInputs = [ pythonInferenceEnv pkgs.coreutils ];
+        text = ''
+          SRC="''${BLOODBENDER_SOURCE:-''${BLOODBENDER_ROOT:-$PWD}}"
+          REPO="''${BLOODBENDER_ROOT:-$SRC}"
+          if [[ ! -d "$SRC/bloodTwin" ]]; then
+            echo "ERR: BLOODBENDER_SOURCE ($SRC) missing ./bloodTwin" >&2
+            exit 1
+          fi
+          cd "$SRC"
+          export BLOODBENDER_ROOT="$REPO"
+          export PYTHONPATH="$SRC''${PYTHONPATH:+:$PYTHONPATH}"
+          export DASHBOARD_HOST="''${DASHBOARD_HOST:-0.0.0.0}"
+          exec python bloodTwin/dashboard/server.py
+        '';
+      };
+
       # ── Production accuracy tracker (BT-09) ──
       bloodbender-accuracy = pkgs.writeShellApplication {
         name = "bloodbender-accuracy";
@@ -178,10 +197,11 @@
         runtimeInputs = [ pkgs.systemd pkgs.coreutils ];
         text =
           let
-            syncBin = "${config.packages.bloodbender-sync}/bin/bloodbender-sync";
-            infBin  = "${config.packages.bloodbender-inference-cron}/bin/bloodbender-inference-cron";
-            calBin  = "${config.packages.bloodbender-calibrate}/bin/bloodbender-calibrate";
-            isfBin  = "${config.packages.bloodbender-fit-isf}/bin/bloodbender-fit-isf";
+            syncBin  = "${config.packages.bloodbender-sync}/bin/bloodbender-sync";
+            infBin   = "${config.packages.bloodbender-inference-cron}/bin/bloodbender-inference-cron";
+            calBin   = "${config.packages.bloodbender-calibrate}/bin/bloodbender-calibrate";
+            isfBin   = "${config.packages.bloodbender-fit-isf}/bin/bloodbender-fit-isf";
+            dashBin  = "${config.packages.bloodbender-dashboard}/bin/bloodbender-dashboard";
           in ''
             # SRC = bloodBender source repo (where nix run is called from, or $BLOODBENDER_SOURCE).
             # DATA = runtime data root (merged CSVs, logs, artifacts).
@@ -225,6 +245,28 @@ EOF
             write_service "bloodbender-inference"  "bloodBender inference — refresh dashboard JSON" "${infBin}"
             write_service "bloodbender-calibrate"  "bloodBender monthly conformal recalibration"    "${calBin}"
             write_service "bloodbender-fit-isf"    "bloodBender weekly ISF re-estimation"           "${isfBin}"
+
+            # Dashboard: persistent service (not oneshot), restarts on failure.
+            # Binds to 0.0.0.0 so it's reachable from other devices on the LAN.
+            # On a headless Pi run: loginctl enable-linger <user>
+            cat >"$UNIT/bloodbender-dashboard.service" <<EOF
+[Unit]
+Description=bloodBender dashboard server
+After=network.target
+
+[Service]
+Type=simple
+Environment=BLOODBENDER_SOURCE=$SRC
+Environment=BLOODBENDER_ROOT=$DATA
+Environment=BLOODTWIN_ARTIFACTS=$ARTIFACTS_REL
+Environment=DASHBOARD_HOST=0.0.0.0
+ExecStart=${dashBin}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+EOF
 
             cat >"$UNIT/bloodbender-sync.timer" <<EOF
 [Unit]
@@ -279,9 +321,11 @@ WantedBy=timers.target
 EOF
 
             systemctl --user daemon-reload
-            systemctl --user enable --now bloodbender-sync.timer bloodbender-inference.timer bloodbender-calibrate.timer bloodbender-fit-isf.timer
+            systemctl --user enable --now bloodbender-sync.timer bloodbender-inference.timer bloodbender-calibrate.timer bloodbender-fit-isf.timer bloodbender-dashboard.service
             echo "Services installed and enabled."
             systemctl --user list-timers bloodbender-sync.timer bloodbender-inference.timer bloodbender-calibrate.timer bloodbender-fit-isf.timer --no-pager
+            echo ""
+            systemctl --user status bloodbender-dashboard.service --no-pager
           '';
       };
 
